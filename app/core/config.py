@@ -18,10 +18,19 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str
 
-    # Auth — khai báo sẵn, skeleton chưa dùng
+    # Auth
     jwt_secret: str = "change_me"
+    jwt_algorithm: str = "HS256"
     jwt_access_ttl_minutes: int = 30
     jwt_refresh_ttl_days: int = 7
+
+    # Cookie (refresh token httpOnly + CSRF double-submit)
+    refresh_cookie_name: str = "refresh_token"
+    csrf_cookie_name: str = "csrf_token"
+    # Path hẹp: cookie refresh chỉ gửi tới các endpoint auth.
+    auth_cookie_path: str = "/api/v1/auth"
+    cookie_secure: bool = True
+    cookie_samesite: str = "strict"
 
 
 @lru_cache
