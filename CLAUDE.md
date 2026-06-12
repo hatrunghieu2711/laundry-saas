@@ -24,6 +24,9 @@ Mục tiêu dài hạn: bán SaaS subscription cho 50–100 branch.
 
 1. Bảng `payments` là IMMUTABLE: chỉ INSERT. Không bao giờ UPDATE hoặc DELETE
    bất kỳ dòng nào. Sửa sai = INSERT giao dịch đối ứng mới.
+   Enforce ở DB level bằng trigger `payments_no_update_delete` (BEFORE UPDATE OR
+   DELETE → RAISE EXCEPTION), không chỉ ở tầng service. (Migration 4f8dd4619d6c.)
+   Lưu ý: trigger row-level KHÔNG chặn `TRUNCATE` — chỉ dùng TRUNCATE cho dữ liệu test.
 2. Mọi payment PHẢI có `shift_id` trỏ tới một shift đang OPEN tại thời điểm tạo.
    Không có ngoại lệ.
 3. Refund là giao dịch âm (amount < 0), không phải sửa giao dịch cũ.
