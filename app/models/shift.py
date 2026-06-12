@@ -1,0 +1,66 @@
+"""Shift — ca làm việc tại một branch.
+
+QUY TẮC:
+- Mỗi branch TỐI ĐA MỘT shift open — enforce bằng partial unique index ở DB.
+- Shift closed là bất biến.
+- Đóng ca = reconciliation: tính closing_cash_expected, lưu cash_difference
+  và các cột aggregate (tính MỘT LẦN lúc đóng ca).
+"""
+import uuid
+from datetime import datetime
+from decimal import Decimal
+
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column
+
+from app.core.database import Base
+from app.models.base import Money, TimestampMixin, uuid_pk
+
+
+class Shift(TimestampMixin, Base):
+    __tablename__ = "shifts"
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    tenant_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("tenants.id"), nullable=False
+    )
+    branch_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("branches.id"), nullable=False
+    )
+    opened_by: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+    closed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+
+    opening_cash: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    # Reconciliation — tính lúc đóng ca.
+    closing_cash_expected: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    closing_cash_actual: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    cash_difference: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    # Aggregate — tính MỘT LẦN lúc đóng ca (ca đóng là immutable).
+    total_cash: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    total_transfer: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    total_qr: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    total_cod: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    orders_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
+    status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="open")
+    opened_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=text("now()")
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    __table_args__ = (
+        # Mỗi branch tối đa MỘT shift open — DB-level enforcement.
+        Index(
+            "one_open_shift_per_branch",
+            "branch_id",
+            unique=True,
+            postgresql_where=text("status = 'open'"),
+        ),
+        Index("ix_shifts_tenant_branch_opened", "tenant_id", "branch_id", "opened_at"),
+        Index("ix_shifts_branch_status", "branch_id", "status"),
+    )
