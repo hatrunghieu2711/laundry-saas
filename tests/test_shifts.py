@@ -110,6 +110,9 @@ async def test_open_shift_success(client: AsyncClient, ctx: dict):
     assert body["status"] == "open"
     assert body["branch_id"] == ctx["branch_a"]["id"]
     assert _num(body["opening_cash"]) == 500000
+    # Tên người mở nhúng sẵn trong response (staff không cần GET /users).
+    assert body["opened_by_name"] == "NV A"
+    assert body["closed_by_name"] is None
 
 
 async def test_open_shift_already_open_409(client: AsyncClient, ctx: dict):
@@ -165,6 +168,8 @@ async def test_close_mixed_methods(client: AsyncClient, ctx: dict):
     assert _num(b["total_cod"]) == 15000
     assert b["orders_count"] == 2                       # distinct order1, order2
     assert b["closed_at"] is not None
+    assert b["opened_by_name"] == "NV A"
+    assert b["closed_by_name"] == "NV A"
 
 
 async def test_close_no_payments_expected_equals_opening(client: AsyncClient, ctx: dict):

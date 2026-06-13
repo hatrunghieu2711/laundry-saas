@@ -104,6 +104,7 @@ async def test_create_order_code_total_and_log(client: AsyncClient, octx: dict):
     assert b1["payment_status"] == "unpaid"
     assert _num(b1["total_amount"]) == 110000  # 2*30000 + 1*50000
     assert len(b1["items"]) == 2
+    assert b1["created_by_name"] == "NV A"  # tên người tạo nhúng sẵn
 
     # order_code tuần tự.
     r2 = await _create_order(client, octx["staff_token"], _ITEMS)

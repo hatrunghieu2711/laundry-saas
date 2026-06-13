@@ -8,10 +8,14 @@ QUY TẮC:
 """
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 from app.core.database import Base
 from app.models.base import Money, TimestampMixin, UpdatedAtMixin, uuid_pk
@@ -49,6 +53,14 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
         cascade="all, delete-orphan",
         order_by="OrderItem.created_at",
     )
+    # Nhúng tên người tạo đơn (selectin, tránh N+1).
+    created_by_user: Mapped["User"] = relationship(
+        "User", foreign_keys=[created_by], lazy="selectin"
+    )
+
+    @property
+    def created_by_name(self) -> str | None:
+        return self.created_by_user.full_name if self.created_by_user else None
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "order_code", name="uq_orders_tenant_order_code"),

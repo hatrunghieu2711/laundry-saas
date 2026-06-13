@@ -63,6 +63,7 @@ class OrderOut(BaseModel):
     order_status: str
     notes: str | None
     created_by: uuid.UUID
+    created_by_name: str | None
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemOut]

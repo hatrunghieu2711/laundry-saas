@@ -146,8 +146,7 @@ async def create_payment(
     # Tính lại payment_status từ TỔNG payments của đơn.
     order.payment_status = await _recompute_status(db, order)
     await db.commit()
-    await db.refresh(payment)
-    return payment
+    return await get_payment(db, actor, payment.id)
 
 
 async def get_payment(db: AsyncSession, actor: User, payment_id: uuid.UUID) -> Payment:

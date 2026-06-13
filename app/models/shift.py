@@ -9,13 +9,17 @@ QUY TẮC:
 import uuid
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import Money, TimestampMixin, uuid_pk
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class Shift(TimestampMixin, Base):
@@ -52,6 +56,23 @@ class Shift(TimestampMixin, Base):
         DateTime(timezone=True), nullable=False, server_default=text("now()")
     )
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Nhúng tên người mở/đóng vào response (selectin, tránh N+1). Tên là thông
+    # tin nội bộ tenant — an toàn cho mọi role xem; staff không cần GET /users.
+    opened_by_user: Mapped["User"] = relationship(
+        "User", foreign_keys=[opened_by], lazy="selectin"
+    )
+    closed_by_user: Mapped["User | None"] = relationship(
+        "User", foreign_keys=[closed_by], lazy="selectin"
+    )
+
+    @property
+    def opened_by_name(self) -> str | None:
+        return self.opened_by_user.full_name if self.opened_by_user else None
+
+    @property
+    def closed_by_name(self) -> str | None:
+        return self.closed_by_user.full_name if self.closed_by_user else None
 
     __table_args__ = (
         # Mỗi branch tối đa MỘT shift open — DB-level enforcement.

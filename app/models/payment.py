@@ -8,13 +8,17 @@ QUY TẮC:
 """
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import Money, TimestampMixin, uuid_pk
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 
 class Payment(TimestampMixin, Base):
@@ -44,6 +48,15 @@ class Payment(TimestampMixin, Base):
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
+
+    # Nhúng tên người ghi nhận giao dịch (selectin, tránh N+1).
+    created_by_user: Mapped["User"] = relationship(
+        "User", foreign_keys=[created_by], lazy="selectin"
+    )
+
+    @property
+    def created_by_name(self) -> str | None:
+        return self.created_by_user.full_name if self.created_by_user else None
 
     __table_args__ = (
         Index("ix_payments_tenant_branch_created", "tenant_id", "branch_id", "created_at"),

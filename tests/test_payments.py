@@ -80,6 +80,7 @@ async def test_pay_full_marks_paid(client: AsyncClient, pctx: dict):
     await _open_shift(client, t)
     resp = await _pay(client, t, order["id"], 100000)
     assert resp.status_code == 201, resp.text
+    assert resp.json()["created_by_name"] == "NV A"  # tên người ghi nhận nhúng sẵn
     assert await _order_status(client, t, order["id"]) == "paid"
 
 

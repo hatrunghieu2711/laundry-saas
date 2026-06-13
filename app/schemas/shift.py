@@ -23,7 +23,9 @@ class ShiftOut(BaseModel):
     tenant_id: uuid.UUID
     branch_id: uuid.UUID
     opened_by: uuid.UUID
+    opened_by_name: str | None
     closed_by: uuid.UUID | None
+    closed_by_name: str | None
     opening_cash: Decimal
     closing_cash_expected: Decimal | None
     closing_cash_actual: Decimal | None

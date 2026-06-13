@@ -228,7 +228,10 @@ export default function Shift() {
             <div><dt>Giờ mở</dt><dd>{formatDateTime(shift.opened_at)}</dd></div>
             <div>
               <dt>Người mở</dt>
-              <dd>{shift.opened_by === user?.id ? `${user.full_name} (bạn)` : 'Nhân viên khác'}</dd>
+              <dd>
+                {shift.opened_by_name || '—'}
+                {shift.opened_by === user?.id ? ' (bạn)' : ''}
+              </dd>
             </div>
             <div><dt>Tiền đầu ca</dt><dd>{formatVND(shift.opening_cash)}</dd></div>
             <div><dt>Số đơn đã thu</dt><dd>{summary ? summary.ordersCount : '…'}</dd></div>

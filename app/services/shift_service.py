@@ -19,6 +19,7 @@ from decimal import Decimal
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import Pagination
 from app.core.errors import APIError
@@ -83,8 +84,19 @@ async def open_shift(
         # Chốt cuối: partial unique index one_open_shift_per_branch (race condition).
         await db.rollback()
         raise APIError(409, "SHIFT_ALREADY_OPEN", "Chi nhánh đã có ca đang mở") from exc
-    await db.refresh(shift)
-    return shift
+    return await get_shift(db, actor, shift.id)
+
+
+async def _reload_shift(db: AsyncSession, shift_id: uuid.UUID) -> Shift:
+    """Nạp lại shift kèm tên người mở/đóng (populate_existing để lấy giá trị mới
+    sau khi set closed_by)."""
+    result = await db.execute(
+        select(Shift)
+        .options(selectinload(Shift.opened_by_user), selectinload(Shift.closed_by_user))
+        .where(Shift.id == shift_id)
+        .execution_options(populate_existing=True)
+    )
+    return result.scalar_one()
 
 
 async def _get_shift_in_tenant(
@@ -140,11 +152,10 @@ async def close_shift(
     shift.status = "closed"
 
     await db.commit()
-    await db.refresh(shift)
 
     # Thông báo Telegram SAU commit; lỗi gửi không làm fail đóng ca.
     await telegram_service.notify_shift_closed(db, shift)
-    return shift
+    return await _reload_shift(db, shift.id)
 
 
 async def get_current_shift(

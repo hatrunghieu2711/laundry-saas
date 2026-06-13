@@ -52,4 +52,5 @@ class PaymentOut(BaseModel):
     reason: str | None
     reference_payment_id: uuid.UUID | None
     created_by: uuid.UUID
+    created_by_name: str | None
     created_at: datetime
