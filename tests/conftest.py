@@ -35,11 +35,25 @@ async def login(client: AsyncClient, phone: str, password: str) -> str:
     return resp.json()["access_token"]
 
 
+# Drop các sequence order_code_seq_* do tạo branch sinh ra — TRUNCATE không reset
+# sequence nên phải drop để mỗi test bắt đầu order_code lại từ 00001.
+_DROP_ORDER_SEQS = """
+DO $$
+DECLARE s text;
+BEGIN
+  FOR s IN SELECT relname FROM pg_class
+           WHERE relkind = 'S' AND relname LIKE 'order_code_seq_%'
+  LOOP EXECUTE 'DROP SEQUENCE IF EXISTS ' || quote_ident(s); END LOOP;
+END $$;
+"""
+
+
 @pytest_asyncio.fixture(autouse=True)
 async def clean_db():
     """Dọn DB trước test; dispose engine sau test để pool gắn đúng event loop."""
     async with engine.begin() as conn:
         await conn.execute(text(f"TRUNCATE {_CLEAN_TABLES} CASCADE"))
+        await conn.execute(text(_DROP_ORDER_SEQS))
     yield
     await engine.dispose()
 

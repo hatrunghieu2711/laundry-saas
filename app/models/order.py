@@ -11,7 +11,7 @@ from decimal import Decimal
 
 from sqlalchemy import ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import Money, TimestampMixin, UpdatedAtMixin, uuid_pk
@@ -41,6 +41,13 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
+    )
+
+    # Tải kèm items (selectin) — quản lý qua collection (cascade insert/delete).
+    items: Mapped[list["OrderItem"]] = relationship(
+        lazy="selectin",
+        cascade="all, delete-orphan",
+        order_by="OrderItem.created_at",
     )
 
     __table_args__ = (

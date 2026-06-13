@@ -3,6 +3,7 @@ from fastapi import APIRouter
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.branches import router as branches_router
+from app.api.v1.orders import router as orders_router
 from app.api.v1.shifts import router as shifts_router
 from app.api.v1.tenants import router as tenants_router
 from app.api.v1.users import router as users_router
@@ -13,6 +14,7 @@ api_router.include_router(tenants_router)
 api_router.include_router(branches_router)
 api_router.include_router(users_router)
 api_router.include_router(shifts_router)
+api_router.include_router(orders_router)
 
 
 @api_router.get("/ping")
