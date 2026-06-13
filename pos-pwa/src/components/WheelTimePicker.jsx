@@ -1,56 +1,74 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef } from 'react'
 import {
   QUARTERS,
-  addDays,
-  combine,
-  dateInputValue,
+  addDaysVn,
+  combineVn,
+  dateInputValueVn,
   formatPickupLong,
-  isSameDay,
+  getVnHour,
+  getVnMinute,
+  isPastVnWall,
+  isSameDayVn,
   nearestQuarterIndex,
-  parseDateInput,
-  startOfDay,
+  parseDateInputVn,
+  startOfDayVn,
 } from '../lib/datetime'
 
-// Picker kiểu iOS: 2 cột cuộn dọc (giờ / phút), snap vào mốc, item giữa = đang chọn.
-// Dùng được cả cảm ứng (vuốt) lẫn chuột (cuộn lăn + bấm thẳng vào item).
-const ITEM_H = 44 // phải khớp .wheel__item trong index.css
-const PAD_ITEMS = 2 // số item đệm mỗi đầu → hiển thị 5 dòng, dòng giữa là chọn
+// Picker kiểu iOS: 2 cột cuộn dọc. Giờ (0-23) LOOP vô cực (vuốt qua 23 → 0 cả 2
+// chiều không kẹt); phút 4 mốc 00/15/30/45. Dùng được cảm ứng + chuột (cuộn lăn,
+// bấm thẳng vào item). Item giữa (dải cam) là đang chọn.
+const ITEM_H = 44 // khớp .wheel__item
+const REPEAT = 7 // số bản lặp cho cột loop
+const MIDDLE = 3 // bản giữa (0-indexed) — luôn giữ người dùng quanh đây
 
-function WheelColumn({ values, index, onSelect, ariaLabel }) {
+function Wheel({ values, valueIndex, onChange, loop = false, ariaLabel }) {
   const ref = useRef(null)
   const settle = useRef(0)
-  const scrolling = useRef(false)
+  const busy = useRef(false)
+  const n = values.length
+  const rendered = loop
+    ? Array.from({ length: n * REPEAT }, (_, i) => values[i % n])
+    : values
 
-  // Căn item đang chọn vào giữa khi index đổi từ ngoài (không khi đang cuộn tay).
+  // Căn item chọn vào giữa khi valueIndex đổi từ ngoài (mở modal / set default).
   useEffect(() => {
     const el = ref.current
-    if (!el || scrolling.current) return
-    el.scrollTop = index * ITEM_H
-  }, [index])
+    if (!el || busy.current) return
+    const r = loop ? MIDDLE * n + valueIndex : valueIndex
+    el.scrollTop = r * ITEM_H
+  }, [valueIndex, loop, n])
 
-  const handleScroll = () => {
+  const onScroll = () => {
     const el = ref.current
     if (!el) return
-    scrolling.current = true
+    busy.current = true
     clearTimeout(settle.current)
     settle.current = setTimeout(() => {
-      const i = Math.max(0, Math.min(values.length - 1, Math.round(el.scrollTop / ITEM_H)))
-      scrolling.current = false
-      if (i !== index) onSelect(i)
-      else el.scrollTop = i * ITEM_H // snap chính xác về mốc
+      let r = Math.round(el.scrollTop / ITEM_H)
+      r = Math.max(0, Math.min(rendered.length - 1, r))
+      const vi = ((r % n) + n) % n
+      // Loop: nếu cuộn tới gần biên (bản đầu/cuối), nhảy thầm về bản giữa
+      // (giá trị lặp y hệt nên người dùng không thấy) → cuộn vô tận 2 chiều.
+      if (loop && (r < n || r >= n * (REPEAT - 1))) {
+        el.scrollTop = (MIDDLE * n + vi) * ITEM_H
+      } else {
+        el.scrollTop = r * ITEM_H // snap chính xác về mốc
+      }
+      busy.current = false
+      if (vi !== valueIndex) onChange(vi)
     }, 110)
   }
 
   return (
     <div className="wheel">
-      <div className="wheel__scroll" ref={ref} onScroll={handleScroll} role="listbox" aria-label={ariaLabel}>
+      <div className="wheel__scroll" ref={ref} onScroll={onScroll} role="listbox" aria-label={ariaLabel}>
         <div className="wheel__pad" />
-        {values.map((v, i) => (
+        {rendered.map((v, i) => (
           <button
             type="button"
-            key={v}
-            className={`wheel__item ${i === index ? 'wheel__item--sel' : ''}`}
-            onClick={() => onSelect(i)}
+            key={i}
+            className={`wheel__item ${i % n === valueIndex ? 'wheel__item--sel' : ''}`}
+            onClick={() => onChange(i % n)}
           >
             {v}
           </button>
@@ -64,27 +82,23 @@ function WheelColumn({ values, index, onSelect, ariaLabel }) {
 const HOURS = Array.from({ length: 24 }, (_, h) => String(h).padStart(2, '0'))
 const MINUTES = QUARTERS.map((m) => String(m).padStart(2, '0'))
 
-// value: Date (giờ địa phương) · onChange(Date). Mặc định/validate do parent lo;
-// picker tự cảnh báo nếu chọn quá khứ.
+// value: VN wall Date · onChange(VN wall Date). Default/turnaround do parent lo.
 export default function WheelTimePicker({ value, onChange }) {
-  const [showCal, setShowCal] = useState(false)
-  const now = new Date()
+  const day = startOfDayVn(value)
+  const hour = getVnHour(value)
+  const minIndex = nearestQuarterIndex(getVnMinute(value))
 
-  const day = startOfDay(value)
-  const hour = value.getHours()
-  const minIndex = nearestQuarterIndex(value.getMinutes())
-
-  const today = startOfDay(now)
-  const tomorrow = addDays(today, 1)
-  const isToday = isSameDay(day, today)
-  const isTomorrow = isSameDay(day, tomorrow)
+  // Hôm nay theo giờ VN (không lệ thuộc cài đặt máy).
+  const vnNowDay = startOfDayVn(new Date(Date.now() + 7 * 60 * 60 * 1000))
+  const isToday = isSameDayVn(day, vnNowDay)
+  const isTomorrow = isSameDayVn(day, addDaysVn(vnNowDay, 1))
   const isFar = !isToday && !isTomorrow
 
-  const setHour = (h) => onChange(combine(day, h, QUARTERS[minIndex]))
-  const setMinute = (mi) => onChange(combine(day, hour, QUARTERS[mi]))
-  const setDay = (d) => onChange(combine(d, hour, QUARTERS[minIndex]))
+  const setHour = (h) => onChange(combineVn(value, h, QUARTERS[minIndex]))
+  const setMinute = (mi) => onChange(combineVn(value, hour, QUARTERS[mi]))
+  const setDay = (d) => onChange(combineVn(d, hour, QUARTERS[minIndex]))
 
-  const isPast = value.getTime() <= now.getTime()
+  const past = isPastVnWall(value)
 
   return (
     <div className="pickup">
@@ -92,50 +106,36 @@ export default function WheelTimePicker({ value, onChange }) {
         <button
           type="button"
           className={`chip ${isToday ? 'chip--active' : ''}`}
-          onClick={() => {
-            setShowCal(false)
-            setDay(today)
-          }}
+          onClick={() => setDay(vnNowDay)}
         >
           Hôm nay
         </button>
         <button
           type="button"
           className={`chip ${isTomorrow ? 'chip--active' : ''}`}
-          onClick={() => {
-            setShowCal(false)
-            setDay(tomorrow)
-          }}
+          onClick={() => setDay(addDaysVn(vnNowDay, 1))}
         >
           Ngày mai
         </button>
-        <button
-          type="button"
-          className={`chip ${isFar || showCal ? 'chip--active' : ''}`}
-          onClick={() => setShowCal((s) => !s)}
-        >
-          📅 Chọn ngày
-        </button>
+        {isFar && <span className="chip chip--active">Ngày khác</span>}
       </div>
 
-      {(showCal || isFar) && (
-        <input
-          className="input pickup__cal"
-          type="date"
-          min={dateInputValue(today)}
-          value={dateInputValue(day)}
-          onChange={(e) => e.target.value && setDay(parseDateInput(e.target.value))}
-        />
-      )}
+      <input
+        className="input pickup__cal"
+        type="date"
+        min={dateInputValueVn(vnNowDay)}
+        value={dateInputValueVn(day)}
+        onChange={(e) => e.target.value && setDay(parseDateInputVn(e.target.value))}
+      />
 
       <div className="pickup__wheels">
-        <WheelColumn values={HOURS} index={hour} onSelect={setHour} ariaLabel="Giờ" />
+        <Wheel values={HOURS} valueIndex={hour} onChange={setHour} loop ariaLabel="Giờ" />
         <span className="pickup__colon">:</span>
-        <WheelColumn values={MINUTES} index={minIndex} onSelect={setMinute} ariaLabel="Phút" />
+        <Wheel values={MINUTES} valueIndex={minIndex} onChange={setMinute} ariaLabel="Phút" />
       </div>
 
-      <div className={`pickup__confirm ${isPast ? 'pickup__confirm--bad' : ''}`}>
-        {isPast ? (
+      <div className={`pickup__confirm ${past ? 'pickup__confirm--bad' : ''}`}>
+        {past ? (
           '⚠️ Không thể hẹn giờ giao trong quá khứ.'
         ) : (
           <>

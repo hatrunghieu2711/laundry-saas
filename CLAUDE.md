@@ -146,6 +146,8 @@ mọi bảng có created_at; bảng mutable có updated_at.
 ### services (Stage 3.5A, migration 8824c0db78cf) — bảng giá động
 - id UUID PK, tenant_id FK, name, unit (kg|cai|con|bo|luot), unit_price NUMERIC(14,0),
   pricing_type (per_unit|tier), display_order INT, is_active bool, created_at, updated_at
+- category String(64) nullable + is_favorite bool (Stage 3.8, migration e2f3a4b5c6d7):
+  gom tab màn tạo đơn; "Hay chọn" = is_favorite=true. owner đánh dấu ở màn bảng giá.
 - per_unit: subtotal = quantity × unit_price (vd Áo Vest 60k/cái).
 - tier: bậc cân qua bảng `service_tiers` (giặt sấy 60/90/120k...).
 - Soft delete qua is_active. Tenant-scoped. Index: (tenant_id, is_active, display_order)
@@ -190,10 +192,15 @@ mọi bảng có created_at; bảng mutable có updated_at.
 ### tenant_settings  (thêm ở Stage 2d, migration 50ac9ec03c5e)
 - tenant_id UUID PK + FK tenants (one-to-one), telegram_bot_token,
   telegram_owner_chat_id, cash_diff_threshold NUMERIC(14,0) default 50000,
+  default_turnaround_hours INT default 4 (Stage 3.8, migration d1e2f3a4b5c6),
   created_at, updated_at.
 - Cấu hình per-tenant; chứa secret (bot token) nên tách khỏi bảng `tenants`.
 - Đóng ca xong gửi Telegram cho owner (httpx async, SAU commit); lỗi gửi KHÔNG
   làm fail đóng ca. |cash_difference| > cash_diff_threshold → thêm ⚠️ LỆCH KÉT.
+- Endpoints (Stage 3.8): GET /settings/pos (mọi role, chỉ field POS — turnaround,
+  KHÔNG lộ secret), GET /settings (owner/manager, đầy đủ), PUT /settings (owner).
+  Row settings tạo LAZY khi đọc lần đầu (server_default lo giá trị mặc định).
+- default_turnaround_hours: POS gợi ý giờ hẹn giao = now(VN) + giá trị này.
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -287,6 +294,14 @@ sms_logs, notifications, inventory, machines.
 
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
+- **Múi giờ POS cố định Việt Nam (UTC+7) ở frontend (chốt Stage 3.8).** Trước đây
+  picker giờ giao dùng giờ LOCAL trình duyệt → máy POS để UTC làm giờ chọn lệch 7h
+  thành quá khứ → 422. Nay `pos-pwa/src/lib/datetime.js` thao tác trên "VN wall
+  Date" (Date có trường UTC mã hoá giờ VN), gửi backend bằng `vnWallToISO` (trừ 7h
+  → ISO UTC). Mọi hiển thị pickup_at (board/phiếu/chi tiết) cũng quy về VN qua
+  `formatPickupShort`. Đã verify độc lập với TZ máy (UTC/VN/New York cho kết quả
+  như nhau): 16:30 VN → "09:30Z". LƯU Ý: `formatDateTime` (created_at...) VẪN dùng
+  local — nếu cần hiển thị các mốc khác theo VN thì quy đổi tương tự.
 - **API serialize Decimal số tròn lớn ra notation khoa học** (vd `"5E+4"` thay
   vì `"50000"`). Giá trị NUMERIC trong DB vẫn ĐÚNG — chỉ là cách Pydantic/JSON
   hóa Decimal. Hệ quả:
@@ -318,6 +333,8 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 3: POS PWA (login, mở/đóng ca, tạo đơn, thu tiền, đổi trạng thái)
 - [x] Stage 3.5A: bảng giá dịch vụ động (services + service_tiers) + CRUD + snapshot giá vào order_items
 - [x] Stage 3.7A (backend): orders.pickup_at (giờ hẹn giao) + GET /orders/board (dashboard vận hành) + cờ requires_payment khi giao đơn còn nợ
+- [x] Stage 3.7B (frontend): wheel time picker + tab Bảng đơn (Kanban) + luồng giao-thanh-toán (modal requires_payment)
+- [x] Stage 3.8: thiết kế lại màn tạo đơn 3 vùng không cuộn + tab danh mục/Hay chọn + fix pickup_at múi giờ VN + tenant_settings.default_turnaround_hours + GET/PUT /settings
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)

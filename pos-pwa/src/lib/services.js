@@ -15,6 +15,8 @@ export const UNIT_LABEL = Object.fromEntries(UNITS.map((u) => [u.value, u.label]
 export function normalizeService(s) {
   return {
     ...s,
+    category: s.category || null,
+    is_favorite: !!s.is_favorite,
     unit_price: toNumber(s.unit_price),
     tiers: (s.tiers || [])
       .map((t) => ({

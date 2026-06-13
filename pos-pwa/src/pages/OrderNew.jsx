@@ -5,11 +5,12 @@ import Receipt from '../components/Receipt'
 import WheelTimePicker from '../components/WheelTimePicker'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
-import { defaultPickup } from '../lib/datetime'
+import { defaultPickupVnWall, isPastVnWall, vnWallToISO } from '../lib/datetime'
 import { UNIT_LABEL, normalizeService } from '../lib/services'
 
-// Bảng giá nạp ĐỘNG từ GET /services (kèm tiers). Không còn hardcode mức cân.
-// Gửi service_id khi tạo đơn để backend snapshot giá đúng.
+// Màn tạo đơn (Stage 3.8): layout 3 vùng KHÔNG cuộn toàn trang
+// (tab danh mục | lưới dịch vụ | giỏ). Bấm TẠO ĐƠN → modal xác nhận
+// (SĐT/tên khách + wheel giờ giao) rồi mới tạo.
 export default function OrderNew() {
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -22,16 +23,22 @@ export default function OrderNew() {
   const [services, setServices] = useState([])
   const [svcLoading, setSvcLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState('__fav')
   const [cart, setCart] = useState([])
-  const [overflowKg, setOverflowKg] = useState({}) // { [tierId]: '2.5' } buffer ô nhập kg
-  const [phone, setPhone] = useState('')
-  const [custName, setCustName] = useState('')
-  const [note, setNote] = useState('')
-  const [pickup, setPickup] = useState(() => defaultPickup()) // giờ hẹn giao (Date)
+  const [overflowKg, setOverflowKg] = useState({})
+  const [turnaround, setTurnaround] = useState(4) // từ tenant settings
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState(null)
   const idRef = useRef(0)
+
+  // ── modal xác nhận ──
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [phone, setPhone] = useState('')
+  const [custName, setCustName] = useState('')
+  const [custFound, setCustFound] = useState(null)
+  const [note, setNote] = useState('')
+  const [pickup, setPickup] = useState(() => defaultPickupVnWall(4))
 
   useEffect(() => {
     if (!isOwner) return
@@ -45,7 +52,6 @@ export default function OrderNew() {
       .catch(() => {})
   }, [isOwner])
 
-  // Bảng giá tenant-scoped — nạp một lần.
   useEffect(() => {
     setSvcLoading(true)
     api
@@ -53,6 +59,14 @@ export default function OrderNew() {
       .then((p) => setServices(p.items.map(normalizeService)))
       .catch(() => setServices([]))
       .finally(() => setSvcLoading(false))
+  }, [])
+
+  // Turnaround chuẩn của tenant (gợi ý giờ giao). Lỗi → giữ mặc định 4.
+  useEffect(() => {
+    api
+      .get('/settings/pos')
+      .then((s) => setTurnaround(s.default_turnaround_hours ?? 4))
+      .catch(() => {})
   }, [])
 
   const checkShift = useCallback(async () => {
@@ -67,11 +81,8 @@ export default function OrderNew() {
       await api.get(`/shifts/current${q}`)
       setShiftState('open')
     } catch (err) {
-      if (err instanceof ApiError && err.status === 404) setShiftState('none')
-      else {
-        setShiftState('none')
-        setError(err?.message || '')
-      }
+      setShiftState('none')
+      if (!(err instanceof ApiError && err.status === 404)) setError(err?.message || '')
     }
   }, [isOwner, branchId])
 
@@ -79,12 +90,11 @@ export default function OrderNew() {
     checkShift()
   }, [checkShift])
 
-  // ── thao tác giỏ ──
+  // ── giỏ ──
   const newId = () => {
     idRef.current += 1
     return idRef.current
   }
-
   const addPerUnit = (svc) => {
     setCart((prev) => {
       const i = prev.findIndex((x) => x.kind === 'per_unit' && x.service_id === svc.id)
@@ -95,19 +105,11 @@ export default function OrderNew() {
       }
       return [
         ...prev,
-        {
-          id: newId(),
-          kind: 'per_unit',
-          service_id: svc.id,
-          name: svc.name,
-          unit: svc.unit,
-          unit_price: svc.unit_price,
-          quantity: 1,
-        },
+        { id: newId(), kind: 'per_unit', service_id: svc.id, name: svc.name,
+          unit: svc.unit, unit_price: svc.unit_price, quantity: 1 },
       ]
     })
   }
-
   const addFlat = (svc, tier) => {
     setCart((prev) => {
       const i = prev.findIndex((x) => x.kind === 'flat' && x.tier_id === tier.id)
@@ -118,37 +120,22 @@ export default function OrderNew() {
       }
       return [
         ...prev,
-        {
-          id: newId(),
-          kind: 'flat',
-          service_id: svc.id,
-          tier_id: tier.id,
-          name: `${svc.name} (${tier.label})`,
-          price: tier.price,
-          weight: tier.max_value ?? 0, // gửi lên = ngưỡng bậc → backend khớp đúng bậc
-          count: 1,
-        },
+        { id: newId(), kind: 'flat', service_id: svc.id, tier_id: tier.id,
+          name: `${svc.name} (${tier.label})`, price: tier.price,
+          weight: tier.max_value ?? 0, count: 1 },
       ]
     })
   }
-
   const addOverflow = (svc, tier) => {
     const kg = toNumber(overflowKg[tier.id])
     if (kg <= 0) return
     setCart((prev) => [
       ...prev,
-      {
-        id: newId(),
-        kind: 'overflow',
-        service_id: svc.id,
-        name: `${svc.name} (${tier.label})`,
-        unit_price: tier.price,
-        quantity: kg,
-      },
+      { id: newId(), kind: 'overflow', service_id: svc.id,
+        name: `${svc.name} (${tier.label})`, unit_price: tier.price, quantity: kg },
     ])
     setOverflowKg((m) => ({ ...m, [tier.id]: '' }))
   }
-
   const bump = (id, delta) =>
     setCart((prev) =>
       prev
@@ -160,11 +147,9 @@ export default function OrderNew() {
         .filter((x) => (x.kind === 'flat' ? x.count > 0 : x.quantity > 0)),
     )
   const removeItem = (id) => setCart((prev) => prev.filter((x) => x.id !== id))
-
   const lineTotal = (x) => (x.kind === 'flat' ? x.count * x.price : x.quantity * x.unit_price)
   const total = cart.reduce((s, x) => s + lineTotal(x), 0)
 
-  // Mở rộng giỏ → items gửi backend: bậc trọn gói lặp `count` dòng (mỗi dòng 1 gói).
   const buildItems = () => {
     const items = []
     for (const x of cart) {
@@ -177,17 +162,84 @@ export default function OrderNew() {
     return items
   }
 
-  // Lọc nhanh theo tên dịch vụ.
-  const visible = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    return q ? services.filter((s) => s.name.toLowerCase().includes(q)) : services
-  }, [services, search])
-  const tierServices = visible.filter((s) => s.pricing_type === 'tier')
-  const perUnitServices = visible.filter((s) => s.pricing_type === 'per_unit')
+  // ── danh mục (tab) ──
+  const tabs = useMemo(() => {
+    const favs = services.filter((s) => s.is_favorite)
+    const cats = []
+    const seen = new Set()
+    for (const s of services) {
+      if (s.category && !seen.has(s.category)) {
+        seen.add(s.category)
+        cats.push(s.category)
+      }
+    }
+    const uncat = services.filter((s) => !s.category)
+    const list = [{ key: '__fav', label: 'Hay chọn', icon: '⭐', items: favs }]
+    for (const c of cats) {
+      list.push({ key: c, label: c, icon: '🧺', items: services.filter((s) => s.category === c) })
+    }
+    if (uncat.length) list.push({ key: '__other', label: 'Khác', icon: '📦', items: uncat })
+    return list
+  }, [services])
+
+  // Chọn tab đầu tiên có dịch vụ khi danh sách đổi.
+  useEffect(() => {
+    if (!tabs.length) return
+    const cur = tabs.find((t) => t.key === activeTab)
+    if (!cur || cur.items.length === 0) {
+      const firstWithItems = tabs.find((t) => t.items.length) || tabs[0]
+      setActiveTab(firstWithItems.key)
+    }
+  }, [tabs, activeTab])
+
+  const q = search.trim().toLowerCase()
+  const currentTab = tabs.find((t) => t.key === activeTab) || tabs[0]
+  const shown = q
+    ? services.filter((s) => s.name.toLowerCase().includes(q))
+    : currentTab?.items || []
+  const tierServices = shown.filter((s) => s.pricing_type === 'tier')
+  const perUnitServices = shown.filter((s) => s.pricing_type === 'per_unit')
+
+  // ── modal ──
+  const openConfirm = () => {
+    if (cart.length === 0) return
+    setPickup(defaultPickupVnWall(turnaround))
+    setError('')
+    setShowConfirm(true)
+  }
+
+  // Tra khách theo SĐT (debounce) khi modal mở.
+  useEffect(() => {
+    if (!showConfirm) return undefined
+    const ph = phone.trim()
+    if (ph.length < 3) {
+      setCustFound(null)
+      return undefined
+    }
+    let alive = true
+    const t = setTimeout(async () => {
+      try {
+        const found = await api.get(`/customers?phone=${encodeURIComponent(ph)}&limit=1`)
+        if (!alive) return
+        if (found.total > 0) {
+          setCustFound(found.items[0])
+          setCustName(found.items[0].full_name || '')
+        } else {
+          setCustFound(null)
+        }
+      } catch {
+        if (alive) setCustFound(null)
+      }
+    }, 400)
+    return () => {
+      alive = false
+      clearTimeout(t)
+    }
+  }, [phone, showConfirm])
 
   const submit = async () => {
     if (cart.length === 0) return
-    if (pickup.getTime() <= Date.now()) {
+    if (isPastVnWall(pickup)) {
       setError('Không thể hẹn giờ giao trong quá khứ. Chọn lại giờ giao.')
       return
     }
@@ -197,18 +249,18 @@ export default function OrderNew() {
       let customerId
       const ph = phone.trim()
       if (ph) {
-        const found = await api.get(`/customers?phone=${encodeURIComponent(ph)}&limit=1`)
-        if (found.total > 0) customerId = found.items[0].id
+        if (custFound) customerId = custFound.id
         else {
           const c = await api.post('/customers', { phone: ph, full_name: custName.trim() || undefined })
           customerId = c.id
         }
       }
-      const body = { items: buildItems(), pickup_at: pickup.toISOString() }
+      const body = { items: buildItems(), pickup_at: vnWallToISO(pickup) }
       if (customerId) body.customer_id = customerId
       if (note.trim()) body.notes = note.trim()
       if (isOwner) body.branch_id = branchId
       const order = await api.post('/orders', body)
+      setShowConfirm(false)
       setCreated(order)
     } catch (err) {
       if (err instanceof ApiError && err.code === 'NO_OPEN_SHIFT') {
@@ -228,14 +280,14 @@ export default function OrderNew() {
     setCart([])
     setPhone('')
     setCustName('')
+    setCustFound(null)
     setNote('')
     setOverflowKg({})
     setSearch('')
     setError('')
-    setPickup(defaultPickup())
   }
 
-  // ── màn kết quả tạo đơn ──
+  // ── màn kết quả ──
   if (created) {
     return (
       <div className="ordernew">
@@ -256,7 +308,6 @@ export default function OrderNew() {
             ＋ Tạo đơn mới
           </button>
         </div>
-        {/* Đơn vừa tạo: chưa thu tiền → paid = 0 */}
         <Receipt order={created} paid={0} />
       </div>
     )
@@ -266,12 +317,11 @@ export default function OrderNew() {
 
   const branchPicker = isOwner && (
     <div className="branch-picker">
-      <span className="branch-picker__label">Chi nhánh</span>
       <div className="branch-picker__chips">
         {branches.map((b) => (
           <button
             key={b.id}
-            className={`chip ${branchId === b.id ? 'chip--active' : ''}`}
+            className={`chip chip--sm ${branchId === b.id ? 'chip--active' : ''}`}
             onClick={() => setBranchId(b.id)}
           >
             {b.code} · {b.name}
@@ -289,7 +339,6 @@ export default function OrderNew() {
       </div>
     )
   }
-
   if (shiftState === 'none') {
     return (
       <div className="ordernew">
@@ -305,100 +354,120 @@ export default function OrderNew() {
     )
   }
 
-  // ── builder (ca đang mở) ──
-  return (
-    <div className="ordernew">
-      {branchPicker}
-      {error && <div className="alert alert--error">{error}</div>}
+  // ── builder 3 vùng ──
+  const serviceArea = svcLoading ? (
+    <p className="shift__hint">Đang tải bảng giá…</p>
+  ) : services.length === 0 ? (
+    <div className="svc-empty">
+      <p>Chưa có dịch vụ nào trong bảng giá.</p>
+      {canManage && (
+        <button className="btn btn--ghost btn--lg" onClick={() => navigate('/services')}>
+          ＋ Thêm bảng giá
+        </button>
+      )}
+    </div>
+  ) : shown.length === 0 ? (
+    <p className="shift__hint">{q ? `Không có dịch vụ khớp “${search}”.` : 'Danh mục trống.'}</p>
+  ) : (
+    <>
+      {tierServices.map((svc) => (
+        <div className="svc-tier" key={svc.id}>
+          <div className="svc-tier__name">{svc.name}</div>
+          <div className="pricing-grid">
+            {svc.tiers
+              .filter((t) => !t.per_unit)
+              .map((t) => (
+                <button key={t.id} className="tier-btn" onClick={() => addFlat(svc, t)}>
+                  <span className="tier-btn__label">{t.label}</span>
+                  <span className="tier-btn__price">{formatVND(t.price)}</span>
+                </button>
+              ))}
+          </div>
+          {svc.tiers
+            .filter((t) => t.per_unit)
+            .map((t) => (
+              <div className="perkg" key={t.id}>
+                <span className="perkg__label">
+                  {t.label} — {formatVND(t.price)}/{UNIT_LABEL[svc.unit] || svc.unit}
+                </span>
+                <div className="perkg__row">
+                  <input
+                    className="input"
+                    type="number"
+                    inputMode="decimal"
+                    min="0"
+                    step="0.5"
+                    placeholder={`Số ${UNIT_LABEL[svc.unit] || svc.unit}`}
+                    value={overflowKg[t.id] || ''}
+                    onChange={(e) => setOverflowKg((m) => ({ ...m, [t.id]: e.target.value }))}
+                  />
+                  <button
+                    className="btn btn--ghost btn--lg"
+                    onClick={() => addOverflow(svc, t)}
+                    disabled={toNumber(overflowKg[t.id]) <= 0}
+                  >
+                    ＋ Thêm
+                  </button>
+                </div>
+              </div>
+            ))}
+        </div>
+      ))}
 
-      <div className="ordernew__grid">
-        <div className="ordernew__main">
+      {perUnitServices.length > 0 && (
+        <div className="svc-grid">
+          {perUnitServices.map((svc) => (
+            <button key={svc.id} className="svc-card" onClick={() => addPerUnit(svc)}>
+              <span className="svc-card__name">{svc.name}</span>
+              <span className="svc-card__unit">{UNIT_LABEL[svc.unit] || svc.unit}</span>
+              <span className="svc-card__price">{formatVND(svc.unit_price)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+
+  return (
+    <div className="ordernew ordernew--zones">
+      {branchPicker}
+      {error && !showConfirm && <div className="alert alert--error">{error}</div>}
+
+      <div className="zones">
+        {/* Vùng trái: tab danh mục */}
+        <nav className="zones__tabs">
+          {tabs.map((t) => (
+            <button
+              key={t.key}
+              className={`cat-tab ${activeTab === t.key ? 'cat-tab--active' : ''}`}
+              onClick={() => {
+                setSearch('')
+                setActiveTab(t.key)
+              }}
+            >
+              <span className="cat-tab__icon">{t.icon}</span>
+              <span className="cat-tab__label">{t.label}</span>
+            </button>
+          ))}
+        </nav>
+
+        {/* Vùng giữa: lưới dịch vụ + ô tìm ở dưới */}
+        <div className="zones__mid">
+          <div className="zones__grid">{serviceArea}</div>
           <input
-            className="input ordernew__search"
+            className="input zones__search"
             type="search"
             placeholder="🔍 Tìm dịch vụ…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
+        </div>
 
-          {svcLoading ? (
-            <p className="shift__hint">Đang tải bảng giá…</p>
-          ) : services.length === 0 ? (
-            <div className="svc-empty">
-              <p>Chưa có dịch vụ nào trong bảng giá.</p>
-              {canManage && (
-                <button className="btn btn--ghost btn--lg" onClick={() => navigate('/services')}>
-                  ＋ Thêm bảng giá
-                </button>
-              )}
-            </div>
-          ) : visible.length === 0 ? (
-            <p className="shift__hint">Không có dịch vụ khớp “{search}”.</p>
-          ) : (
-            <>
-              {tierServices.map((svc) => (
-                <div className="svc-tier" key={svc.id}>
-                  <div className="svc-tier__name">{svc.name}</div>
-                  <div className="pricing-grid">
-                    {svc.tiers
-                      .filter((t) => !t.per_unit)
-                      .map((t) => (
-                        <button key={t.id} className="tier-btn" onClick={() => addFlat(svc, t)}>
-                          <span className="tier-btn__label">{t.label}</span>
-                          <span className="tier-btn__price">{formatVND(t.price)}</span>
-                        </button>
-                      ))}
-                  </div>
-                  {svc.tiers
-                    .filter((t) => t.per_unit)
-                    .map((t) => (
-                      <div className="perkg" key={t.id}>
-                        <span className="perkg__label">
-                          {t.label} — {formatVND(t.price)}/{UNIT_LABEL[svc.unit] || svc.unit}
-                        </span>
-                        <div className="perkg__row">
-                          <input
-                            className="input"
-                            type="number"
-                            inputMode="decimal"
-                            min="0"
-                            step="0.5"
-                            placeholder={`Số ${UNIT_LABEL[svc.unit] || svc.unit}`}
-                            value={overflowKg[t.id] || ''}
-                            onChange={(e) =>
-                              setOverflowKg((m) => ({ ...m, [t.id]: e.target.value }))
-                            }
-                          />
-                          <button
-                            className="btn btn--ghost btn--lg"
-                            onClick={() => addOverflow(svc, t)}
-                            disabled={toNumber(overflowKg[t.id]) <= 0}
-                          >
-                            ＋ Thêm
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                </div>
-              ))}
-
-              {perUnitServices.length > 0 && (
-                <div className="svc-grid">
-                  {perUnitServices.map((svc) => (
-                    <button key={svc.id} className="svc-card" onClick={() => addPerUnit(svc)}>
-                      <span className="svc-card__name">{svc.name}</span>
-                      <span className="svc-card__unit">{UNIT_LABEL[svc.unit] || svc.unit}</span>
-                      <span className="svc-card__price">{formatVND(svc.unit_price)}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-
-          <div className="cart">
+        {/* Vùng phải: giỏ + nút tạo đơn */}
+        <aside className="zones__cart">
+          <div className="zones__cart-list">
             {cart.length === 0 ? (
-              <p className="cart__empty">Bấm dịch vụ ở trên để thêm vào đơn.</p>
+              <p className="cart__empty">Bấm dịch vụ để thêm vào đơn.</p>
             ) : (
               cart.map((x) => (
                 <div className="cart__item" key={x.id}>
@@ -427,57 +496,92 @@ export default function OrderNew() {
               ))
             )}
           </div>
-        </div>
-
-        <aside className="ordernew__side">
-          <div className="card pickup-card">
-            <span className="field-label">Giờ hẹn giao</span>
-            <WheelTimePicker value={pickup} onChange={setPickup} />
-          </div>
-
-          <details className="customer">
-            <summary>Khách hàng &amp; ghi chú (tùy chọn)</summary>
-            <div className="customer__fields">
-              <input
-                className="input"
-                type="tel"
-                inputMode="numeric"
-                placeholder="Số điện thoại"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-              <input
-                className="input"
-                type="text"
-                placeholder="Tên (nếu khách mới)"
-                value={custName}
-                onChange={(e) => setCustName(e.target.value)}
-              />
-              <input
-                className="input"
-                type="text"
-                placeholder="Ghi chú đơn"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </div>
-          </details>
-
-          <div className="order-bar">
+          <div className="zones__cart-foot">
             <div className="order-bar__total">
               <span>Tổng</span>
               <strong>{formatVND(total)}</strong>
             </div>
             <button
               className="btn btn--primary btn--xl btn--block"
-              onClick={submit}
-              disabled={busy || cart.length === 0}
+              onClick={openConfirm}
+              disabled={cart.length === 0}
             >
-              {busy ? 'Đang tạo…' : 'TẠO ĐƠN'}
+              TẠO ĐƠN
             </button>
           </div>
         </aside>
       </div>
+
+      {/* Modal xác nhận: khách + giờ giao */}
+      {showConfirm && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal modal--confirm">
+            <h3 className="modal__title">Xác nhận đơn</h3>
+
+            <label className="field">
+              <span>Số điện thoại khách (để trống = khách vãng lai)</span>
+              <input
+                className="input"
+                type="tel"
+                inputMode="numeric"
+                placeholder="VD 0905..."
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </label>
+            {phone.trim() && (
+              <p className={`cust-hint ${custFound ? 'cust-hint--known' : ''}`}>
+                {custFound ? `✓ Khách quen: ${custFound.full_name || '(chưa có tên)'}` : 'Khách mới — nhập tên bên dưới'}
+              </p>
+            )}
+            <label className="field">
+              <span>Tên khách</span>
+              <input
+                className="input"
+                type="text"
+                placeholder="Tên khách (tùy chọn)"
+                value={custName}
+                onChange={(e) => setCustName(e.target.value)}
+              />
+            </label>
+            <label className="field">
+              <span>Ghi chú (tùy chọn)</span>
+              <input
+                className="input"
+                type="text"
+                placeholder="VD: giặt riêng, giao tận nhà…"
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+              />
+            </label>
+
+            <span className="field-label">Giờ hẹn giao</span>
+            <WheelTimePicker value={pickup} onChange={setPickup} />
+
+            {error && <div className="alert alert--error">{error}</div>}
+
+            <div className="modal__actions modal__actions--row">
+              <button
+                className="btn btn--ghost btn--lg"
+                onClick={() => {
+                  setShowConfirm(false)
+                  setError('')
+                }}
+                disabled={busy}
+              >
+                Quay lại
+              </button>
+              <button
+                className="btn btn--primary btn--xl"
+                onClick={submit}
+                disabled={busy || isPastVnWall(pickup)}
+              >
+                {busy ? 'Đang tạo…' : `Tạo đơn · ${formatVND(total)}`}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

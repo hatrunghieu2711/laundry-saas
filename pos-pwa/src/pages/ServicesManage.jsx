@@ -9,7 +9,10 @@ import { UNITS, UNIT_LABEL, normalizeService } from '../lib/services'
 const EMPTY_TIER = { label: '', max_value: '', price: '', per_unit: false }
 
 function blankForm() {
-  return { id: null, name: '', unit: 'kg', pricing_type: 'per_unit', unit_price: '', tiers: [{ ...EMPTY_TIER }] }
+  return {
+    id: null, name: '', unit: 'kg', pricing_type: 'per_unit', unit_price: '',
+    category: '', is_favorite: false, tiers: [{ ...EMPTY_TIER }],
+  }
 }
 
 function toForm(svc) {
@@ -18,6 +21,8 @@ function toForm(svc) {
     name: svc.name,
     unit: svc.unit,
     pricing_type: svc.pricing_type,
+    category: svc.category || '',
+    is_favorite: !!svc.is_favorite,
     unit_price: svc.pricing_type === 'per_unit' ? String(svc.unit_price) : '',
     tiers:
       svc.pricing_type === 'tier' && svc.tiers.length
@@ -73,7 +78,14 @@ export default function ServicesManage() {
       setError('Nhập tên dịch vụ')
       return
     }
-    const payload = { name, unit: form.unit, pricing_type: form.pricing_type, display_order: 0 }
+    const payload = {
+      name,
+      unit: form.unit,
+      pricing_type: form.pricing_type,
+      display_order: 0,
+      category: form.category.trim() || null,
+      is_favorite: !!form.is_favorite,
+    }
     if (form.pricing_type === 'per_unit') {
       payload.unit_price = Number(form.unit_price) || 0
     } else {
@@ -129,6 +141,15 @@ export default function ServicesManage() {
     }
   }
 
+  const toggleFavorite = async (svc) => {
+    try {
+      await api.put(`/services/${svc.id}`, { is_favorite: !svc.is_favorite })
+      await reload()
+    } catch (err) {
+      setError(err?.message || 'Không đổi được "Hay chọn"')
+    }
+  }
+
   const priceLabel = (svc) => {
     if (svc.pricing_type === 'per_unit') return `${formatVND(svc.unit_price)}/${UNIT_LABEL[svc.unit] || svc.unit}`
     const n = svc.tiers.length
@@ -166,6 +187,26 @@ export default function ServicesManage() {
               value={form.name}
               onChange={(e) => setField('name', e.target.value)}
             />
+          </label>
+
+          <label className="field">
+            <span>Danh mục (gom tab màn tạo đơn — vd “Giặt sấy”, “Đồ lẻ”)</span>
+            <input
+              className="input"
+              type="text"
+              placeholder="Để trống = nhóm “Khác”"
+              value={form.category}
+              onChange={(e) => setField('category', e.target.value)}
+            />
+          </label>
+
+          <label className="svc-fav-toggle">
+            <input
+              type="checkbox"
+              checked={form.is_favorite}
+              onChange={(e) => setField('is_favorite', e.target.checked)}
+            />
+            ⭐ Hay chọn (hiện ở tab đầu khi tạo đơn)
           </label>
 
           <label className="field">
@@ -304,7 +345,9 @@ export default function ServicesManage() {
             <div className={`svc-manage ${svc.is_active ? '' : 'svc-manage--off'}`} key={svc.id}>
               <div className="svc-manage__info">
                 <span className="svc-manage__name">
+                  {svc.is_favorite && <span className="svc-manage__star" title="Hay chọn">⭐</span>}
                   {svc.name}
+                  {svc.category && <span className="svc-manage__cat">{svc.category}</span>}
                   {!svc.is_active && <span className="svc-manage__badge">đã ẩn</span>}
                 </span>
                 <span className="svc-manage__meta">
@@ -314,6 +357,13 @@ export default function ServicesManage() {
               <div className="svc-manage__actions">
                 {svc.is_active ? (
                   <>
+                    <button
+                      className={`btn btn--ghost btn--sm ${svc.is_favorite ? 'btn--fav-on' : ''}`}
+                      onClick={() => toggleFavorite(svc)}
+                      title='Bật/tắt "Hay chọn"'
+                    >
+                      {svc.is_favorite ? '★' : '☆'}
+                    </button>
                     <button className="btn btn--ghost btn--sm" onClick={() => setForm(toForm(svc))}>
                       Sửa
                     </button>

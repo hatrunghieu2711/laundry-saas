@@ -79,6 +79,8 @@ async def create_service(
         unit_price=data.unit_price,
         pricing_type=data.pricing_type,
         display_order=data.display_order,
+        category=data.category,
+        is_favorite=data.is_favorite,
         is_active=True,
         tiers=_make_tiers(data.tiers),
     )

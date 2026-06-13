@@ -120,6 +120,28 @@ async def test_staff_cannot_write_can_read(client: AsyncClient, sctx: dict):
     assert lst.json()["total"] == 1
 
 
+async def test_service_category_and_favorite(client: AsyncClient, sctx: dict):
+    r = await _create_service(
+        client, sctx["owner_token"], name="Áo sơ mi", unit="cai",
+        pricing_type="per_unit", unit_price=15000, category="Đồ lẻ", is_favorite=True,
+    )
+    assert r.status_code == 201, r.text
+    svc = r.json()
+    assert svc["category"] == "Đồ lẻ"
+    assert svc["is_favorite"] is True
+
+    # mặc định khi không gửi: category None, is_favorite False.
+    plain = await _ao_vest(client, sctx["owner_token"])
+    assert plain["category"] is None
+    assert plain["is_favorite"] is False
+
+    # toggle favorite qua PUT.
+    upd = await client.put(f"{SERVICES}/{plain['id']}", json={"is_favorite": True},
+                           headers=auth_headers(sctx["owner_token"]))
+    assert upd.status_code == 200, upd.text
+    assert upd.json()["is_favorite"] is True
+
+
 async def test_update_and_soft_delete_service(client: AsyncClient, sctx: dict):
     svc = await _ao_vest(client, sctx["owner_token"])
     upd = await client.put(f"{SERVICES}/{svc['id']}", json={"unit_price": 70000},

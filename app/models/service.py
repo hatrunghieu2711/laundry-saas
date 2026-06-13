@@ -37,6 +37,10 @@ class Service(TimestampMixin, UpdatedAtMixin, Base):
     )
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    # Danh mục (vd "Giặt sấy", "Đồ lẻ") để gom tab ở màn tạo đơn; null = chưa phân loại.
+    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # "Hay chọn": owner đánh dấu dịch vụ thường dùng -> tab đầu màn tạo đơn.
+    is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
 
     tiers: Mapped[list["ServiceTier"]] = relationship(
         lazy="selectin",

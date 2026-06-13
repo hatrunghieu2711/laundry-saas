@@ -36,6 +36,8 @@ class ServiceCreate(BaseModel):
     pricing_type: PricingType
     unit_price: Decimal = Field(default=Decimal(0), ge=0)
     display_order: int = 0
+    category: str | None = Field(default=None, max_length=64)
+    is_favorite: bool = False
     tiers: list[ServiceTierIn] = Field(default_factory=list)
 
     @model_validator(mode="after")
@@ -56,6 +58,8 @@ class ServiceUpdate(BaseModel):
     unit_price: Decimal | None = Field(default=None, ge=0)
     display_order: int | None = None
     is_active: bool | None = None
+    category: str | None = Field(default=None, max_length=64)
+    is_favorite: bool | None = None
     tiers: list[ServiceTierIn] | None = None
 
 
@@ -70,6 +74,8 @@ class ServiceOut(BaseModel):
     unit_price: Decimal
     display_order: int
     is_active: bool
+    category: str | None
+    is_favorite: bool
     created_at: datetime
     updated_at: datetime
     tiers: list[ServiceTierOut]
