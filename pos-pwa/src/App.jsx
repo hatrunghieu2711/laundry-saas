@@ -6,7 +6,6 @@ import Login from './pages/Login'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
 import OrderPay from './pages/OrderPay'
-import OrdersList from './pages/OrdersList'
 import ServicesManage from './pages/ServicesManage'
 import Shift from './pages/Shift'
 
@@ -24,7 +23,8 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Protected><Shift /></Protected>} />
       <Route path="/board" element={<Protected><Board /></Protected>} />
-      <Route path="/orders" element={<Protected><OrdersList /></Protected>} />
+      {/* "Đơn hàng" gộp vào /board (Stage 3.9) — /orders cũ redirect. */}
+      <Route path="/orders" element={<Navigate to="/board" replace />} />
       <Route path="/orders/new" element={<Protected><OrderNew /></Protected>} />
       <Route path="/orders/:id" element={<Protected><OrderDetail /></Protected>} />
       <Route path="/orders/:id/pay" element={<Protected><OrderPay /></Protected>} />

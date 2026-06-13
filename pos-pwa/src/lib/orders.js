@@ -27,6 +27,15 @@ export const NEXT_STATUS = {
   delivered: 'completed',
 }
 
+// Bước LÙI hợp lệ (Stage 3.9). delivered→ready chỉ khi unpaid (UI tự kiểm tra
+// payment_status; backend enforce CANNOT_REVERT_PAID_DELIVERY).
+export const PREV_STATUS = {
+  washing: 'created',
+  drying: 'washing',
+  ready: 'drying',
+  delivered: 'ready',
+}
+
 // Hủy được khi chưa giao (trước delivered).
 export const CANCELLABLE = new Set(['created', 'washing', 'drying', 'ready'])
 

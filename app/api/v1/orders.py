@@ -39,11 +39,12 @@ async def list_orders(
     customer_id: Annotated[uuid.UUID | None, Query()] = None,
     date_from: Annotated[datetime | None, Query(alias="from")] = None,
     date_to: Annotated[datetime | None, Query(alias="to")] = None,
+    q: Annotated[str | None, Query()] = None,
 ) -> Page[OrderOut]:
     items, total = await order_service.list_orders(
         db, actor, page,
         branch_id=branch_id, order_status=order_status, payment_status=payment_status,
-        customer_id=customer_id, date_from=date_from, date_to=date_to,
+        customer_id=customer_id, date_from=date_from, date_to=date_to, q=q,
     )
     return Page[OrderOut](items=items, total=total, limit=page.limit, offset=page.offset)
 
@@ -54,8 +55,9 @@ async def order_board(
     actor: OrderActor,
     db: DbSession,
     branch_id: Annotated[uuid.UUID | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
 ) -> OrderBoard:
-    return await order_service.get_board(db, actor, branch_id)
+    return await order_service.get_board(db, actor, branch_id, q)
 
 
 # Khai báo /code/{order_code} TRƯỚC /{order_id} cho rõ ràng.

@@ -14,7 +14,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import func, select, text
+from sqlalchemy import func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -38,6 +38,8 @@ _FORWARD = {
     "ready": "delivered",
     "delivered": "completed",
 }
+# Nhóm xử lý tại tiệm (có thứ tự) — cho LÙI tự do về bước trước trong nhóm.
+_PROCESSING = ["created", "washing", "drying", "ready"]
 _CANCELLABLE_FROM = {"created", "washing", "drying", "ready"}
 _TERMINAL = {"completed", "cancelled"}
 # Items chỉ sửa được khi đơn chưa tới 'ready'.
@@ -95,20 +97,54 @@ def _total(order: Order) -> Decimal:
     return sum((i.subtotal for i in order.items), Decimal(0))
 
 
+def _apply_search(stmt, q: str | None):
+    """Lọc gần đúng theo mã đơn HOẶC tên khách (ILIKE). outerjoin customers
+    vì đơn khách lẻ không có customer_id."""
+    if not q or not q.strip():
+        return stmt
+    like = f"%{q.strip()}%"
+    return stmt.outerjoin(Customer, Order.customer_id == Customer.id).where(
+        or_(Order.order_code.ilike(like), Customer.full_name.ilike(like))
+    )
+
+
 def _add_tracking(db: AsyncSession, order: Order, status: str, actor: User) -> None:
     db.add(OrderTrackingLog(order_id=order.id, status=status, changed_by=actor.id))
 
 
-def _validate_transition(current: str, new: str) -> None:
+def _validate_transition(order: Order, new: str) -> None:
+    """Luật chuyển trạng thái (Stage 3.9 — cho LÙI có kiểm soát).
+
+    - Tiến 1 bước: created→washing→…→completed.
+    - Lùi tự do trong nhóm xử lý (created↔ready, chỉ về bước TRƯỚC).
+    - delivered→ready: CHỈ khi payment_status='unpaid' (chưa thu).
+    - completed/cancelled: khóa vĩnh viễn (ORDER_CLOSED).
+    """
+    current = order.order_status
     if current in _TERMINAL:
-        raise APIError(409, "INVALID_STATUS_TRANSITION", "Đơn đã ở trạng thái cuối")
+        raise APIError(409, "ORDER_CLOSED", "Đơn đã đóng (hoàn tất/đã hủy), không đổi trạng thái")
+    if new == current:
+        raise APIError(409, "INVALID_STATUS_TRANSITION", "Đơn đã ở trạng thái này")
     if new == "cancelled":
         if current not in _CANCELLABLE_FROM:
             raise APIError(
                 409, "INVALID_STATUS_TRANSITION", "Không thể hủy đơn ở trạng thái này"
             )
         return
+    # Tiến đúng 1 bước.
     if _FORWARD.get(current) == new:
+        return
+    # Lùi trong nhóm xử lý (chỉ về bước có index nhỏ hơn).
+    if current in _PROCESSING and new in _PROCESSING:
+        if _PROCESSING.index(new) < _PROCESSING.index(current):
+            return
+        raise APIError(409, "INVALID_STATUS_TRANSITION", "Chuyển trạng thái không hợp lệ")
+    # Lùi giao hàng: delivered→ready chỉ khi chưa thu tiền.
+    if current == "delivered" and new == "ready":
+        if order.payment_status != "unpaid":
+            raise APIError(
+                409, "CANNOT_REVERT_PAID_DELIVERY", "Không thể lùi đơn đã thu tiền"
+            )
         return
     raise APIError(409, "INVALID_STATUS_TRANSITION", "Chuyển trạng thái không hợp lệ")
 
@@ -209,7 +245,7 @@ async def change_status(
     db: AsyncSession, actor: User, order_id: uuid.UUID, new_status: str
 ) -> Order:
     order = await _get_order(db, actor, order_id)
-    _validate_transition(order.order_status, new_status)
+    _validate_transition(order, new_status)
     order.order_status = new_status
     await db.flush()
     _add_tracking(db, order, new_status, actor)
@@ -333,6 +369,7 @@ async def list_orders(
     customer_id: uuid.UUID | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
+    q: str | None = None,
 ) -> tuple[list[Order], int]:
     base = select(Order).where(Order.tenant_id == actor.tenant_id)
     if actor.role != "owner":
@@ -349,6 +386,7 @@ async def list_orders(
         base = base.where(Order.created_at >= date_from)
     if date_to is not None:
         base = base.where(Order.created_at <= date_to)
+    base = _apply_search(base, q)
 
     total = await db.scalar(select(func.count()).select_from(base.subquery())) or 0
     result = await db.execute(
@@ -359,7 +397,10 @@ async def list_orders(
 
 # ── dashboard vận hành (board) ───────────────────────────────────────────────
 async def get_board(
-    db: AsyncSession, actor: User, branch_id: uuid.UUID | None = None
+    db: AsyncSession,
+    actor: User,
+    branch_id: uuid.UUID | None = None,
+    q: str | None = None,
 ) -> dict:
     """Đơn đang hoạt động (ẩn completed/cancelled), nhóm theo order_status để
     frontend dựng cột; kèm cờ is_overdue mỗi đơn và summary đếm nhanh."""
@@ -371,6 +412,7 @@ async def get_board(
         base = base.where(Order.branch_id == actor.branch_id)
     elif branch_id is not None:
         base = base.where(Order.branch_id == branch_id)
+    base = _apply_search(base, q)
 
     result = await db.execute(base.order_by(Order.pickup_at.asc()))
     orders = list(result.scalars().all())

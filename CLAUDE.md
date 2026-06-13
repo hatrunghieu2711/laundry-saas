@@ -71,8 +71,16 @@ Mục tiêu dài hạn: bán SaaS subscription cho 50–100 branch.
 
 1. Trạng thái: created → washing → drying → ready → delivered → completed.
    `cancelled` được phép từ mọi trạng thái trước delivered.
-2. KHÔNG cho nhảy lùi trạng thái. `completed` và `cancelled` là trạng thái
-   cuối — đơn đã vào đó thì đóng vĩnh viễn, không reopen.
+2. **State machine (cập nhật Stage 3.9 — cho LÙI có kiểm soát):**
+   - Tiến: đúng 1 bước theo chuỗi trên.
+   - LÙI trong nhóm xử lý tại tiệm `[created, washing, drying, ready]`: cho lùi
+     về BẤT KỲ bước trước trong nhóm (vd ready→created một phát). Nhảy tiến cách
+     bước (vd created→ready) vẫn cấm → 409 INVALID_STATUS_TRANSITION.
+   - `delivered → ready`: CHỈ khi `payment_status='unpaid'`. Nếu paid/partial/
+     debt → 409 **CANNOT_REVERT_PAID_DELIVERY** ("Không thể lùi đơn đã thu tiền").
+   - `completed`/`cancelled`: KHÓA vĩnh viễn — mọi chuyển đi → 409 **ORDER_CLOSED**.
+   - MỌI lần đổi trạng thái (tiến lẫn lùi) ghi `order_tracking_logs`
+     (status, changed_by, created_at) để truy vết ai lùi.
 3. Không sửa `total_amount` sau khi đơn đã có payment. Điều chỉnh giá =
    giao dịch adjustment trong payments.
 4. DELETE order = chuyển sang `cancelled` (soft). Không xóa cứng.

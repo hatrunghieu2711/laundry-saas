@@ -161,7 +161,135 @@ async def test_completed_is_terminal(client: AsyncClient, octx: dict):
         await _set_status(client, octx["staff_token"], oid, st)
     resp = await _set_status(client, octx["staff_token"], oid, "washing")
     assert resp.status_code == 409
-    assert resp.json()["code"] == "INVALID_STATUS_TRANSITION"
+    assert resp.json()["code"] == "ORDER_CLOSED"
+
+
+# ── Stage 3.9: lùi trạng thái có kiểm soát ──────────────────────────────────
+async def test_revert_within_processing_group(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready"]:
+        await _set_status(client, t, oid, st)
+    # lùi từng bước ready->drying->washing->created
+    for st in ["drying", "washing", "created"]:
+        r = await _set_status(client, t, oid, st)
+        assert r.status_code == 200, r.text
+        assert r.json()["order_status"] == st
+
+
+async def test_revert_multistep_back_allowed(client: AsyncClient, octx: dict):
+    # Lùi nhiều bước một lần trong nhóm xử lý: ready -> created.
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready"]:
+        await _set_status(client, t, oid, st)
+    r = await _set_status(client, t, oid, "created")
+    assert r.status_code == 200, r.text
+    assert r.json()["order_status"] == "created"
+
+
+async def test_revert_delivered_unpaid_ok(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready", "delivered"]:
+        await _set_status(client, t, oid, st)
+    r = await _set_status(client, t, oid, "ready")  # delivered chưa thu -> lùi OK
+    assert r.status_code == 200, r.text
+    assert r.json()["order_status"] == "ready"
+
+
+async def test_revert_delivered_paid_blocked(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready", "delivered"]:
+        await _set_status(client, t, oid, st)
+    for ps in ["paid", "partial", "debt"]:
+        await _set_order_db(oid, payment_status=ps)
+        r = await _set_status(client, t, oid, "ready")
+        assert r.status_code == 409, f"{ps}: {r.text}"
+        assert r.json()["code"] == "CANNOT_REVERT_PAID_DELIVERY"
+
+
+async def test_revert_completed_locked(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready", "delivered", "completed"]:
+        await _set_status(client, t, oid, st)
+    r = await _set_status(client, t, oid, "ready")
+    assert r.status_code == 409
+    assert r.json()["code"] == "ORDER_CLOSED"
+
+
+async def test_revert_cancelled_locked(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await client.delete(f"{ORDERS}/{oid}", headers=auth_headers(t))  # -> cancelled
+    r = await _set_status(client, t, oid, "created")
+    assert r.status_code == 409
+    assert r.json()["code"] == "ORDER_CLOSED"
+
+
+async def test_revert_writes_tracking_log(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying"]:
+        await _set_status(client, t, oid, st)
+    before = await _log_count(oid)  # created+washing+drying = 3
+    await _set_status(client, t, oid, "washing")  # lùi drying->washing
+    assert await _log_count(oid) == before + 1
+    # dòng log mới nhất = 'washing', có changed_by
+    async with SessionFactory() as db:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT status, changed_by FROM order_tracking_logs "
+                    "WHERE order_id=:i ORDER BY created_at DESC LIMIT 1"
+                ),
+                {"i": oid},
+            )
+        ).first()
+    assert row[0] == "washing"
+    assert row[1] is not None
+
+
+# ── Stage 3.9: search q (mã đơn HOẶC tên khách) ─────────────────────────────
+async def test_list_search_q_by_code_and_name(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    # đơn 1: gắn khách tên "Nguyễn Văn An"
+    async with SessionFactory() as db:
+        cust = Customer(tenant_id=octx["owner"]["tenant_id"], full_name="Nguyễn Văn An")
+        db.add(cust)
+        await db.commit()
+        cust_id = str(cust.id)
+    o1 = (await _create_order(client, t, _ITEMS, customer_id=cust_id)).json()
+    o2 = (await _create_order(client, t, _ITEMS)).json()  # khách lẻ
+
+    # tìm theo mã đơn của o2
+    r = await client.get(f"{ORDERS}?q={o2['order_code']}", headers=auth_headers(t))
+    assert r.status_code == 200
+    assert [o["id"] for o in r.json()["items"]] == [o2["id"]]
+
+    # tìm theo tên khách gần đúng "văn an" (ILIKE, không phân biệt hoa thường)
+    r = await client.get(f"{ORDERS}?q=văn an", headers=auth_headers(t))
+    assert r.json()["total"] == 1
+    assert r.json()["items"][0]["id"] == o1["id"]
+
+
+async def test_board_search_q(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    async with SessionFactory() as db:
+        cust = Customer(tenant_id=octx["owner"]["tenant_id"], full_name="Trần Thị Bình")
+        db.add(cust)
+        await db.commit()
+        cust_id = str(cust.id)
+    o1 = (await _create_order(client, t, _ITEMS, customer_id=cust_id)).json()
+    await _create_order(client, t, _ITEMS)  # khách lẻ
+
+    r = await client.get(f"{ORDERS}/board?q=bình", headers=auth_headers(t))
+    assert r.status_code == 200
+    ids = [o["id"] for c in r.json()["columns"].values() for o in c]
+    assert ids == [o1["id"]]
+    assert r.json()["summary"]["total_orders"] == 1
 
 
 # ── cancel (soft delete) ────────────────────────────────────────────────────
