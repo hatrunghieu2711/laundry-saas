@@ -10,7 +10,12 @@ from fastapi import APIRouter, Depends
 
 from app.api.deps import DbSession, require_role
 from app.models.user import User
-from app.schemas.settings import SettingsOut, SettingsPublic, SettingsUpdate
+from app.schemas.settings import (
+    ReceiptConfig,
+    SettingsOut,
+    SettingsPublic,
+    SettingsUpdate,
+)
 from app.services import settings_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
@@ -33,3 +38,14 @@ async def get_settings(actor: Manager, db: DbSession) -> SettingsOut:
 @router.put("", response_model=SettingsOut)
 async def update_settings(payload: SettingsUpdate, actor: Owner, db: DbSession) -> SettingsOut:
     return await settings_service.update_settings(db, actor.tenant_id, payload)
+
+
+# ── mẫu phiếu in (Stage 4.1) ────────────────────────────────────────────────
+@router.get("/receipt", response_model=ReceiptConfig)
+async def get_receipt(actor: Reader, db: DbSession) -> ReceiptConfig:
+    return await settings_service.get_receipt(db, actor.tenant_id)
+
+
+@router.put("/receipt", response_model=ReceiptConfig)
+async def put_receipt(payload: ReceiptConfig, actor: Owner, db: DbSession) -> ReceiptConfig:
+    return await settings_service.update_receipt(db, actor.tenant_id, payload)

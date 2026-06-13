@@ -58,6 +58,53 @@ async def test_staff_can_read_pos_cannot_update(client: AsyncClient, owner: dict
     assert full.status_code == 403
 
 
+async def test_receipt_default_and_blocks(client: AsyncClient, owner: dict):
+    t = await login(client, owner["phone"], owner["password"])
+    r = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))
+    assert r.status_code == 200, r.text
+    cfg = r.json()
+    assert cfg["logo_text"] == "2H"
+    keys = [b["key"] for b in cfg["blocks"]]
+    assert keys[0] == "header" and "qr_tracking" in keys and keys[-1] == "footer"
+    assert all(b["enabled"] for b in cfg["blocks"])
+
+
+async def test_receipt_update_by_owner(client: AsyncClient, owner: dict):
+    t = await login(client, owner["phone"], owner["password"])
+    body = {
+        "shop_name": "Tiệm Giặt ABC",
+        "address": "12 Trần Phú",
+        "phone": "0258123456",
+        "footer_text": "Hẹn gặp lại!",
+        "open_hours": "8h-20h",
+        "logo_text": "ABC",
+        "blocks": [
+            {"key": "header", "enabled": True, "order": 0},
+            {"key": "items", "enabled": True, "order": 1},
+            {"key": "qr_tracking", "enabled": False, "order": 2},
+        ],
+    }
+    upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
+    assert upd.status_code == 200, upd.text
+    cfg = upd.json()
+    assert cfg["shop_name"] == "Tiệm Giặt ABC"
+    qr = next(b for b in cfg["blocks"] if b["key"] == "qr_tracking")
+    assert qr["enabled"] is False
+    # đọc lại vẫn giữ
+    again = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))
+    assert again.json()["shop_name"] == "Tiệm Giặt ABC"
+
+
+async def test_receipt_staff_read_owner_write(client: AsyncClient, owner: dict):
+    owner_token = await login(client, owner["phone"], owner["password"])
+    staff = await _staff_token(client, owner_token)
+    ok = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(staff))
+    assert ok.status_code == 200  # POS đọc được
+    bad = await client.put(f"{SETTINGS}/receipt", json={"shop_name": "X", "blocks": []},
+                           headers=auth_headers(staff))
+    assert bad.status_code == 403  # staff không sửa
+
+
 async def test_settings_tenant_isolation(client: AsyncClient, owner: dict, owner2: dict):
     t1 = await login(client, owner["phone"], owner["password"])
     await client.put(SETTINGS, json={"default_turnaround_hours": 9}, headers=auth_headers(t1))

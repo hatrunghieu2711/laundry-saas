@@ -9,7 +9,10 @@ const NAV = [
   { to: '/', label: 'Ca', end: true },
 ]
 // Mục trong menu ☰ (chừa chỗ thêm sau).
-const MENU = [{ to: '/services', label: '💰 Bảng giá', roles: ['owner', 'manager'] }]
+const MENU = [
+  { to: '/services', label: '💰 Bảng giá', roles: ['owner', 'manager'] },
+  { to: '/settings/receipt', label: '🧾 Mẫu phiếu in', roles: ['owner', 'manager'] },
+]
 
 export default function Layout({ children }) {
   const { user, logout } = useAuth()

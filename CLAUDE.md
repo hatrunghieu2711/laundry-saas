@@ -209,6 +209,14 @@ mọi bảng có created_at; bảng mutable có updated_at.
   KHÔNG lộ secret), GET /settings (owner/manager, đầy đủ), PUT /settings (owner).
   Row settings tạo LAZY khi đọc lần đầu (server_default lo giá trị mặc định).
 - default_turnaround_hours: POS gợi ý giờ hẹn giao = now(VN) + giá trị này.
+- receipt_config JSONB nullable (Stage 4.1, migration f3a4b5c6d7e8): mẫu phiếu in
+  per-tenant — text (shop_name/address/phone/footer_text/open_hours/logo_text) +
+  `blocks` [{key,enabled,order}] (header, order_code, pickup_time, qr_tracking,
+  items, totals, payment_status, meta, footer). NULL → service trả DEFAULT_RECEIPT
+  (tất cả khối bật, thứ tự chuẩn) và tự bổ sung khối mặc định còn thiếu.
+  Endpoints: GET /settings/receipt (mọi role — POS render bill), PUT /settings/receipt
+  (owner). Frontend: Receipt.jsx/Bill.jsx render khối theo enabled+order; màn cấu
+  hình /settings/receipt (menu ☰) có preview 80mm realtime.
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -343,6 +351,8 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 3.7A (backend): orders.pickup_at (giờ hẹn giao) + GET /orders/board (dashboard vận hành) + cờ requires_payment khi giao đơn còn nợ
 - [x] Stage 3.7B (frontend): wheel time picker + tab Bảng đơn (Kanban) + luồng giao-thanh-toán (modal requires_payment)
 - [x] Stage 3.8: thiết kế lại màn tạo đơn 3 vùng không cuộn + tab danh mục/Hay chọn + fix pickup_at múi giờ VN + tenant_settings.default_turnaround_hours + GET/PUT /settings
+- [x] Stage 3.9: cho lùi trạng thái có kiểm soát + gộp màn "Đơn hàng" (Kanban/List + search q) + nav restructure (☰ menu)
+- [x] Stage 4.1: custom bill template (receipt_config) + GET/PUT /settings/receipt + màn cấu hình phiếu (preview 80mm realtime)
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)

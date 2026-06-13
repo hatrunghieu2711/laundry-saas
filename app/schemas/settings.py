@@ -31,3 +31,22 @@ class SettingsUpdate(BaseModel):
     cash_diff_threshold: Decimal | None = Field(default=None, ge=0)
     telegram_bot_token: str | None = None
     telegram_owner_chat_id: str | None = None
+
+
+# ── Mẫu phiếu in (Stage 4.1) ────────────────────────────────────────────────
+class ReceiptBlock(BaseModel):
+    key: str = Field(min_length=1, max_length=32)
+    enabled: bool = True
+    order: int = 0
+
+
+class ReceiptConfig(BaseModel):
+    """Cấu hình mẫu phiếu in per-tenant. Đọc mọi role, sửa owner."""
+
+    shop_name: str = Field(default="", max_length=120)
+    address: str = Field(default="", max_length=200)
+    phone: str = Field(default="", max_length=40)
+    footer_text: str = Field(default="", max_length=200)
+    open_hours: str = Field(default="", max_length=80)
+    logo_text: str = Field(default="", max_length=16)
+    blocks: list[ReceiptBlock] = Field(default_factory=list)

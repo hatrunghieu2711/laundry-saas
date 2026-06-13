@@ -1098,6 +1098,18 @@ body {
     font-size: 12px;
     line-height: 1.45;
   }
+  .rcp__header {
+    text-align: center;
+  }
+  .rcp__logo {
+    display: inline-block;
+    border: 2px solid #000;
+    border-radius: 8px;
+    padding: 2px 8px;
+    font-size: 18px;
+    font-weight: 900;
+    margin-bottom: 3px;
+  }
   .rcp__brand {
     text-align: center;
     font-size: 18px;
@@ -1189,6 +1201,131 @@ body {
     font-weight: 600;
   }
 }
+
+/* ══ Stage 4.1: cấu hình mẫu phiếu in + preview trên màn ════════════ */
+.rcfg {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.rcfg__editor {
+  min-width: 0;
+}
+.rcfg__preview-label {
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 8px;
+  text-align: center;
+}
+@media (min-width: 920px) {
+  .rcfg {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 340px;
+    gap: 24px;
+    align-items: start;
+  }
+  .rcfg__preview {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+/* Danh sách khối bật/tắt + sắp xếp */
+.blk-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.blk {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+.blk--off {
+  opacity: 0.55;
+  background: var(--bg);
+}
+.blk__order {
+  display: flex;
+  gap: 4px;
+  flex: none;
+}
+.blk__arrow {
+  width: 34px;
+  height: 34px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.blk__arrow:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.blk__label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 600;
+}
+.blk__chk {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 600;
+  cursor: pointer;
+}
+.blk__chk input {
+  width: 20px;
+  height: 20px;
+}
+
+/* Tờ phiếu xem trước trên màn (mô phỏng khổ nhiệt 80mm) */
+.rcp-preview {
+  width: 302px; /* ~80mm */
+  margin: 0 auto;
+  background: #fff;
+  color: #000;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.rcp-preview .rcp__header { text-align: center; }
+.rcp-preview .rcp__logo {
+  display: inline-block;
+  border: 2px solid #000;
+  border-radius: 8px;
+  padding: 2px 8px;
+  font-size: 18px;
+  font-weight: 900;
+  margin-bottom: 3px;
+}
+.rcp-preview .rcp__brand { text-align: center; font-size: 18px; font-weight: 900; }
+.rcp-preview .rcp__branch { text-align: center; font-size: 11px; }
+.rcp-preview .rcp__divider { border-top: 1px dashed #000; margin: 6px 0; }
+.rcp-preview .rcp__code-label { text-align: center; font-size: 11px; text-transform: uppercase; letter-spacing: 1px; }
+.rcp-preview .rcp__code { text-align: center; font-size: 26px; font-weight: 900; letter-spacing: 1px; margin-bottom: 4px; }
+.rcp-preview .rcp__pickup { text-align: center; font-size: 13px; font-weight: 800; margin-bottom: 4px; }
+.rcp-preview .rcp__qr { text-align: center; margin: 4px 0 2px; }
+.rcp-preview .rcp__qr svg { display: block; margin: 0 auto; }
+.rcp-preview .rcp__qr-cap { font-size: 10px; margin-top: 2px; text-align: center; }
+.rcp-preview .rcp__row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+.rcp-preview .rcp__row--head { font-weight: 700; border-bottom: 1px solid #000; margin-bottom: 2px; }
+.rcp-preview .rcp__item-name small { font-size: 11px; }
+.rcp-preview .rcp__row--total { font-weight: 900; font-size: 14px; }
+.rcp-preview .rcp__row--due { font-weight: 700; }
+.rcp-preview .rcp__paystatus { text-align: center; font-weight: 900; font-size: 14px; border: 1.5px solid #000; border-radius: 6px; padding: 4px 0; margin: 6px 0 2px; letter-spacing: 0.5px; }
+.rcp-preview .rcp__meta { font-size: 11px; }
+.rcp-preview .rcp__foot { text-align: center; margin-top: 8px; font-size: 11px; font-weight: 600; }
 
 /* ── Quản lý bảng giá ─────────────────────────────────────────────── */
 .services {

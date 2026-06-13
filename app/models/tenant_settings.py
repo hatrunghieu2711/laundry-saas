@@ -5,9 +5,10 @@ Tách khỏi bảng `tenants` để giữ tenants gọn và chứa secret (bot t
 """
 import uuid
 from decimal import Decimal
+from typing import Any
 
 from sqlalchemy import ForeignKey, Integer, String, text
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -31,3 +32,6 @@ class TenantSettings(TimestampMixin, UpdatedAtMixin, Base):
     default_turnaround_hours: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("4")
     )
+    # Cấu hình mẫu phiếu in (Stage 4.1): text + mảng blocks {key,enabled,order}.
+    # NULL = dùng mặc định (service tự trả DEFAULT_RECEIPT).
+    receipt_config: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
