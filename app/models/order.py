@@ -15,6 +15,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
+    from app.models.customer import Customer
     from app.models.user import User
 
 from app.core.database import Base
@@ -53,14 +54,21 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
         cascade="all, delete-orphan",
         order_by="OrderItem.created_at",
     )
-    # Nhúng tên người tạo đơn (selectin, tránh N+1).
+    # Nhúng tên người tạo đơn + tên khách (selectin, tránh N+1).
     created_by_user: Mapped["User"] = relationship(
         "User", foreign_keys=[created_by], lazy="selectin"
+    )
+    customer: Mapped["Customer | None"] = relationship(
+        "Customer", foreign_keys=[customer_id], lazy="selectin"
     )
 
     @property
     def created_by_name(self) -> str | None:
         return self.created_by_user.full_name if self.created_by_user else None
+
+    @property
+    def customer_name(self) -> str | None:
+        return self.customer.full_name if self.customer else None
 
     __table_args__ = (
         UniqueConstraint("tenant_id", "order_code", name="uq_orders_tenant_order_code"),

@@ -210,6 +210,7 @@ async def test_put_notes_and_customer(client: AsyncClient, octx: dict):
     assert resp.status_code == 200, resp.text
     assert resp.json()["notes"] == "Giao gấp"
     assert resp.json()["customer_id"] == cust_id
+    assert resp.json()["customer_name"] == "Chị Lan"  # tên khách nhúng sẵn
 
 
 # ── items CRUD + recompute ──────────────────────────────────────────────────

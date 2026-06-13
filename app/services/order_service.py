@@ -16,6 +16,7 @@ from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import Pagination
 from app.core.errors import APIError
@@ -112,6 +113,25 @@ async def _get_order(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Orde
     return order
 
 
+async def _reload_order(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Order:
+    """Như _get_order nhưng populate_existing — lấy lại relationship sau khi đổi
+    FK (vd customer_id) để customer_name không bị giá trị cũ."""
+    result = await db.execute(
+        select(Order)
+        .options(
+            selectinload(Order.items),
+            selectinload(Order.created_by_user),
+            selectinload(Order.customer),
+        )
+        .where(Order.tenant_id == actor.tenant_id, Order.id == order_id)
+        .execution_options(populate_existing=True)
+    )
+    order = result.scalar_one_or_none()
+    if order is None or (actor.role != "owner" and order.branch_id != actor.branch_id):
+        raise APIError(404, "ORDER_NOT_FOUND", "Không tìm thấy đơn")
+    return order
+
+
 async def _assert_items_editable(db: AsyncSession, order: Order) -> None:
     if await _has_payment(db, order.id):
         raise APIError(409, "ORDER_HAS_PAYMENT", "Đơn đã có payment, không sửa hạng mục")
@@ -194,7 +214,7 @@ async def update_order(
         order.notes = changes["notes"]
 
     await db.commit()
-    return await _get_order(db, actor, order_id)
+    return await _reload_order(db, actor, order_id)
 
 
 # ── items ───────────────────────────────────────────────────────────────────
@@ -273,7 +293,8 @@ async def list_orders(
     page: Pagination,
     *,
     branch_id: uuid.UUID | None = None,
-    order_status: str | None = None,
+    order_status: list[str] | None = None,
+    payment_status: list[str] | None = None,
     customer_id: uuid.UUID | None = None,
     date_from: datetime | None = None,
     date_to: datetime | None = None,
@@ -283,8 +304,10 @@ async def list_orders(
         base = base.where(Order.branch_id == actor.branch_id)
     elif branch_id is not None:
         base = base.where(Order.branch_id == branch_id)
-    if order_status is not None:
-        base = base.where(Order.order_status == order_status)
+    if order_status:
+        base = base.where(Order.order_status.in_(order_status))
+    if payment_status:
+        base = base.where(Order.payment_status.in_(payment_status))
     if customer_id is not None:
         base = base.where(Order.customer_id == customer_id)
     if date_from is not None:

@@ -688,3 +688,257 @@ body {
     padding-bottom: 0;
   }
 }
+
+/* ── Tab nav dưới header ──────────────────────────────────────────── */
+.app-nav {
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 0 8px;
+  position: sticky;
+  top: 0;
+  z-index: 9;
+}
+.app-nav__tab {
+  flex: 1;
+  text-align: center;
+  text-decoration: none;
+  color: var(--muted);
+  font-weight: 700;
+  font-size: 15px;
+  padding: 12px 6px;
+  border-bottom: 3px solid transparent;
+}
+.app-nav__tab--active {
+  color: var(--orange-dark);
+  border-bottom-color: var(--orange);
+}
+
+/* ── Badge payment_status ────────────────────────────────────────── */
+.badge-ps {
+  display: inline-block;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.ps--unpaid { background: #eef0f2; color: #4b5563; }
+.ps--partial { background: #fffbeb; color: #b45309; }
+.ps--paid { background: #e7f7ed; color: #15803d; }
+.ps--debt { background: #fff1e6; color: #c2410c; }
+.ps--refunded { background: var(--danger-soft); color: var(--danger); }
+
+/* ── Danh sách đơn ───────────────────────────────────────────────── */
+.orders {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.orders__search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.orders__search .input {
+  flex: 1;
+}
+.chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+.chip--sm {
+  min-height: 38px;
+  padding: 0 14px;
+  font-size: 14px;
+}
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 6px 0 14px;
+}
+.order-row {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  cursor: pointer;
+}
+.order-row__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.order-row__code {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--orange-dark);
+}
+.order-row__amount {
+  font-size: 18px;
+  font-weight: 700;
+}
+.order-row__mid {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 6px 0;
+}
+.order-row__os {
+  font-size: 14px;
+  color: var(--ink);
+  font-weight: 600;
+}
+.order-row__bot {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ── Chi tiết đơn ────────────────────────────────────────────────── */
+.detail,
+.pay {
+  max-width: 560px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.detail .card,
+.pay .card {
+  margin: 0;
+}
+.detail__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.detail__code {
+  font-size: 24px;
+  font-weight: 900;
+  color: var(--orange-dark);
+}
+.detail__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.confirm {
+  background: var(--danger-soft);
+  border: 1px solid #fecaca;
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  font-weight: 600;
+}
+.btn--danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Lịch sử payment */
+.pay-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.pay-row:last-child {
+  border-bottom: none;
+}
+.pay-row__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.pay-row__type {
+  font-weight: 700;
+}
+.pay-row__meta {
+  font-size: 13px;
+  color: var(--muted);
+}
+.pay-row__reason {
+  font-size: 13px;
+  color: var(--muted);
+  font-style: italic;
+}
+.pay-row__amt {
+  font-weight: 800;
+  color: #15803d;
+  white-space: nowrap;
+}
+.pay-row__amt--neg {
+  color: var(--danger);
+}
+
+/* ── Thu tiền ────────────────────────────────────────────────────── */
+.pay-amounts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pay-amounts > div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 16px;
+}
+.pay-amounts__remain {
+  border-top: 1px solid var(--line);
+  padding-top: 8px;
+  margin-top: 4px;
+}
+.pay-amounts__remain span {
+  font-weight: 700;
+}
+.pay-amounts__remain strong {
+  font-size: 28px;
+  color: var(--orange-dark);
+}
+.field-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+  margin-top: 8px;
+}
+.method-btn {
+  min-height: 56px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  border-radius: var(--radius);
+  font-size: 17px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.method-btn--active {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+}
+.pay__done {
+  text-align: center;
+}
+.pay__done p {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 4px 0 16px;
+}
+
+@media (min-width: 640px) {
+  .method-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}

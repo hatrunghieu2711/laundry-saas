@@ -1,5 +1,11 @@
-import { useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+
+const NAV = [
+  { to: '/', label: 'Ca', end: true },
+  { to: '/orders', label: 'Đơn', end: false },
+  { to: '/orders/new', label: '＋ Tạo đơn', end: false },
+]
 
 // Layout chung: header (branch + user + logout) + nội dung.
 export default function Layout({ children }) {
@@ -27,6 +33,18 @@ export default function Layout({ children }) {
           Đăng xuất
         </button>
       </header>
+      <nav className="app-nav">
+        {NAV.map((n) => (
+          <NavLink
+            key={n.to}
+            to={n.to}
+            end={n.end}
+            className={({ isActive }) => `app-nav__tab ${isActive ? 'app-nav__tab--active' : ''}`}
+          >
+            {n.label}
+          </NavLink>
+        ))}
+      </nav>
       <main className="app-main">{children}</main>
     </div>
   )

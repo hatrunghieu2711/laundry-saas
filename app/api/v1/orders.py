@@ -33,15 +33,16 @@ async def list_orders(
     db: DbSession,
     page: PageParams,
     branch_id: Annotated[uuid.UUID | None, Query()] = None,
-    order_status: Annotated[str | None, Query()] = None,
+    order_status: Annotated[list[str] | None, Query()] = None,
+    payment_status: Annotated[list[str] | None, Query()] = None,
     customer_id: Annotated[uuid.UUID | None, Query()] = None,
     date_from: Annotated[datetime | None, Query(alias="from")] = None,
     date_to: Annotated[datetime | None, Query(alias="to")] = None,
 ) -> Page[OrderOut]:
     items, total = await order_service.list_orders(
         db, actor, page,
-        branch_id=branch_id, order_status=order_status, customer_id=customer_id,
-        date_from=date_from, date_to=date_to,
+        branch_id=branch_id, order_status=order_status, payment_status=payment_status,
+        customer_id=customer_id, date_from=date_from, date_to=date_to,
     )
     return Page[OrderOut](items=items, total=total, limit=page.limit, offset=page.offset)
 
