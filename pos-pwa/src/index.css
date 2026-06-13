@@ -484,3 +484,207 @@ body {
   border-color: var(--orange);
   color: #fff;
 }
+
+/* ── Tạo đơn nhanh ───────────────────────────────────────────────── */
+.ordernew {
+  max-width: 560px;
+  margin: 0 auto;
+  padding-bottom: 96px; /* chừa chỗ cho thanh tổng dính đáy */
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+.tier-btn {
+  min-height: 84px;
+  border: 1.5px solid var(--orange);
+  background: var(--orange-soft);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+}
+.tier-btn:active {
+  background: #ffe6d2;
+}
+.tier-btn__label {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.tier-btn__price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--orange-dark);
+}
+
+.perkg {
+  margin-top: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+.perkg__label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+.perkg__row {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+.perkg__row .input {
+  flex: 1;
+  font-size: 18px;
+}
+
+.cart {
+  margin-top: 14px;
+}
+.cart__empty {
+  color: var(--muted);
+  text-align: center;
+  padding: 18px 0;
+}
+.cart__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.cart__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cart__name {
+  font-weight: 700;
+}
+.cart__line {
+  font-size: 14px;
+  color: var(--muted);
+}
+.cart__qty {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.qty-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  font-size: 20px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.qty-btn--del {
+  border-color: #fecaca;
+  color: var(--danger);
+}
+.qty-val {
+  min-width: 28px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 17px;
+}
+
+.customer {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 4px 14px;
+}
+.customer summary {
+  padding: 12px 0;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.customer__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-bottom: 14px;
+}
+
+/* Thanh tổng + nút TẠO ĐƠN dính đáy màn hình */
+.order-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  padding: 10px 16px;
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+}
+.order-bar__total {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 16px;
+}
+.order-bar__total strong {
+  font-size: 26px;
+  color: var(--orange-dark);
+}
+
+/* Màn kết quả tạo đơn */
+.created {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 20px;
+  text-align: center;
+}
+.created__hint {
+  color: var(--muted);
+  margin: 0 0 8px;
+}
+.created__code {
+  font-size: 44px;
+  font-weight: 900;
+  letter-spacing: 1px;
+  color: var(--orange-dark);
+  margin-bottom: 4px;
+}
+.created__total {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 22px;
+}
+.created .btn {
+  margin-bottom: 10px;
+}
+
+@media (min-width: 640px) {
+  .order-bar {
+    position: sticky;
+    border-radius: var(--radius);
+    margin-top: 16px;
+  }
+  .ordernew {
+    padding-bottom: 0;
+  }
+}

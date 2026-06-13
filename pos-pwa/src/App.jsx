@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Login from './pages/Login'
+import OrderNew from './pages/OrderNew'
 import Shift from './pages/Shift'
 
 export default function App() {
@@ -14,6 +15,16 @@ export default function App() {
           <ProtectedRoute>
             <Layout>
               <Shift />
+            </Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/orders/new"
+        element={
+          <ProtectedRoute>
+            <Layout>
+              <OrderNew />
             </Layout>
           </ProtectedRoute>
         }

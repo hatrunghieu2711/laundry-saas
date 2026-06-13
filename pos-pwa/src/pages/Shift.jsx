@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
 import { useAuth } from '../context/AuthContext'
 import { ApiError, api } from '../lib/api'
@@ -41,6 +42,7 @@ function diffLevel(diff) {
 
 export default function Shift() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const isOwner = user?.role === 'owner'
 
   const [branches, setBranches] = useState([])
@@ -236,7 +238,17 @@ export default function Shift() {
             <div><dt>Tiền đầu ca</dt><dd>{formatVND(shift.opening_cash)}</dd></div>
             <div><dt>Số đơn đã thu</dt><dd>{summary ? summary.ordersCount : '…'}</dd></div>
           </dl>
-          <button className="btn btn--primary btn--xl btn--block" onClick={() => setView('close')}>
+          <button
+            className="btn btn--primary btn--xl btn--block"
+            onClick={() => navigate('/orders/new')}
+          >
+            ＋ TẠO ĐƠN
+          </button>
+          <button
+            className="btn btn--ghost btn--lg btn--block"
+            style={{ marginTop: 10 }}
+            onClick={() => setView('close')}
+          >
             ĐÓNG CA
           </button>
         </div>
