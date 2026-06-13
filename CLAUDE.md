@@ -241,6 +241,17 @@ sms_logs, notifications, inventory, machines.
 
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
+- **API serialize Decimal số tròn lớn ra notation khoa học** (vd `"5E+4"` thay
+  vì `"50000"`). Giá trị NUMERIC trong DB vẫn ĐÚNG — chỉ là cách Pydantic/JSON
+  hóa Decimal. Hệ quả:
+  - Frontend (Stage 3) PHẢI parse field tiền bằng `Number()` / `parseFloat()`
+    trước khi format VND; KHÔNG hiển thị raw string (sẽ ra "5E+4").
+  - Test backend đã phòng bằng helper `_num(x) = int(Decimal(str(x)))` nên không
+    vỡ, nhưng đây là bẫy cho client.
+  - **Cân nhắc fix gốc:** thêm Pydantic field serializer chuẩn hóa Decimal→số
+    nguyên cho mọi field tiền (amount, total_amount, opening_cash, các total_*,
+    closing_cash_*, cash_difference...) để API luôn trả số nguyên thường. Làm
+    một lần ở base schema/annotated type dùng chung.
 - **Login phone-only chưa có tenant context.** `authenticate()` duyệt mọi user
   active có cùng `phone` trên TOÀN BỘ tenant rồi khớp password. Hiện chỉ có 1
   tenant nên an toàn. TRƯỚC KHI onboard tenant thứ 2: phải thêm tenant context
