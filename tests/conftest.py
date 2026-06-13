@@ -18,8 +18,21 @@ from app.models.user import User
 # Test client chạy qua http:// — tắt cookie Secure để httpx giữ/gửi cookie.
 get_settings().cookie_secure = False
 
-# Các bảng auth động chạm tới — dọn giữa mỗi test.
-_CLEAN_TABLES = "refresh_tokens, users, tenants"
+# Các bảng test chạm tới — dọn giữa mỗi test (CASCADE lo FK).
+_CLEAN_TABLES = "shifts, refresh_tokens, users, branches, tenants"
+
+
+def auth_headers(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+async def login(client: AsyncClient, phone: str, password: str) -> str:
+    """Đăng nhập, trả access_token (raise nếu fail)."""
+    resp = await client.post(
+        "/api/v1/auth/login", json={"phone": phone, "password": password}
+    )
+    assert resp.status_code == 200, resp.text
+    return resp.json()["access_token"]
 
 
 @pytest_asyncio.fixture(autouse=True)
@@ -52,6 +65,34 @@ async def owner():
             role="owner",
             full_name="Chủ Giặt Ủi 2H",
             phone="0900000001",
+            password_hash=hash_password(password),
+            status="active",
+        )
+        db.add(user)
+        await db.commit()
+        return {
+            "user_id": user.id,
+            "tenant_id": tenant.id,
+            "phone": user.phone,
+            "password": password,
+            "role": user.role,
+        }
+
+
+@pytest_asyncio.fixture
+async def owner2():
+    """Tenant + owner THỨ HAI — để verify cách ly dữ liệu giữa các tenant."""
+    password = "owner456"
+    async with SessionFactory() as db:
+        tenant = Tenant(name="Sạch Thơm", slug="sach-thom", status="active")
+        db.add(tenant)
+        await db.flush()
+        user = User(
+            tenant_id=tenant.id,
+            branch_id=None,
+            role="owner",
+            full_name="Chủ Sạch Thơm",
+            phone="0911000001",
             password_hash=hash_password(password),
             status="active",
         )

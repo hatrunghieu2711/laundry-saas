@@ -203,9 +203,24 @@ sms_logs, notifications, inventory, machines.
 - Secrets (DB password, JWT secret) chỉ nằm trong .env — file .env trong
   .gitignore, không bao giờ commit.
 
+## NỢ KỸ THUẬT ĐÃ BIẾT
+
+- **Login phone-only chưa có tenant context.** `authenticate()` duyệt mọi user
+  active có cùng `phone` trên TOÀN BỘ tenant rồi khớp password. Hiện chỉ có 1
+  tenant nên an toàn. TRƯỚC KHI onboard tenant thứ 2: phải thêm tenant context
+  vào login (vd tenant slug / subdomain / mã tenant), nếu không hai user khác
+  tenant trùng phone + trùng password sẽ đăng nhập nhập nhằng (trả về user đầu
+  tiên khớp). Xử lý trước khi mở Stage 7.
+- **Sinh branch `code` bằng COUNT(*) trong tenant** (B1, B2...). Đếm cả branch đã
+  soft-delete để không tái sử dụng code. Có race lý thuyết khi tạo 2 branch đồng
+  thời cùng tenant (rất hiếm: chỉ owner tạo, tần suất thấp) — chấp nhận ở MVP.
+- **Tên sequence order_code là lowercase**: branch code `B1` → sequence
+  `order_code_seq_b1` (tránh phụ thuộc case-folding của Postgres). Stage 2 sinh
+  `order_code` PHẢI dùng đúng tên này.
+
 ## ROADMAP HIỆN TẠI
 
-- [ ] Stage 1: skeleton + migration baseline + auth (login/refresh/logout/me) + CRUD tenants/branches/users
+- [x] Stage 1: skeleton + migration baseline + auth (login/refresh/logout/me) + CRUD tenants/branches/users
 - [ ] Stage 2: shifts (open/close + reconciliation) + orders + payments + Telegram alert đóng ca
 - [ ] Stage 3: POS PWA (login, mở/đóng ca, tạo đơn, thu tiền, đổi trạng thái)
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)

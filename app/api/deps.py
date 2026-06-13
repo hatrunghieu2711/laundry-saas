@@ -1,9 +1,11 @@
-"""Dependencies dùng chung cho API: DB session, current user."""
+"""Dependencies dùng chung cho API: DB session, current user, phân quyền, pagination."""
 import uuid
+from collections.abc import Awaitable, Callable
+from dataclasses import dataclass
 from typing import Annotated
 
 import jwt
-from fastapi import Depends, Header
+from fastapi import Depends, Header, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -48,3 +50,38 @@ async def get_current_user(
 
 
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def require_role(*roles: str) -> Callable[[User], Awaitable[User]]:
+    """Factory dependency: chỉ cho các role được liệt kê đi qua, ngược lại 403.
+
+    Trả về current_user để endpoint dùng tiếp (tenant_id/branch_id/role).
+    """
+
+    async def _dep(current_user: CurrentUser) -> User:
+        if current_user.role not in roles:
+            raise APIError(403, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này")
+        return current_user
+
+    return _dep
+
+
+@dataclass
+class Pagination:
+    """Tham số phân trang đã được clamp (default limit=50, max=200)."""
+
+    limit: int
+    offset: int
+
+
+def pagination(
+    limit: Annotated[int, Query(description="Số bản ghi (max 200)")] = 50,
+    offset: Annotated[int, Query(description="Bỏ qua bao nhiêu bản ghi")] = 0,
+) -> Pagination:
+    """Clamp limit về [1, 200] và offset về >= 0 (không 422 để không vỡ client cũ)."""
+    safe_limit = 50 if limit <= 0 else min(limit, 200)
+    safe_offset = max(0, offset)
+    return Pagination(limit=safe_limit, offset=safe_offset)
+
+
+PageParams = Annotated[Pagination, Depends(pagination)]
