@@ -471,26 +471,23 @@ export default function OrderNew() {
             ) : (
               cart.map((x) => (
                 <div className="cart__item" key={x.id}>
-                  <div className="cart__info">
-                    <span className="cart__name">{x.name}</span>
-                    <span className="cart__line">
-                      {x.kind === 'flat'
-                        ? `${x.count} gói × ${formatVND(x.price)}`
-                        : `${x.quantity} × ${formatVND(x.unit_price)}`}{' '}
-                      = <strong>{formatVND(lineTotal(x))}</strong>
-                    </span>
-                  </div>
-                  <div className="cart__qty">
-                    <button className="qty-btn" onClick={() => bump(x.id, -1)}>
-                      −
-                    </button>
-                    <span className="qty-val">{x.kind === 'flat' ? x.count : x.quantity}</span>
-                    <button className="qty-btn" onClick={() => bump(x.id, +1)}>
-                      ＋
-                    </button>
-                    <button className="qty-btn qty-btn--del" onClick={() => removeItem(x.id)}>
+                  <div className="cart__top">
+                    <span className="cart__name" title={x.name}>{x.name}</span>
+                    <button className="cart__del" onClick={() => removeItem(x.id)} aria-label="Xóa">
                       ✕
                     </button>
+                  </div>
+                  <div className="cart__bot">
+                    <div className="cart__qty">
+                      <button className="qty-btn" onClick={() => bump(x.id, -1)}>
+                        −
+                      </button>
+                      <span className="qty-val">{x.kind === 'flat' ? x.count : x.quantity}</span>
+                      <button className="qty-btn" onClick={() => bump(x.id, +1)}>
+                        ＋
+                      </button>
+                    </div>
+                    <span className="cart__amt">{formatVND(lineTotal(x))}</span>
                   </div>
                 </div>
               ))
@@ -518,45 +515,55 @@ export default function OrderNew() {
           <div className="modal modal--confirm">
             <h3 className="modal__title">Xác nhận đơn</h3>
 
-            <label className="field">
-              <span>Số điện thoại khách (để trống = khách vãng lai)</span>
-              <input
-                className="input"
-                type="tel"
-                inputMode="numeric"
-                placeholder="VD 0905..."
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-              />
-            </label>
-            {phone.trim() && (
-              <p className={`cust-hint ${custFound ? 'cust-hint--known' : ''}`}>
-                {custFound ? `✓ Khách quen: ${custFound.full_name || '(chưa có tên)'}` : 'Khách mới — nhập tên bên dưới'}
-              </p>
-            )}
-            <label className="field">
-              <span>Tên khách</span>
-              <input
-                className="input"
-                type="text"
-                placeholder="Tên khách (tùy chọn)"
-                value={custName}
-                onChange={(e) => setCustName(e.target.value)}
-              />
-            </label>
-            <label className="field">
-              <span>Ghi chú (tùy chọn)</span>
-              <input
-                className="input"
-                type="text"
-                placeholder="VD: giặt riêng, giao tận nhà…"
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
-              />
-            </label>
+            <div className="modal__cols">
+              {/* Trái: thông tin khách */}
+              <div className="modal__col">
+                <label className="field">
+                  <span>SĐT khách (trống = khách vãng lai)</span>
+                  <input
+                    className="input"
+                    type="tel"
+                    inputMode="numeric"
+                    placeholder="VD 0905..."
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </label>
+                {phone.trim() && (
+                  <p className={`cust-hint ${custFound ? 'cust-hint--known' : ''}`}>
+                    {custFound
+                      ? `✓ Khách quen: ${custFound.full_name || '(chưa có tên)'}`
+                      : 'Khách mới — nhập tên'}
+                  </p>
+                )}
+                <label className="field">
+                  <span>Tên khách</span>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="Tên khách (tùy chọn)"
+                    value={custName}
+                    onChange={(e) => setCustName(e.target.value)}
+                  />
+                </label>
+                <label className="field">
+                  <span>Ghi chú</span>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder="VD: giặt riêng…"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                  />
+                </label>
+              </div>
 
-            <span className="field-label">Giờ hẹn giao</span>
-            <WheelTimePicker value={pickup} onChange={setPickup} />
+              {/* Phải: giờ giao */}
+              <div className="modal__col">
+                <span className="field-label">Giờ hẹn giao</span>
+                <WheelTimePicker value={pickup} onChange={setPickup} />
+              </div>
+            </div>
 
             {error && <div className="alert alert--error">{error}</div>}
 

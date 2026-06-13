@@ -14,49 +14,63 @@ import {
   startOfDayVn,
 } from '../lib/datetime'
 
-// Picker kiểu iOS: 2 cột cuộn dọc. Giờ (0-23) LOOP vô cực (vuốt qua 23 → 0 cả 2
-// chiều không kẹt); phút 4 mốc 00/15/30/45. Dùng được cảm ứng + chuột (cuộn lăn,
-// bấm thẳng vào item). Item giữa (dải cam) là đang chọn.
-const ITEM_H = 44 // khớp .wheel__item
-const REPEAT = 7 // số bản lặp cho cột loop
-const MIDDLE = 3 // bản giữa (0-indexed) — luôn giữ người dùng quanh đây
+// Picker kiểu iOS: 2 cột cuộn dọc. Giờ (0-23) LOOP vô cực, phút 4 mốc 00/15/30/45.
+// Cảm ứng (vuốt) + chuột (cuộn lăn / bấm item). Item giữa (dải cam) là đang chọn.
+//
+// Cách loop: nhân bản danh sách giờ REPEAT lần; SAU MỖI lần dừng cuộn luôn
+// "silent-recenter" về bản GIỮA (giá trị lặp y hệt nên vô hình). Nhờ vậy người
+// dùng luôn ở giữa, còn dư nhiều bản 2 phía → vuốt cả 2 chiều không bao giờ chạm
+// đầu/cuối thật, 23 → 0 và 0 → 23 mượt.
+const ITEM_H = 40 // khớp .wheel__item (CSS hiển thị 3 dòng, dòng giữa = chọn)
+const REPEAT = 9 // số bản lặp cho cột loop (đủ dư cho flick mạnh)
+const MIDDLE = 4 // bản giữa (0-indexed)
 
 function Wheel({ values, valueIndex, onChange, loop = false, ariaLabel }) {
   const ref = useRef(null)
   const settle = useRef(0)
-  const busy = useRef(false)
+  const selfScroll = useRef(false) // đánh dấu thay đổi do chính wheel này gây ra
   const n = values.length
   const rendered = loop
     ? Array.from({ length: n * REPEAT }, (_, i) => values[i % n])
     : values
 
-  // Căn item chọn vào giữa khi valueIndex đổi từ ngoài (mở modal / set default).
+  const centerOf = (renderIndex) => renderIndex * ITEM_H
+
+  // Căn item chọn vào giữa khi valueIndex đổi TỪ NGOÀI (mở modal / đổi ngày).
+  // Bỏ qua nếu thay đổi do chính wheel cuộn (đã tự recenter trong settle).
   useEffect(() => {
     const el = ref.current
-    if (!el || busy.current) return
-    const r = loop ? MIDDLE * n + valueIndex : valueIndex
-    el.scrollTop = r * ITEM_H
+    if (!el) return
+    if (selfScroll.current) {
+      selfScroll.current = false
+      return
+    }
+    el.scrollTop = centerOf(loop ? MIDDLE * n + valueIndex : valueIndex)
   }, [valueIndex, loop, n])
 
   const onScroll = () => {
     const el = ref.current
     if (!el) return
-    busy.current = true
     clearTimeout(settle.current)
     settle.current = setTimeout(() => {
       let r = Math.round(el.scrollTop / ITEM_H)
       r = Math.max(0, Math.min(rendered.length - 1, r))
       const vi = ((r % n) + n) % n
-      // Loop: nếu cuộn tới gần biên (bản đầu/cuối), nhảy thầm về bản giữa
-      // (giá trị lặp y hệt nên người dùng không thấy) → cuộn vô tận 2 chiều.
-      if (loop && (r < n || r >= n * (REPEAT - 1))) {
-        el.scrollTop = (MIDDLE * n + vi) * ITEM_H
+      if (loop) {
+        // Luôn kéo về bản giữa (vô hình) → còn dư 2 phía cho lần vuốt sau.
+        el.scrollTop = centerOf(MIDDLE * n + vi)
       } else {
-        el.scrollTop = r * ITEM_H // snap chính xác về mốc
+        el.scrollTop = centerOf(r) // snap đúng mốc
       }
-      busy.current = false
-      if (vi !== valueIndex) onChange(vi)
-    }, 110)
+      if (vi !== valueIndex) {
+        selfScroll.current = true
+        onChange(vi)
+      }
+    }, 80)
+  }
+
+  const handleClick = (renderIndex) => {
+    onChange(((renderIndex % n) + n) % n)
   }
 
   return (
@@ -68,7 +82,7 @@ function Wheel({ values, valueIndex, onChange, loop = false, ariaLabel }) {
             type="button"
             key={i}
             className={`wheel__item ${i % n === valueIndex ? 'wheel__item--sel' : ''}`}
-            onClick={() => onChange(i % n)}
+            onClick={() => handleClick(i)}
           >
             {v}
           </button>
@@ -88,7 +102,6 @@ export default function WheelTimePicker({ value, onChange }) {
   const hour = getVnHour(value)
   const minIndex = nearestQuarterIndex(getVnMinute(value))
 
-  // Hôm nay theo giờ VN (không lệ thuộc cài đặt máy).
   const vnNowDay = startOfDayVn(new Date(Date.now() + 7 * 60 * 60 * 1000))
   const isToday = isSameDayVn(day, vnNowDay)
   const isTomorrow = isSameDayVn(day, addDaysVn(vnNowDay, 1))
@@ -105,19 +118,19 @@ export default function WheelTimePicker({ value, onChange }) {
       <div className="pickup__dates">
         <button
           type="button"
-          className={`chip ${isToday ? 'chip--active' : ''}`}
+          className={`chip chip--sm ${isToday ? 'chip--active' : ''}`}
           onClick={() => setDay(vnNowDay)}
         >
           Hôm nay
         </button>
         <button
           type="button"
-          className={`chip ${isTomorrow ? 'chip--active' : ''}`}
+          className={`chip chip--sm ${isTomorrow ? 'chip--active' : ''}`}
           onClick={() => setDay(addDaysVn(vnNowDay, 1))}
         >
           Ngày mai
         </button>
-        {isFar && <span className="chip chip--active">Ngày khác</span>}
+        {isFar && <span className="chip chip--sm chip--active">Ngày khác</span>}
       </div>
 
       <input
@@ -136,10 +149,10 @@ export default function WheelTimePicker({ value, onChange }) {
 
       <div className={`pickup__confirm ${past ? 'pickup__confirm--bad' : ''}`}>
         {past ? (
-          '⚠️ Không thể hẹn giờ giao trong quá khứ.'
+          '⚠️ Giờ giao không được ở quá khứ.'
         ) : (
           <>
-            Giờ giao: <strong>{formatPickupLong(value)}</strong>
+            Giao lúc: <strong>{formatPickupLong(value)}</strong>
           </>
         )}
       </div>
