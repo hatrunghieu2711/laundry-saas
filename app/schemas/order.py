@@ -7,7 +7,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 OrderStatus = Literal[
     "created", "washing", "drying", "ready", "delivered", "completed", "cancelled"
@@ -15,15 +15,30 @@ OrderStatus = Literal[
 
 
 class OrderItemIn(BaseModel):
-    service_name: str = Field(min_length=1, max_length=255)
+    """Một dòng đơn. Hai cách nhập:
+    - Tham chiếu bảng giá: gửi `service_id` + `quantity` (server tự tính giá/tên).
+    - Nhập tay: gửi `service_name` + `unit_price` + `quantity` (không gắn service).
+    """
+
     quantity: Decimal = Field(gt=0)
-    unit_price: Decimal = Field(ge=0)
+    service_id: uuid.UUID | None = None
+    service_name: str | None = Field(default=None, min_length=1, max_length=255)
+    unit_price: Decimal | None = Field(default=None, ge=0)
+
+    @model_validator(mode="after")
+    def _check_source(self) -> "OrderItemIn":
+        if self.service_id is None and (self.service_name is None or self.unit_price is None):
+            raise ValueError(
+                "Phải có service_id, hoặc cả service_name và unit_price (nhập tay)"
+            )
+        return self
 
 
 class OrderItemOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    service_id: uuid.UUID | None
     service_name: str
     quantity: Decimal
     unit_price: Decimal

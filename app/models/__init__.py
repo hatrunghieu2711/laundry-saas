@@ -7,6 +7,7 @@ from app.models.delivery import Delivery  # noqa: F401
 from app.models.order import Order, OrderItem  # noqa: F401
 from app.models.payment import Payment  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
+from app.models.service import Service, ServiceTier  # noqa: F401
 from app.models.shift import Shift  # noqa: F401
 from app.models.tenant import Tenant  # noqa: F401
 from app.models.tenant_settings import TenantSettings  # noqa: F401
@@ -23,6 +24,8 @@ __all__ = [
     "Payment",
     "Plan",
     "RefreshToken",
+    "Service",
+    "ServiceTier",
     "Shift",
     "Subscription",
     "Tenant",

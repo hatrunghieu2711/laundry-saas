@@ -26,7 +26,8 @@ from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.user import User
 from app.schemas.order import OrderCreate, OrderItemIn, OrderUpdate
-from app.services import branch_service
+from app.services import branch_service, service_service
+from app.services.pricing import price_line
 from app.services.scope import resolve_write_branch
 
 # State machine: bước tiến hợp lệ kế tiếp của mỗi trạng thái.
@@ -55,6 +56,29 @@ def _sequence_name(branch_code: str) -> str:
 def _subtotal(quantity: Decimal, unit_price: Decimal) -> Decimal:
     """VND không số lẻ -> quantize về số nguyên (round half up)."""
     return (quantity * unit_price).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+
+
+async def _build_item(
+    db: AsyncSession, tenant_id: uuid.UUID, item: OrderItemIn
+) -> OrderItem:
+    """Dựng OrderItem (snapshot giá). service_id -> lấy giá từ bảng giá; ngược lại
+    dùng giá nhập tay. service_name/unit_price/subtotal là SNAPSHOT bất biến."""
+    if item.service_id is not None:
+        service = await service_service.get_active_service(db, tenant_id, item.service_id)
+        name, unit_price, subtotal = price_line(service, item.quantity)
+        return OrderItem(
+            service_id=service.id,
+            service_name=name,
+            quantity=item.quantity,
+            unit_price=unit_price,
+            subtotal=subtotal,
+        )
+    return OrderItem(
+        service_name=item.service_name,
+        quantity=item.quantity,
+        unit_price=item.unit_price,
+        subtotal=_subtotal(item.quantity, item.unit_price),
+    )
 
 
 def _total(order: Order) -> Decimal:
@@ -159,14 +183,7 @@ async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Orde
         payment_status="unpaid",
     )
     for it in data.items:
-        order.items.append(
-            OrderItem(
-                service_name=it.service_name,
-                quantity=it.quantity,
-                unit_price=it.unit_price,
-                subtotal=_subtotal(it.quantity, it.unit_price),
-            )
-        )
+        order.items.append(await _build_item(db, actor.tenant_id, it))
     order.total_amount = _total(order)
     db.add(order)
     await db.flush()  # cần order.id cho tracking log
@@ -223,14 +240,7 @@ async def add_item(
 ) -> Order:
     order = await _get_order(db, actor, order_id)
     await _assert_items_editable(db, order)
-    order.items.append(
-        OrderItem(
-            service_name=item.service_name,
-            quantity=item.quantity,
-            unit_price=item.unit_price,
-            subtotal=_subtotal(item.quantity, item.unit_price),
-        )
-    )
+    order.items.append(await _build_item(db, actor.tenant_id, item))
     order.total_amount = _total(order)
     await db.commit()
     return await _get_order(db, actor, order_id)
@@ -248,10 +258,12 @@ async def update_item(
     target = next((i for i in order.items if i.id == item_id), None)
     if target is None:
         raise APIError(404, "ORDER_ITEM_NOT_FOUND", "Không tìm thấy hạng mục")
-    target.service_name = item.service_name
-    target.quantity = item.quantity
-    target.unit_price = item.unit_price
-    target.subtotal = _subtotal(item.quantity, item.unit_price)
+    built = await _build_item(db, actor.tenant_id, item)
+    target.service_id = built.service_id
+    target.service_name = built.service_name
+    target.quantity = built.quantity
+    target.unit_price = built.unit_price
+    target.subtotal = built.subtotal
     order.total_amount = _total(order)
     await db.commit()
     return await _get_order(db, actor, order_id)

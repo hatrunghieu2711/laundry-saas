@@ -85,6 +85,11 @@ class OrderItem(TimestampMixin, Base):
     order_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("orders.id"), nullable=False
     )
+    # Truy nguồn dòng giá về bảng services (nullable: dòng nhập tay không gắn service).
+    # service_name/unit_price/subtotal là SNAPSHOT lúc tạo đơn — không đổi khi sửa bảng giá.
+    service_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("services.id"), nullable=True
+    )
     service_name: Mapped[str] = mapped_column(String(255), nullable=False)
     quantity: Mapped[Decimal] = mapped_column(Numeric(8, 2), nullable=False)
     unit_price: Mapped[Decimal] = mapped_column(Money, nullable=False)

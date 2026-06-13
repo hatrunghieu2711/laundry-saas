@@ -133,9 +133,26 @@ mọi bảng có created_at; bảng mutable có updated_at.
 - Index: (tenant_id, branch_id, created_at), (tenant_id, order_status), (customer_id)
 
 ### order_items
-- id UUID PK, order_id FK, service_name, quantity NUMERIC(8,2), unit_price NUMERIC(14,0),
-  subtotal NUMERIC(14,0), created_at
+- id UUID PK, order_id FK, service_id FK nullable (→ services), service_name,
+  quantity NUMERIC(8,2), unit_price NUMERIC(14,0), subtotal NUMERIC(14,0), created_at
+- `service_id` để truy nguồn dòng giá; `service_name`/`unit_price`/`subtotal` là
+  SNAPSHOT lúc tạo đơn — sửa bảng giá sau KHÔNG đổi giá đơn cũ.
 - Index: (order_id)
+
+### services (Stage 3.5A, migration 8824c0db78cf) — bảng giá động
+- id UUID PK, tenant_id FK, name, unit (kg|cai|con|bo|luot), unit_price NUMERIC(14,0),
+  pricing_type (per_unit|tier), display_order INT, is_active bool, created_at, updated_at
+- per_unit: subtotal = quantity × unit_price (vd Áo Vest 60k/cái).
+- tier: bậc cân qua bảng `service_tiers` (giặt sấy 60/90/120k...).
+- Soft delete qua is_active. Tenant-scoped. Index: (tenant_id, is_active, display_order)
+
+### service_tiers (Stage 3.5A) — bậc giá của service tier
+- id UUID PK, service_id FK, label (vd "≤3kg"), max_value NUMERIC(8,2) nullable,
+  price NUMERIC(14,0), per_unit bool, display_order INT, created_at
+- max_value = ngưỡng trên (bao gồm) của bậc; NULL = bậc overflow (vượt ngưỡng).
+- per_unit=false: giá TRỌN GÓI (subtotal = price, KHÔNG nhân). per_unit=true:
+  subtotal = price × quantity (vd bậc >7kg = 18k/kg).
+- Index: (service_id)
 
 ### payments  ← IMMUTABLE
 - id UUID PK, tenant_id, branch_id, order_id FK, shift_id FK NOT NULL,
@@ -239,6 +256,18 @@ sms_logs, notifications, inventory, machines.
     ('refund','cancel_paid')`, đừng kỳ vọng đọc được từ status. Xem thứ tự ưu
     tiên status ở QUY TẮC TÀI CHÍNH #7.
 
+- **Bảng giá động: model tier 2 bảng (chốt Stage 3.5A).** `services` +
+  `service_tiers`, KHÔNG nhồi bậc giá vào JSON một cột. pricing_type `per_unit`
+  (nhân theo lượng) vs `tier` (bậc cân). Bậc match = bậc đầu tiên (sort max_value
+  tăng dần) có `quantity ≤ max_value`; không bậc nào khớp → dùng bậc overflow
+  (`max_value=NULL`). `per_unit` trên TỪNG bậc phân biệt giá trọn gói vs tính
+  theo đơn vị, nên ">7kg=18k/kg" chỉ là một bậc overflow `per_unit=true` —
+  không cần cột đặc biệt.
+  - **Cách áp dụng:** dòng đơn gửi `service_id` + `quantity` thì server tự tra
+    giá + snapshot (`app/services/pricing.py::price_line`); KHÔNG có service_id
+    thì BẮT BUỘC `service_name` + `unit_price` (nhập tay, giữ tương thích cũ).
+    snapshot tên bậc tier vào `service_name` dạng "Giặt sấy (≤3kg)".
+
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
 - **API serialize Decimal số tròn lớn ra notation khoa học** (vd `"5E+4"` thay
@@ -270,6 +299,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 1: skeleton + migration baseline + auth (login/refresh/logout/me) + CRUD tenants/branches/users
 - [x] Stage 2: shifts (open/close + reconciliation) + orders + payments + Telegram alert đóng ca
 - [x] Stage 3: POS PWA (login, mở/đóng ca, tạo đơn, thu tiền, đổi trạng thái)
+- [x] Stage 3.5A: bảng giá dịch vụ động (services + service_tiers) + CRUD + snapshot giá vào order_items
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)
