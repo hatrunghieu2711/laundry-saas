@@ -9,6 +9,7 @@ from app.models.payment import Payment  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.shift import Shift  # noqa: F401
 from app.models.tenant import Tenant  # noqa: F401
+from app.models.tenant_settings import TenantSettings  # noqa: F401
 from app.models.user import User  # noqa: F401
 
 __all__ = [
@@ -25,5 +26,6 @@ __all__ = [
     "Shift",
     "Subscription",
     "Tenant",
+    "TenantSettings",
     "User",
 ]

@@ -166,6 +166,14 @@ mọi bảng có created_at; bảng mutable có updated_at.
   old_data_json JSONB, new_data_json JSONB, created_at
 - Index: (tenant_id, created_at), (user_id)
 
+### tenant_settings  (thêm ở Stage 2d, migration 50ac9ec03c5e)
+- tenant_id UUID PK + FK tenants (one-to-one), telegram_bot_token,
+  telegram_owner_chat_id, cash_diff_threshold NUMERIC(14,0) default 50000,
+  created_at, updated_at.
+- Cấu hình per-tenant; chứa secret (bot token) nên tách khỏi bảng `tenants`.
+- Đóng ca xong gửi Telegram cho owner (httpx async, SAU commit); lỗi gửi KHÔNG
+  làm fail đóng ca. |cash_difference| > cash_diff_threshold → thêm ⚠️ LỆCH KÉT.
+
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
 
@@ -249,7 +257,7 @@ sms_logs, notifications, inventory, machines.
 ## ROADMAP HIỆN TẠI
 
 - [x] Stage 1: skeleton + migration baseline + auth (login/refresh/logout/me) + CRUD tenants/branches/users
-- [ ] Stage 2: shifts (open/close + reconciliation) + orders + payments + Telegram alert đóng ca
+- [x] Stage 2: shifts (open/close + reconciliation) + orders + payments + Telegram alert đóng ca
 - [ ] Stage 3: POS PWA (login, mở/đóng ca, tạo đơn, thu tiền, đổi trạng thái)
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai

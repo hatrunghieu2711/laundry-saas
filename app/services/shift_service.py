@@ -25,7 +25,7 @@ from app.core.errors import APIError
 from app.models.payment import Payment
 from app.models.shift import Shift
 from app.models.user import User
-from app.services import branch_service
+from app.services import branch_service, telegram_service
 
 _ZERO = Decimal(0)
 
@@ -141,6 +141,9 @@ async def close_shift(
 
     await db.commit()
     await db.refresh(shift)
+
+    # Thông báo Telegram SAU commit; lỗi gửi không làm fail đóng ca.
+    await telegram_service.notify_shift_closed(db, shift)
     return shift
 
 

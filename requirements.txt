@@ -10,6 +10,9 @@ alembic==1.14.0
 # Cache / rate limit
 redis==5.2.1
 
+# HTTP client (Telegram API; cũng dùng làm test client)
+httpx==0.28.1
+
 # Config / validation (Pydantic v2)
 pydantic==2.10.4
 pydantic-settings==2.7.1
@@ -23,4 +26,3 @@ bcrypt==4.0.1
 # Test
 pytest==8.3.4
 pytest-asyncio==0.25.0
-httpx==0.28.1
