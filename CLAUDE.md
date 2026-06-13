@@ -216,6 +216,21 @@ sms_logs, notifications, inventory, machines.
 - Seed dữ liệu dev (idempotent):
   `docker compose exec app sh -c "cd /code && python -m scripts.seed"`
 
+## QUYẾT ĐỊNH NGHIỆP VỤ ĐÃ CHỐT
+
+- **`payment_status` gộp hai loại "partial" làm một (chốt Stage 2c).** Cả
+  "partial vì chưa thu đủ" và "partial vì đã hoàn một phần" đều trả về cùng
+  `'partial'` — KHÔNG tách status riêng cho trường hợp có refund. Đã cân nhắc
+  và chấp nhận gộp.
+  - **Lý do:** sự phân biệt nằm ở payment history (đơn có dòng `refund` hay
+    không), status không cần gánh thêm; refund hiếm trong nghiệp vụ Giặt Ủi 2H;
+    báo cáo refund làm bằng report query lọc `transaction_type` + `reason`,
+    không dựa vào `payment_status`.
+  - **Cách áp dụng:** không thêm enum mới cho `payment_status`; muốn biết đơn
+    có hoàn tiền hay không thì query `payments` theo `transaction_type IN
+    ('refund','cancel_paid')`, đừng kỳ vọng đọc được từ status. Xem thứ tự ưu
+    tiên status ở QUY TẮC TÀI CHÍNH #7.
+
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
 - **Login phone-only chưa có tenant context.** `authenticate()` duyệt mọi user
