@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { QRCodeSVG } from 'qrcode.react'
 import { api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
+import { formatPickupShort } from '../lib/datetime'
 
 // Phiếu in khổ giấy nhiệt 80mm (in được cả giấy thường A5/A6).
 // Render qua portal ra <body> để khi @media print chỉ còn phiếu (ẩn .app-shell).
@@ -56,6 +57,10 @@ export default function Receipt({ order, paid = 0 }) {
 
         <div className="rcp__code-label">Mã đơn</div>
         <div className="rcp__code">{order.order_code}</div>
+
+        {order.pickup_at && (
+          <div className="rcp__pickup">Hẹn lấy: {formatPickupShort(order.pickup_at)}</div>
+        )}
 
         <div className="rcp__qr">
           <QRCodeSVG value={trackUrl} size={132} level="M" />

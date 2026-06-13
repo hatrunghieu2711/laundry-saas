@@ -1092,6 +1092,12 @@ body {
     letter-spacing: 1px;
     margin-bottom: 4px;
   }
+  .rcp__pickup {
+    text-align: center;
+    font-size: 13px;
+    font-weight: 800;
+    margin-bottom: 4px;
+  }
   .rcp__qr {
     text-align: center;
     margin: 4px 0 2px;
@@ -1280,4 +1286,334 @@ body {
   display: flex;
   gap: 8px;
   flex: none;
+}
+
+/* ══ Stage 3.7B ══════════════════════════════════════════════════════ */
+
+/* ── Wheel time picker (giờ hẹn giao) ─────────────────────────────── */
+.pickup-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.pickup__dates {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pickup__cal {
+  margin-top: 2px;
+}
+.pickup__wheels {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  user-select: none;
+}
+/* Dải highlight ô đang chọn (dòng giữa) */
+.pickup__wheels::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  top: 88px; /* PAD_ITEMS(2) × 44px */
+  height: 44px;
+  background: var(--orange-soft);
+  border: 1px solid #fcd9bd;
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 0;
+}
+.pickup__colon {
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--ink);
+  z-index: 1;
+}
+.wheel {
+  position: relative;
+  z-index: 1;
+}
+.wheel__scroll {
+  height: 220px; /* (PAD_ITEMS×2 + 1) × 44 */
+  width: 88px;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* fade trên/dưới để giống wheel iOS */
+  -webkit-mask-image: linear-gradient(
+    180deg,
+    transparent 0,
+    #000 30%,
+    #000 70%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(180deg, transparent 0, #000 30%, #000 70%, transparent 100%);
+}
+.wheel__scroll::-webkit-scrollbar {
+  display: none;
+}
+.wheel__pad {
+  height: 88px;
+  flex: none;
+}
+.wheel__item {
+  height: 44px;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  scroll-snap-align: center;
+  background: none;
+  border: none;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0;
+}
+.wheel__item--sel {
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 26px;
+}
+.pickup__confirm {
+  text-align: center;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--bg);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+}
+.pickup__confirm--bad {
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* ── Bảng đơn (Kanban) ────────────────────────────────────────────── */
+.board {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.board__bar {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: 10px;
+}
+.board__bar::-webkit-scrollbar {
+  display: none;
+}
+.board__stat {
+  flex: 1 0 auto;
+  min-width: 72px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 8px 12px;
+  text-align: center;
+}
+.board__stat-num {
+  display: block;
+  font-size: 22px;
+  font-weight: 900;
+  line-height: 1.1;
+}
+.board__stat-lbl {
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 600;
+}
+.board__stat--unpaid .board__stat-num {
+  color: var(--danger);
+}
+.board__stat--paid .board__stat-num {
+  color: #15803d;
+}
+.board__stat--debt .board__stat-num {
+  color: var(--orange-dark);
+}
+.board__stat--overdue {
+  background: var(--danger-soft);
+  border-color: #fecaca;
+}
+.board__stat--overdue .board__stat-num {
+  color: var(--danger);
+}
+.board__toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.board__updated {
+  font-size: 13px;
+  color: var(--muted);
+}
+.board__cols {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  padding-bottom: 12px;
+  -webkit-overflow-scrolling: touch;
+}
+/* Điện thoại: cột rộng ~80% màn → thấy cột kế bên, cuộn ngang giữa cột. */
+.board__col {
+  flex: 0 0 80%;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  min-height: 120px;
+}
+.board__col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  font-weight: 800;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+}
+.board__col-count {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  min-width: 26px;
+  text-align: center;
+  padding: 1px 8px;
+  font-size: 14px;
+}
+.board__col-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+}
+.board__empty {
+  text-align: center;
+  color: var(--muted);
+  margin: 6px 0;
+}
+.board__card {
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 5px solid var(--muted);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.bl--unpaid { border-left-color: #dc2626; }
+.bl--partial { border-left-color: #f59e0b; }
+.bl--paid { border-left-color: #16a34a; }
+.bl--debt { border-left-color: #f97316; }
+.bl--refunded { border-left-color: #9ca3af; }
+.board__card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.board__card-code {
+  font-weight: 800;
+  font-size: 15px;
+}
+.board__overdue {
+  background: var(--danger);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  letter-spacing: 0.5px;
+}
+.board__card-cust {
+  font-size: 14px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.board__card-bot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.board__card-total {
+  font-weight: 800;
+}
+.board__card-pickup {
+  font-size: 13px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.board__card-pickup.is-overdue {
+  color: var(--danger);
+  font-weight: 700;
+}
+/* Desktop/POS: 5 cột đầy đủ cạnh nhau, không cuộn ngang. */
+@media (min-width: 1024px) {
+  .board__cols {
+    overflow-x: visible;
+  }
+  .board__col {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+
+/* ── Modal bắt buộc (giao + thanh toán) ───────────────────────────── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  z-index: 50;
+  padding: 16px;
+}
+.modal {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  width: 100%;
+  max-width: 440px;
+  padding: 20px;
+  margin-bottom: env(safe-area-inset-bottom, 0);
+}
+.modal__title {
+  margin: 0 0 8px;
+  font-size: 19px;
+}
+.modal__text {
+  color: var(--ink);
+  margin: 0 0 14px;
+}
+.modal__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .modal-overlay {
+    align-items: center;
+  }
 }

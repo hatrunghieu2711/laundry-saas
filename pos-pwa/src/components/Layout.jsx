@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext'
 
 const NAV = [
   { to: '/', label: 'Ca', end: true },
+  { to: '/board', label: 'Bảng đơn', end: false },
   { to: '/orders', label: 'Đơn', end: false },
   { to: '/orders/new', label: '＋ Tạo đơn', end: false },
   { to: '/services', label: 'Bảng giá', end: false, roles: ['owner', 'manager'] },

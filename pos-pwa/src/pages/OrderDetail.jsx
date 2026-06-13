@@ -4,6 +4,7 @@ import MoneyInput from '../components/MoneyInput'
 import Receipt from '../components/Receipt'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
+import { formatPickupShort } from '../lib/datetime'
 import {
   CANCELLABLE,
   NEXT_STATUS,
@@ -21,6 +22,8 @@ export default function OrderDetail() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
+  // Giao đơn còn nợ → popup bắt buộc xử lý (thu tiền / ghi nợ), không bỏ qua được.
+  const [deliverModal, setDeliverModal] = useState(false)
 
   // refund: idle -> form -> confirm
   const [refundStep, setRefundStep] = useState('idle')
@@ -58,10 +61,36 @@ export default function OrderDetail() {
     setBusy(true)
     setError('')
     try {
-      await api.patch(`/orders/${id}/status`, { order_status: nextStatus })
+      // Backend trả requires_payment=true khi giao đơn còn unpaid/partial.
+      const updated = await api.patch(`/orders/${id}/status`, { order_status: nextStatus })
       await load()
+      if (updated?.requires_payment) setDeliverModal(true)
     } catch (err) {
       setError(err?.message || 'Không đổi được trạng thái')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  // Ghi nợ có chủ đích cho đơn vừa giao (payment debt = 0 trong dòng tiền).
+  const recordDebt = async () => {
+    setBusy(true)
+    setError('')
+    try {
+      await api.post('/payments', {
+        order_id: id,
+        amount: 0,
+        payment_method: 'cash',
+        transaction_type: 'debt',
+      })
+      setDeliverModal(false)
+      await load()
+    } catch (err) {
+      if (err instanceof ApiError && err.code === 'NO_OPEN_SHIFT') {
+        setError('Cần mở ca trước khi ghi nợ.')
+      } else {
+        setError(err?.message || 'Không ghi nợ được')
+      }
     } finally {
       setBusy(false)
     }
@@ -128,6 +157,9 @@ export default function OrderDetail() {
           <div><dt>Đã thu</dt><dd>{formatVND(paidSum)}</dd></div>
           {remaining > 0 && (
             <div><dt>Còn lại</dt><dd>{formatVND(remaining)}</dd></div>
+          )}
+          {order.pickup_at && (
+            <div><dt>Hẹn lấy</dt><dd>{formatPickupShort(order.pickup_at)}</dd></div>
           )}
           <div><dt>Khách</dt><dd>{order.customer_name || 'Khách lẻ'}</dd></div>
           <div><dt>Tạo lúc</dt><dd>{formatDateTime(order.created_at)} · {order.created_by_name}</dd></div>
@@ -281,6 +313,35 @@ export default function OrderDetail() {
               )}
             </>
           )}
+        </div>
+      )}
+
+      {/* Popup giao + thanh toán: bắt buộc xử lý, KHÔNG đóng bỏ qua được. */}
+      {deliverModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true">
+          <div className="modal">
+            <h3 className="modal__title">⚠️ Đơn chưa thanh toán</h3>
+            <p className="modal__text">
+              Đơn đã giao nhưng <strong>chưa thu đủ tiền</strong> ({formatVND(remaining)} còn
+              lại). Phải xử lý trước khi tiếp tục:
+            </p>
+            {error && <div className="alert alert--error">{error}</div>}
+            <div className="modal__actions">
+              <button
+                className="btn btn--primary btn--xl btn--block"
+                onClick={() => navigate(`/orders/${id}/pay`)}
+              >
+                💵 Thu tiền
+              </button>
+              <button
+                className="btn btn--ghost btn--lg btn--block"
+                onClick={recordDebt}
+                disabled={busy}
+              >
+                📝 Ghi nợ (khách trả sau)
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

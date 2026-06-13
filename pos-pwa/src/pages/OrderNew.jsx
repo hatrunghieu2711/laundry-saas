@@ -2,8 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Receipt from '../components/Receipt'
+import WheelTimePicker from '../components/WheelTimePicker'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
+import { defaultPickup } from '../lib/datetime'
 import { UNIT_LABEL, normalizeService } from '../lib/services'
 
 // Bảng giá nạp ĐỘNG từ GET /services (kèm tiers). Không còn hardcode mức cân.
@@ -25,6 +27,7 @@ export default function OrderNew() {
   const [phone, setPhone] = useState('')
   const [custName, setCustName] = useState('')
   const [note, setNote] = useState('')
+  const [pickup, setPickup] = useState(() => defaultPickup()) // giờ hẹn giao (Date)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState(null)
@@ -184,6 +187,10 @@ export default function OrderNew() {
 
   const submit = async () => {
     if (cart.length === 0) return
+    if (pickup.getTime() <= Date.now()) {
+      setError('Không thể hẹn giờ giao trong quá khứ. Chọn lại giờ giao.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
@@ -197,7 +204,7 @@ export default function OrderNew() {
           customerId = c.id
         }
       }
-      const body = { items: buildItems() }
+      const body = { items: buildItems(), pickup_at: pickup.toISOString() }
       if (customerId) body.customer_id = customerId
       if (note.trim()) body.notes = note.trim()
       if (isOwner) body.branch_id = branchId
@@ -206,6 +213,8 @@ export default function OrderNew() {
     } catch (err) {
       if (err instanceof ApiError && err.code === 'NO_OPEN_SHIFT') {
         setError('Chi nhánh chưa có ca mở.')
+      } else if (err instanceof ApiError && err.code === 'PICKUP_AT_IN_PAST') {
+        setError('Không thể hẹn giờ giao trong quá khứ. Chọn lại giờ giao.')
       } else {
         setError(err?.message || 'Không tạo được đơn, thử lại.')
       }
@@ -223,6 +232,7 @@ export default function OrderNew() {
     setOverflowKg({})
     setSearch('')
     setError('')
+    setPickup(defaultPickup())
   }
 
   // ── màn kết quả tạo đơn ──
@@ -420,6 +430,11 @@ export default function OrderNew() {
         </div>
 
         <aside className="ordernew__side">
+          <div className="card pickup-card">
+            <span className="field-label">Giờ hẹn giao</span>
+            <WheelTimePicker value={pickup} onChange={setPickup} />
+          </div>
+
           <details className="customer">
             <summary>Khách hàng &amp; ghi chú (tùy chọn)</summary>
             <div className="customer__fields">
