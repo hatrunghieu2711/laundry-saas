@@ -202,6 +202,8 @@ sms_logs, notifications, inventory, machines.
   trước khi thử lại, không đoán.
 - Secrets (DB password, JWT secret) chỉ nằm trong .env — file .env trong
   .gitignore, không bao giờ commit.
+- Seed dữ liệu dev (idempotent):
+  `docker compose exec app sh -c "cd /code && python -m scripts.seed"`
 
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
