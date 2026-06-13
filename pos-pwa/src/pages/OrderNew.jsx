@@ -351,15 +351,9 @@ export default function OrderNew() {
 
           {payWarn && <div className="alert alert--error">{payWarn}</div>}
 
-          {!fullyPaid && (
-            <button
-              className="btn btn--primary btn--xl btn--block"
-              onClick={() => navigate(`/orders/${created.id}/pay`)}
-            >
-              💵 Thu tiền {paidInfo.amount > 0 ? `(còn ${formatVND(orderTotal - paidInfo.amount)})` : 'ngay'}
-            </button>
-          )}
-          <button className="btn btn--ghost btn--lg btn--block" onClick={() => window.print()}>
+          {/* Thanh toán đã quyết ở modal — màn này KHÔNG hỏi thu tiền lại.
+              Đơn chưa thu vẫn thu được ở /orders/:id hoặc lúc giao hàng. */}
+          <button className="btn btn--primary btn--xl btn--block" onClick={() => window.print()}>
             🖨️ IN PHIẾU
           </button>
           <button className="btn btn--ghost btn--lg btn--block" onClick={startNew}>
