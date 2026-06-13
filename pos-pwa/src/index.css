@@ -489,7 +489,69 @@ body {
 .ordernew {
   max-width: 560px;
   margin: 0 auto;
-  padding-bottom: 96px; /* chừa chỗ cho thanh tổng dính đáy */
+  /* Chừa chỗ cho thanh tổng FIXED ở đáy (fix bug bar đè khối khách hàng). */
+  padding-bottom: 168px;
+}
+.ordernew__search {
+  width: 100%;
+  margin-bottom: 12px;
+}
+.svc-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 16px 0;
+}
+.svc-empty p {
+  margin: 0 0 12px;
+}
+
+/* Nhóm dịch vụ tier (giặt sấy): tên + lưới bậc */
+.svc-tier {
+  margin-bottom: 14px;
+}
+.svc-tier__name {
+  font-size: 16px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+/* Lưới dịch vụ per_unit (đồ lẻ) */
+.svc-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 12px;
+}
+.svc-card {
+  min-height: 84px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 2px;
+  padding: 10px 12px;
+  text-align: left;
+  cursor: pointer;
+}
+.svc-card:active {
+  background: var(--orange-soft);
+}
+.svc-card__name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--ink);
+}
+.svc-card__unit {
+  font-size: 13px;
+  color: var(--muted);
+}
+.svc-card__price {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--orange-dark);
 }
 
 .pricing-grid {
@@ -678,14 +740,40 @@ body {
   margin-bottom: 10px;
 }
 
-@media (min-width: 640px) {
-  .order-bar {
-    position: sticky;
-    border-radius: var(--radius);
-    margin-top: 16px;
+/* ── Tạo đơn: layout 2 cột responsive (≥1024px = POS/desktop) ───────── */
+@media (min-width: 1024px) {
+  .app-main {
+    max-width: 1200px;
   }
   .ordernew {
+    max-width: 100%;
     padding-bottom: 0;
+  }
+  .ordernew__grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 380px;
+    gap: 20px;
+    align-items: start;
+  }
+  .ordernew__side {
+    position: sticky;
+    top: 112px; /* dưới header + tab nav */
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .ordernew__side .customer {
+    margin-top: 0;
+  }
+  /* Màn rộng: thanh tổng KHÔNG fixed nữa, nằm trong cột phải */
+  .order-bar {
+    position: static;
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+  .svc-grid {
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
   }
 }
 
@@ -941,4 +1029,149 @@ body {
   .method-grid {
     grid-template-columns: repeat(4, 1fr);
   }
+}
+
+/* ── Quản lý bảng giá ─────────────────────────────────────────────── */
+.services {
+  max-width: 720px;
+  margin: 0 auto;
+}
+.services__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.services__title {
+  margin: 0;
+  font-size: 22px;
+}
+.services__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 600;
+  margin: 4px 0 12px;
+  cursor: pointer;
+}
+.services__toggle input {
+  width: 20px;
+  height: 20px;
+}
+
+.svc-form {
+  margin-bottom: 18px;
+}
+.svc-form__hint {
+  font-size: 14px;
+  color: var(--muted);
+  margin: 0 0 10px;
+}
+
+/* Segmented control loại tính tiền */
+.seg {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.seg__btn {
+  min-height: var(--tap);
+  border: 1.5px solid var(--line);
+  background: #fff;
+  border-radius: var(--radius);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  padding: 6px 10px;
+}
+.seg__btn--active {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+}
+
+/* Editor bậc giá */
+.tier-edit__head,
+.tier-edit {
+  display: grid;
+  grid-template-columns: 1.4fr 0.9fr 1.1fr 44px 44px;
+  gap: 8px;
+  align-items: center;
+}
+.tier-edit__head {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+.tier-edit {
+  margin-bottom: 8px;
+}
+.tier-edit .input {
+  font-size: 16px;
+  padding: 0 10px;
+}
+.tier-edit__chk {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tier-edit__chk input {
+  width: 24px;
+  height: 24px;
+}
+
+/* Danh sách dịch vụ */
+.svc-manage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.svc-manage {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+}
+.svc-manage--off {
+  opacity: 0.6;
+}
+.svc-manage__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.svc-manage__name {
+  font-weight: 800;
+  font-size: 17px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.svc-manage__badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted);
+  background: #eef0f2;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.svc-manage__meta {
+  font-size: 14px;
+  color: var(--muted);
+}
+.svc-manage__actions {
+  display: flex;
+  gap: 8px;
+  flex: none;
 }

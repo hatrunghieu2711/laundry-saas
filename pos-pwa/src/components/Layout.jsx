@@ -5,12 +5,14 @@ const NAV = [
   { to: '/', label: 'Ca', end: true },
   { to: '/orders', label: 'Đơn', end: false },
   { to: '/orders/new', label: '＋ Tạo đơn', end: false },
+  { to: '/services', label: 'Bảng giá', end: false, roles: ['owner', 'manager'] },
 ]
 
 // Layout chung: header (branch + user + logout) + nội dung.
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const nav = NAV.filter((n) => !n.roles || n.roles.includes(user?.role))
 
   const handleLogout = async () => {
     await logout()
@@ -34,7 +36,7 @@ export default function Layout({ children }) {
         </button>
       </header>
       <nav className="app-nav">
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <NavLink
             key={n.to}
             to={n.to}
