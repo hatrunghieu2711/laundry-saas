@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
-import Home from './pages/Home'
 import Login from './pages/Login'
+import Shift from './pages/Shift'
 
 export default function App() {
   return (
@@ -13,7 +13,7 @@ export default function App() {
         element={
           <ProtectedRoute>
             <Layout>
-              <Home />
+              <Shift />
             </Layout>
           </ProtectedRoute>
         }

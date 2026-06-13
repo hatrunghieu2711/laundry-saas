@@ -260,17 +260,227 @@ body {
   border-radius: 999px;
 }
 
-/* Tablet/POS màn ngang: nhiều cột hơn, nút to hơn. */
-@media (min-width: 640px) {
-  .grid-actions {
-    grid-template-columns: repeat(3, 1fr);
-  }
-  .action-card {
-    min-height: 150px;
-  }
+/* ── Shift screen ────────────────────────────────────────────────── */
+.shift {
+  max-width: 520px;
+  margin: 0 auto;
 }
-@media (min-width: 1024px) {
-  .grid-actions {
-    grid-template-columns: repeat(4, 1fr);
-  }
+.shift__hint {
+  color: var(--muted);
+  text-align: center;
+  margin: 24px 0;
+}
+.btn--lg {
+  min-height: 54px;
+  font-size: 18px;
+}
+.btn--xl {
+  min-height: 64px;
+  font-size: 20px;
+  font-weight: 800;
+}
+
+.shift__empty {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 20px;
+  text-align: center;
+}
+.shift__empty-icon {
+  font-size: 44px;
+}
+.shift__empty p {
+  color: var(--muted);
+  margin: 8px 0 20px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 18px 20px;
+}
+.card__title {
+  margin: 0 0 14px;
+  font-size: 20px;
+}
+
+.badge {
+  display: inline-block;
+  font-size: 14px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 999px;
+  margin-bottom: 12px;
+}
+.badge--open {
+  background: #e7f7ed;
+  color: #15803d;
+}
+
+.kv {
+  margin: 0 0 18px;
+  display: grid;
+  gap: 10px;
+}
+.kv > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  border-bottom: 1px dashed var(--line);
+  padding-bottom: 8px;
+}
+.kv dt {
+  color: var(--muted);
+  font-size: 15px;
+  margin: 0;
+}
+.kv dd {
+  margin: 0;
+  font-weight: 700;
+  font-size: 16px;
+  text-align: right;
+}
+
+/* Tóm tắt đã thu theo method */
+.summary {
+  background: #fafafa;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+.summary__row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 16px;
+}
+.summary__row span:last-child {
+  font-weight: 700;
+}
+.summary__row--head {
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+  padding-bottom: 8px;
+  color: var(--muted);
+  font-weight: 700;
+}
+
+/* Money input */
+.money-input {
+  position: relative;
+}
+.input--money {
+  width: 100%;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: right;
+  padding-right: 34px;
+}
+.money-input__suffix {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Khối chênh lệch — tô màu theo mức lệch */
+.diff {
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  margin: 14px 0 4px;
+  border: 1.5px solid var(--line);
+  background: #fafafa;
+}
+.diff__line {
+  display: flex;
+  justify-content: space-between;
+  padding: 3px 0;
+  font-size: 15px;
+}
+.diff__line--total {
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
+  margin-top: 6px;
+  padding-top: 8px;
+  font-size: 18px;
+}
+.diff__note {
+  margin: 8px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.diff--idle {
+  border-color: var(--line);
+}
+.diff--ok {
+  background: #e7f7ed;
+  border-color: #86efac;
+}
+.diff--ok .diff__note {
+  color: #15803d;
+}
+.diff--warn {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+.diff--warn .diff__note {
+  color: #b45309;
+}
+.diff--danger {
+  background: var(--danger-soft);
+  border-color: #fca5a5;
+}
+.diff--danger .diff__note {
+  color: var(--danger);
+}
+
+/* Hàng nút (hủy / xác nhận) */
+.row-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 18px;
+}
+.row-actions .btn {
+  flex: 1;
+}
+
+/* Bộ chọn chi nhánh (owner) */
+.branch-picker {
+  margin-bottom: 16px;
+}
+.branch-picker__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.branch-picker__chips {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 8px 0 2px;
+}
+.chip {
+  flex: none;
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.chip--active {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
 }
