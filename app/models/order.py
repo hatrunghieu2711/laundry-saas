@@ -7,10 +7,11 @@ QUY TẮC:
 - Unique (tenant_id, order_code). Không sửa total_amount sau khi có payment.
 """
 import uuid
+from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Index, Numeric, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, ForeignKey, Index, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,6 +44,8 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
     order_status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="created"
     )
+    # Giờ hẹn giao cho khách (timestamptz, bắt buộc). Đơn cũ backfill ở migration.
+    pickup_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False

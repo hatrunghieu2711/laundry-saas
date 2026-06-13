@@ -5,6 +5,7 @@ Bảng giá Giặt Ủi 2H (tier): ≤3kg=60k, 5kg=90k, 7kg=120k, >7kg=18k/kg.
 Đồ lẻ (per_unit): vd Áo Vest 60k/cái.
 """
 import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest_asyncio
@@ -20,6 +21,10 @@ ORDERS = "/api/v1/orders"
 
 def _num(x) -> int:
     return int(Decimal(str(x)))
+
+
+def _pickup() -> str:
+    return (datetime.now(timezone.utc) + timedelta(hours=4)).isoformat()
 
 
 # Bảng giá giặt sấy theo bậc cân (đúng Giặt Ủi 2H).
@@ -154,7 +159,7 @@ async def test_order_per_unit_pricing_snapshot(client: AsyncClient, sctx: dict):
     svc = await _ao_vest(client, sctx["owner_token"])
     r = await client.post(ORDERS, json={"items": [
         {"service_id": svc["id"], "quantity": 2},
-    ]}, headers=auth_headers(sctx["staff_token"]))
+    ], "pickup_at": _pickup()}, headers=auth_headers(sctx["staff_token"]))
     assert r.status_code == 201, r.text
     item = r.json()["items"][0]
     assert item["service_id"] == svc["id"]
@@ -171,7 +176,7 @@ async def test_order_tier_pricing_flat_brackets(client: AsyncClient, sctx: dict)
     async def _price(qty) -> dict:
         r = await client.post(ORDERS, json={"items": [
             {"service_id": svc["id"], "quantity": qty},
-        ]}, headers=auth_headers(sctx["staff_token"]))
+        ], "pickup_at": _pickup()}, headers=auth_headers(sctx["staff_token"]))
         assert r.status_code == 201, r.text
         return r.json()["items"][0]
 
@@ -193,7 +198,7 @@ async def test_order_tier_pricing_overflow_per_kg(client: AsyncClient, sctx: dic
     svc = await _giat_say(client, sctx["owner_token"])
     r = await client.post(ORDERS, json={"items": [
         {"service_id": svc["id"], "quantity": 10},   # >7kg -> 18k/kg
-    ]}, headers=auth_headers(sctx["staff_token"]))
+    ], "pickup_at": _pickup()}, headers=auth_headers(sctx["staff_token"]))
     assert r.status_code == 201, r.text
     item = r.json()["items"][0]
     assert _num(item["unit_price"]) == 18000
@@ -206,7 +211,7 @@ async def test_price_snapshot_immune_to_pricetable_change(client: AsyncClient, s
     svc = await _ao_vest(client, sctx["owner_token"])
     r = await client.post(ORDERS, json={"items": [
         {"service_id": svc["id"], "quantity": 1},
-    ]}, headers=auth_headers(sctx["staff_token"]))
+    ], "pickup_at": _pickup()}, headers=auth_headers(sctx["staff_token"]))
     oid = r.json()["id"]
     assert _num(r.json()["items"][0]["unit_price"]) == 60000
 
@@ -225,7 +230,7 @@ async def test_price_snapshot_immune_to_pricetable_change(client: AsyncClient, s
 async def test_order_manual_line_without_service(client: AsyncClient, sctx: dict):
     r = await client.post(ORDERS, json={"items": [
         {"service_name": "Hấp tẩy ố", "quantity": 1, "unit_price": 45000},
-    ]}, headers=auth_headers(sctx["staff_token"]))
+    ], "pickup_at": _pickup()}, headers=auth_headers(sctx["staff_token"]))
     assert r.status_code == 201, r.text
     item = r.json()["items"][0]
     assert item["service_id"] is None
@@ -250,6 +255,7 @@ async def test_service_tenant_isolation(client: AsyncClient, sctx: dict, owner2:
     ro = await client.post(ORDERS, json={
         "branch_id": branch["id"],
         "items": [{"service_id": svc["id"], "quantity": 1}],
+        "pickup_at": _pickup(),
     }, headers=auth_headers(other))
     assert ro.status_code == 404
     assert ro.json()["code"] == "SERVICE_NOT_FOUND"

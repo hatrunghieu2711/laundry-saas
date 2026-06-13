@@ -1,6 +1,7 @@
 """Test order service: tạo đơn + items, order_code, transition trạng thái,
 khóa sửa khi có payment, cancel, cách ly tenant. Viết TRƯỚC service (TDD)."""
 import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest_asyncio
@@ -17,6 +18,11 @@ ORDERS = "/api/v1/orders"
 
 def _num(x) -> int:
     return int(Decimal(str(x)))
+
+
+def _pickup(hours: float = 4) -> str:
+    """ISO giờ hẹn giao ở tương lai (mặc định +4h)."""
+    return (datetime.now(timezone.utc) + timedelta(hours=hours)).isoformat()
 
 
 @pytest_asyncio.fixture
@@ -49,6 +55,7 @@ async def octx(client: AsyncClient, owner: dict) -> dict:
 
 
 async def _create_order(client: AsyncClient, token: str, items: list[dict], **extra) -> dict:
+    extra.setdefault("pickup_at", _pickup())
     body = {"items": items, **extra}
     return await client.post(ORDERS, json=body, headers=auth_headers(token))
 
@@ -273,6 +280,167 @@ async def test_list_filter_and_pagination(client: AsyncClient, octx: dict):
     # pagination limit.
     p = await client.get(f"{ORDERS}?limit=1", headers=auth_headers(octx["staff_token"]))
     assert p.json()["total"] == 2 and len(p.json()["items"]) == 1
+
+
+# ── Stage 3.7A: pickup_at (giờ hẹn giao) ────────────────────────────────────
+async def _set_order_db(order_id: str, *, pickup_at=None, payment_status=None) -> None:
+    async with SessionFactory() as db:
+        if pickup_at is not None:
+            await db.execute(text("UPDATE orders SET pickup_at=:p WHERE id=:i"),
+                             {"p": pickup_at, "i": order_id})
+        if payment_status is not None:
+            await db.execute(text("UPDATE orders SET payment_status=:s WHERE id=:i"),
+                             {"s": payment_status, "i": order_id})
+        await db.commit()
+
+
+async def test_pickup_at_required(client: AsyncClient, octx: dict):
+    # Không gửi pickup_at -> 422 (field bắt buộc).
+    r = await client.post(ORDERS, json={"items": _ITEMS},
+                          headers=auth_headers(octx["staff_token"]))
+    assert r.status_code == 422
+
+
+async def test_pickup_at_in_past_rejected(client: AsyncClient, octx: dict):
+    r = await client.post(ORDERS, json={"items": _ITEMS, "pickup_at": _pickup(-1)},
+                          headers=auth_headers(octx["staff_token"]))
+    assert r.status_code == 422
+    assert r.json()["code"] == "PICKUP_AT_IN_PAST"
+
+
+async def test_order_out_returns_pickup_at(client: AsyncClient, octx: dict):
+    body = (await _create_order(client, octx["staff_token"], _ITEMS)).json()
+    assert "pickup_at" in body and body["pickup_at"] is not None
+    assert body["requires_payment"] is False
+
+
+async def test_put_pickup_at_edit_and_lock(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    new_pickup = _pickup(10)
+    r = await client.put(f"{ORDERS}/{oid}", json={"pickup_at": new_pickup},
+                         headers=auth_headers(t))
+    assert r.status_code == 200, r.text
+    # so sánh theo mốc thời gian (chuẩn hóa khác biệt offset/định dạng).
+    assert datetime.fromisoformat(r.json()["pickup_at"]) == datetime.fromisoformat(new_pickup)
+
+    # đơn đã completed -> không sửa được giờ hẹn.
+    for st in ["washing", "drying", "ready", "delivered", "completed"]:
+        await _set_status(client, t, oid, st)
+    blocked = await client.put(f"{ORDERS}/{oid}", json={"pickup_at": _pickup(20)},
+                               headers=auth_headers(t))
+    assert blocked.status_code == 409
+    assert blocked.json()["code"] == "ORDER_CLOSED"
+
+
+# ── Stage 3.7A: deliver còn nợ -> requires_payment ──────────────────────────
+async def _advance_to_ready(client: AsyncClient, t: str, oid: str) -> None:
+    for st in ["washing", "drying", "ready"]:
+        await _set_status(client, t, oid, st)
+
+
+async def test_deliver_unpaid_sets_requires_payment(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await _advance_to_ready(client, t, oid)
+    r = await _set_status(client, t, oid, "delivered")
+    assert r.status_code == 200, r.text
+    assert r.json()["order_status"] == "delivered"
+    assert r.json()["requires_payment"] is True
+
+
+async def test_deliver_paid_no_requires_payment(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await _advance_to_ready(client, t, oid)
+    await _set_order_db(oid, payment_status="paid")
+    r = await _set_status(client, t, oid, "delivered")
+    assert r.status_code == 200, r.text
+    assert r.json()["requires_payment"] is False
+
+
+async def test_deliver_debt_no_requires_payment(client: AsyncClient, octx: dict):
+    # Giao-nợ có chủ đích (payment_status='debt') -> KHÔNG ép hỏi thanh toán.
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await _advance_to_ready(client, t, oid)
+    await _set_order_db(oid, payment_status="debt")
+    r = await _set_status(client, t, oid, "delivered")
+    assert r.status_code == 200, r.text
+    assert r.json()["requires_payment"] is False
+
+
+# ── Stage 3.7A: dashboard vận hành (board) ──────────────────────────────────
+async def test_board_grouping_overdue_and_summary(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    o_created = (await _create_order(client, t, _ITEMS)).json()
+    o_wash = (await _create_order(client, t, _ITEMS)).json()
+    await _set_status(client, t, o_wash["id"], "washing")
+    o_overdue = (await _create_order(client, t, _ITEMS)).json()
+    o_paid = (await _create_order(client, t, _ITEMS)).json()
+    o_debt = (await _create_order(client, t, _ITEMS)).json()
+    o_done = (await _create_order(client, t, _ITEMS)).json()
+    o_cancel = (await _create_order(client, t, _ITEMS)).json()
+
+    # quá giờ hẹn cho o_overdue; gán payment_status cho o_paid/o_debt.
+    past = datetime.now(timezone.utc) - timedelta(hours=2)
+    await _set_order_db(o_overdue["id"], pickup_at=past)
+    await _set_order_db(o_paid["id"], payment_status="paid")
+    await _set_order_db(o_debt["id"], payment_status="debt")
+    # o_done -> completed (ẩn khỏi board); o_cancel -> cancelled (ẩn).
+    for st in ["washing", "drying", "ready", "delivered", "completed"]:
+        await _set_status(client, t, o_done["id"], st)
+    await client.delete(f"{ORDERS}/{o_cancel['id']}", headers=auth_headers(t))
+
+    r = await client.get(f"{ORDERS}/board", headers=auth_headers(t))
+    assert r.status_code == 200, r.text
+    board = r.json()
+    cols = board["columns"]
+
+    # nhóm đúng theo order_status; terminal bị ẩn.
+    created_ids = {o["id"] for o in cols["created"]}
+    assert created_ids == {o_created["id"], o_overdue["id"], o_paid["id"], o_debt["id"]}
+    assert {o["id"] for o in cols["washing"]} == {o_wash["id"]}
+    assert cols["drying"] == [] and cols["ready"] == [] and cols["delivered"] == []
+    all_ids = {o["id"] for c in cols.values() for o in c}
+    assert o_done["id"] not in all_ids and o_cancel["id"] not in all_ids
+
+    # is_overdue: chỉ o_overdue.
+    by_id = {o["id"]: o for c in cols.values() for o in c}
+    assert by_id[o_overdue["id"]]["is_overdue"] is True
+    assert by_id[o_created["id"]]["is_overdue"] is False
+
+    # summary đếm đúng.
+    s = board["summary"]
+    assert s["total_orders"] == 5
+    assert s["unpaid"] == 3   # o_created, o_wash, o_overdue
+    assert s["paid"] == 1
+    assert s["debt"] == 1
+    assert s["overdue"] == 1
+
+
+async def test_board_delivered_not_overdue(client: AsyncClient, octx: dict):
+    # Đơn delivered dù quá giờ hẹn vẫn KHÔNG tính trễ (đã rời tiệm).
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready", "delivered"]:
+        await _set_status(client, t, oid, st)
+    await _set_order_db(oid, pickup_at=datetime.now(timezone.utc) - timedelta(hours=2))
+
+    r = await client.get(f"{ORDERS}/board", headers=auth_headers(t))
+    board = r.json()
+    delivered = {o["id"]: o for o in board["columns"]["delivered"]}
+    assert oid in delivered
+    assert delivered[oid]["is_overdue"] is False
+    assert board["summary"]["overdue"] == 0
+
+
+async def test_board_tenant_isolation(client: AsyncClient, octx: dict, owner2: dict):
+    await _create_order(client, octx["staff_token"], _ITEMS)
+    other = await login(client, owner2["phone"], owner2["password"])
+    r = await client.get(f"{ORDERS}/board", headers=auth_headers(other))
+    assert r.status_code == 200
+    assert r.json()["summary"]["total_orders"] == 0
 
 
 # ── cách ly tenant ──────────────────────────────────────────────────────────

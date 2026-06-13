@@ -11,7 +11,7 @@ QUY TẮC (CLAUDE.md ORDER):
 """
 import re
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy import func, select, text
@@ -42,6 +42,8 @@ _CANCELLABLE_FROM = {"created", "washing", "drying", "ready"}
 _TERMINAL = {"completed", "cancelled"}
 # Items chỉ sửa được khi đơn chưa tới 'ready'.
 _ITEMS_EDITABLE = {"created", "washing", "drying"}
+# Trạng thái đơn còn hoạt động — hiển thị trên dashboard vận hành (ẩn terminal).
+_BOARD_STATUSES = ["created", "washing", "drying", "ready", "delivered"]
 
 _SEQ_RE = re.compile(r"^order_code_seq_b[0-9]+$")
 
@@ -56,6 +58,14 @@ def _sequence_name(branch_code: str) -> str:
 def _subtotal(quantity: Decimal, unit_price: Decimal) -> Decimal:
     """VND không số lẻ -> quantize về số nguyên (round half up)."""
     return (quantity * unit_price).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+
+
+def _assert_future(pickup_at: datetime) -> None:
+    """Giờ hẹn giao phải ở tương lai (không hẹn quá khứ). Naive -> coi là UTC."""
+    if pickup_at.tzinfo is None:
+        pickup_at = pickup_at.replace(tzinfo=timezone.utc)
+    if pickup_at <= datetime.now(timezone.utc):
+        raise APIError(422, "PICKUP_AT_IN_PAST", "Giờ hẹn giao phải ở tương lai")
 
 
 async def _build_item(
@@ -167,6 +177,7 @@ async def _assert_items_editable(db: AsyncSession, order: Order) -> None:
 
 # ── create ──────────────────────────────────────────────────────────────────
 async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Order:
+    _assert_future(data.pickup_at)
     branch_id = resolve_write_branch(actor, data.branch_id)
     branch = await branch_service.get_branch(db, actor.tenant_id, branch_id)
     if data.customer_id is not None:
@@ -177,6 +188,7 @@ async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Orde
         branch_id=branch_id,
         customer_id=data.customer_id,
         order_code=await _next_order_code(db, branch),
+        pickup_at=data.pickup_at,
         notes=data.notes,
         created_by=actor.id,
         order_status="created",
@@ -202,7 +214,12 @@ async def change_status(
     await db.flush()
     _add_tracking(db, order, new_status, actor)
     await db.commit()
-    return await _get_order(db, actor, order_id)
+    result = await _get_order(db, actor, order_id)
+    # Giao đơn nhưng chưa thu đủ -> báo UI ép hỏi thanh toán (KHÔNG chặn cứng:
+    # ghi nợ có chủ đích là hợp lệ, lúc đó payment_status='debt' nên không cờ).
+    if new_status == "delivered" and result.payment_status in ("unpaid", "partial"):
+        result.requires_payment = True
+    return result
 
 
 async def cancel_order(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Order:
@@ -227,6 +244,12 @@ async def update_order(
         if changes["customer_id"] is not None:
             await _ensure_customer(db, actor.tenant_id, changes["customer_id"])
         order.customer_id = changes["customer_id"]
+    if changes.get("pickup_at") is not None:
+        if order.order_status in _TERMINAL:
+            raise APIError(
+                409, "ORDER_CLOSED", "Đơn đã đóng, không sửa giờ hẹn giao"
+            )
+        order.pickup_at = changes["pickup_at"]
     if "notes" in changes:
         order.notes = changes["notes"]
 
@@ -332,3 +355,40 @@ async def list_orders(
         base.order_by(Order.created_at.desc()).limit(page.limit).offset(page.offset)
     )
     return list(result.scalars().all()), total
+
+
+# ── dashboard vận hành (board) ───────────────────────────────────────────────
+async def get_board(
+    db: AsyncSession, actor: User, branch_id: uuid.UUID | None = None
+) -> dict:
+    """Đơn đang hoạt động (ẩn completed/cancelled), nhóm theo order_status để
+    frontend dựng cột; kèm cờ is_overdue mỗi đơn và summary đếm nhanh."""
+    base = select(Order).where(
+        Order.tenant_id == actor.tenant_id,
+        Order.order_status.in_(_BOARD_STATUSES),
+    )
+    if actor.role != "owner":
+        base = base.where(Order.branch_id == actor.branch_id)
+    elif branch_id is not None:
+        base = base.where(Order.branch_id == branch_id)
+
+    result = await db.execute(base.order_by(Order.pickup_at.asc()))
+    orders = list(result.scalars().all())
+
+    now = datetime.now(timezone.utc)
+    columns: dict[str, list[Order]] = {s: [] for s in _BOARD_STATUSES}
+    summary = {"total_orders": 0, "unpaid": 0, "paid": 0, "debt": 0, "overdue": 0}
+    for o in orders:
+        # Trễ hẹn: quá giờ hẹn và đơn chưa giao (delivered đã rời tiệm -> không tính).
+        o.is_overdue = o.pickup_at < now and o.order_status != "delivered"
+        columns[o.order_status].append(o)
+        summary["total_orders"] += 1
+        if o.payment_status in ("unpaid", "partial"):
+            summary["unpaid"] += 1
+        elif o.payment_status == "paid":
+            summary["paid"] += 1
+        elif o.payment_status == "debt":
+            summary["debt"] += 1
+        if o.is_overdue:
+            summary["overdue"] += 1
+    return {"columns": columns, "summary": summary}

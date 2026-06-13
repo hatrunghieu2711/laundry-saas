@@ -9,6 +9,7 @@ from app.api.deps import DbSession, PageParams, require_role
 from app.models.user import User
 from app.schemas.common import Page
 from app.schemas.order import (
+    OrderBoard,
     OrderCreate,
     OrderItemIn,
     OrderOut,
@@ -45,6 +46,16 @@ async def list_orders(
         customer_id=customer_id, date_from=date_from, date_to=date_to,
     )
     return Page[OrderOut](items=items, total=total, limit=page.limit, offset=page.offset)
+
+
+# Khai báo /board TRƯỚC /{order_id} để không bị nuốt vào path param.
+@router.get("/board", response_model=OrderBoard)
+async def order_board(
+    actor: OrderActor,
+    db: DbSession,
+    branch_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> OrderBoard:
+    return await order_service.get_board(db, actor, branch_id)
 
 
 # Khai báo /code/{order_code} TRƯỚC /{order_id} cho rõ ràng.

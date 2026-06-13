@@ -49,16 +49,20 @@ class OrderCreate(BaseModel):
     items: list[OrderItemIn] = Field(min_length=1)
     customer_id: uuid.UUID | None = None
     notes: str | None = None
+    # Giờ hẹn giao BẮT BUỘC; service validate phải ở tương lai.
+    pickup_at: datetime
     # owner BẮT BUỘC truyền branch_id; staff/manager lấy từ token.
     branch_id: uuid.UUID | None = None
 
 
 class OrderUpdate(BaseModel):
-    """PUT: sửa notes/customer. total_amount chỉ sửa được khi đơn CHƯA có payment."""
+    """PUT: sửa notes/customer/pickup_at. total_amount chỉ sửa được khi đơn CHƯA
+    có payment; pickup_at chỉ sửa khi đơn chưa completed/cancelled."""
 
     notes: str | None = None
     customer_id: uuid.UUID | None = None
     total_amount: Decimal | None = Field(default=None, ge=0)
+    pickup_at: datetime | None = None
 
 
 class OrderStatusUpdate(BaseModel):
@@ -77,9 +81,42 @@ class OrderOut(BaseModel):
     total_amount: Decimal
     payment_status: str
     order_status: str
+    pickup_at: datetime
     notes: str | None
     created_by: uuid.UUID
     created_by_name: str | None
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemOut]
+    # Chỉ set True khi giao đơn còn unpaid/partial — UI ép hỏi thanh toán.
+    requires_payment: bool = False
+
+
+class BoardOrder(BaseModel):
+    """Một thẻ đơn trên dashboard vận hành (rút gọn, không kèm items)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    order_code: str
+    customer_name: str | None
+    total_amount: Decimal
+    payment_status: str
+    order_status: str
+    pickup_at: datetime
+    is_overdue: bool
+
+
+class BoardSummary(BaseModel):
+    total_orders: int  # tổng đơn đang hoạt động (ở tiệm)
+    unpaid: int        # chưa thu: unpaid + partial
+    paid: int
+    debt: int
+    overdue: int       # trễ hẹn
+
+
+class OrderBoard(BaseModel):
+    """Đơn đang hoạt động đã nhóm theo order_status để frontend dựng cột."""
+
+    columns: dict[str, list[BoardOrder]]
+    summary: BoardSummary

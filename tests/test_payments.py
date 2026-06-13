@@ -5,6 +5,7 @@ reference bắt buộc, sai dấu, sign normalization, nhiều method → đóng
 aggregate, cách ly tenant. Viết TRƯỚC service (TDD).
 """
 import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest_asyncio
@@ -43,8 +44,13 @@ async def pctx(client: AsyncClient, owner: dict) -> dict:
 _ITEMS = [{"service_name": "Giặt", "quantity": 1, "unit_price": 100000}]  # total 100000
 
 
+def _pickup() -> str:
+    return (datetime.now(timezone.utc) + timedelta(hours=4)).isoformat()
+
+
 async def _create_order(client, token, items=_ITEMS) -> dict:
-    r = await client.post(ORDERS, json={"items": items}, headers=auth_headers(token))
+    r = await client.post(ORDERS, json={"items": items, "pickup_at": _pickup()},
+                          headers=auth_headers(token))
     assert r.status_code == 201, r.text
     return r.json()
 

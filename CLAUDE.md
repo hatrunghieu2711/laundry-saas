@@ -125,8 +125,12 @@ mọi bảng có created_at; bảng mutable có updated_at.
 
 ### orders
 - id UUID PK, tenant_id, branch_id, customer_id FK nullable, order_code,
-  total_amount NUMERIC(14,0), payment_status, order_status, notes,
-  created_by FK users, created_at, updated_at
+  total_amount NUMERIC(14,0), payment_status, order_status,
+  pickup_at timestamptz NOT NULL (giờ hẹn giao, Stage 3.7A, migration c3a1f9d2b7e4),
+  notes, created_by FK users, created_at, updated_at
+- pickup_at: BẮT BUỘC khi tạo đơn, service validate phải > now (422
+  PICKUP_AT_IN_PAST). PUT sửa được khi đơn chưa completed/cancelled (409
+  ORDER_CLOSED nếu đã đóng). Đơn cũ migration backfill = created_at + 4h.
 - payment_status: unpaid | partial | paid | refunded | debt
 - order_status: created | washing | drying | ready | delivered | completed | cancelled
 - Unique: (tenant_id, order_code)
@@ -243,6 +247,19 @@ sms_logs, notifications, inventory, machines.
 
 ## QUYẾT ĐỊNH NGHIỆP VỤ ĐÃ CHỐT
 
+- **Giao đơn còn nợ KHÔNG tạo field riêng — dùng `payment_status='debt'` (chốt
+  Stage 3.7A).** PATCH status sang `delivered` mà đơn còn `unpaid`/`partial` →
+  backend KHÔNG chặn, chỉ trả cờ `requires_payment=true` trong OrderOut để UI ép
+  hỏi thanh toán. Backend không cấm vì ghi nợ là hợp lệ.
+  - **Lý do:** "đơn giao-nợ có chủ đích" đã biểu diễn được bằng một dòng `debt`
+    trong `payments` (làm `payment_status='debt'`) — KHÔNG cần thêm cột boolean
+    `delivered_on_credit`. Quy trình UI: lúc giao, hoặc thu tiền, hoặc bấm "ghi
+    nợ" (tạo payment type=debt). Đã ghi nợ → status='debt' → `requires_payment`
+    KHÔNG bật nữa.
+  - **Cách áp dụng:** `requires_payment` chỉ true khi `new_status=='delivered'`
+    và `payment_status in (unpaid, partial)`. Cờ này transient (set trên ORM
+    object trước khi serialize), KHÔNG lưu DB; các response khác mặc định false.
+
 - **`payment_status` gộp hai loại "partial" làm một (chốt Stage 2c).** Cả
   "partial vì chưa thu đủ" và "partial vì đã hoàn một phần" đều trả về cùng
   `'partial'` — KHÔNG tách status riêng cho trường hợp có refund. Đã cân nhắc
@@ -300,6 +317,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 2: shifts (open/close + reconciliation) + orders + payments + Telegram alert đóng ca
 - [x] Stage 3: POS PWA (login, mở/đóng ca, tạo đơn, thu tiền, đổi trạng thái)
 - [x] Stage 3.5A: bảng giá dịch vụ động (services + service_tiers) + CRUD + snapshot giá vào order_items
+- [x] Stage 3.7A (backend): orders.pickup_at (giờ hẹn giao) + GET /orders/board (dashboard vận hành) + cờ requires_payment khi giao đơn còn nợ
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)

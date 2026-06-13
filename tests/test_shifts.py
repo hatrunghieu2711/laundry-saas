@@ -4,6 +4,7 @@ Viết TRƯỚC service (TDD). payments service chưa có nên INSERT payment tr
 qua SQLAlchemy trong helper.
 """
 import uuid
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 import pytest_asyncio
@@ -69,6 +70,7 @@ async def _insert_order(ctx: dict, code: str) -> uuid.UUID:
             branch_id=uuid.UUID(ctx["branch_a"]["id"]),
             order_code=code,
             total_amount=Decimal(0),
+            pickup_at=datetime.now(timezone.utc) + timedelta(hours=4),
             created_by=ctx["owner"]["user_id"],
         )
         db.add(order)
