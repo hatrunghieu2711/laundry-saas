@@ -35,6 +35,17 @@ Mục tiêu dài hạn: bán SaaS subscription cho 50–100 branch.
    (ca đã đóng là immutable nên con số đó vĩnh viễn đúng).
 5. Nguyên tắc ghi nhận: "Ai thu tiền, người đó ghi nhận" — payment thuộc shift
    của người thu, kể cả COD (COD vào shift của shipper).
+6. **Sign convention (chốt Stage 2c):** client gửi `amount` là MAGNITUDE (số
+   dương); service áp dấu theo `transaction_type` rồi LƯU:
+   payment/resolve_debt/adjustment → +mag; refund/cancel_paid → −mag; debt → 0.
+   Gửi `amount <= 0` cho type khác debt → **422 INVALID_AMOUNT** (KHÔNG tự đảo
+   dấu — reject để lộ lỗi client). branch/tenant/shift của payment lấy từ order
+   + ca đang mở, KHÔNG nhận từ client.
+7. **payment_status (chốt Stage 2c)** tính lại sau MỖI payment từ
+   `paid_sum = SUM(amount)` mọi payment của đơn, theo THỨ TỰ ƯU TIÊN (match đầu
+   tiên thắng): (1) `paid` nếu total>0 và paid_sum ≥ total; (2) `partial` nếu
+   0 < paid_sum < total; (3) `refunded` nếu paid_sum ≤ 0 và có refund/cancel_paid;
+   (4) `debt` nếu có dòng debt chưa có resolve_debt; (5) `unpaid`.
 
 ## QUY TẮC SHIFT
 
