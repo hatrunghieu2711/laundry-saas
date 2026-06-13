@@ -1031,6 +1031,112 @@ body {
   }
 }
 
+/* ── Phiếu in (giấy nhiệt 80mm / giấy thường A5–A6) ───────────────── */
+/* Ẩn hoàn toàn trên màn hình — chỉ hiện khi in. */
+.print-receipt {
+  display: none;
+}
+
+@media print {
+  /* Khổ giấy nhiệt 80mm; máy in giấy thường vẫn in cột 80mm gọn giữa trang. */
+  @page {
+    size: 80mm auto;
+    margin: 4mm;
+  }
+  /* Ẩn toàn bộ UI app (portal phiếu nằm NGOÀI .app-shell). */
+  .app-shell {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .print-receipt {
+    display: block !important;
+  }
+  .rcp {
+    width: 72mm;
+    margin: 0 auto;
+    color: #000;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 12px;
+    line-height: 1.45;
+  }
+  .rcp__brand {
+    text-align: center;
+    font-size: 18px;
+    font-weight: 900;
+    letter-spacing: 0.5px;
+  }
+  .rcp__branch {
+    text-align: center;
+    font-size: 11px;
+  }
+  .rcp__branch-name {
+    font-weight: 700;
+    font-size: 12px;
+  }
+  .rcp__divider {
+    border-top: 1px dashed #000;
+    margin: 6px 0;
+  }
+  .rcp__code-label {
+    text-align: center;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .rcp__code {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 900;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .rcp__qr {
+    text-align: center;
+    margin: 4px 0 2px;
+  }
+  .rcp__qr svg {
+    display: block;
+    margin: 0 auto;
+  }
+  .rcp__qr-cap {
+    font-size: 10px;
+    margin-top: 2px;
+  }
+  .rcp__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 2px 0;
+  }
+  .rcp__row--head {
+    font-weight: 700;
+    border-bottom: 1px solid #000;
+    margin-bottom: 2px;
+  }
+  .rcp__item-name small {
+    color: #000;
+    font-size: 11px;
+  }
+  .rcp__row--total {
+    font-weight: 900;
+    font-size: 14px;
+  }
+  .rcp__row--due {
+    font-weight: 700;
+  }
+  .rcp__meta {
+    font-size: 11px;
+  }
+  .rcp__foot {
+    text-align: center;
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+}
+
 /* ── Quản lý bảng giá ─────────────────────────────────────────────── */
 .services {
   max-width: 720px;

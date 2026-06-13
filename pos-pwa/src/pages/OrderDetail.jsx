@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
+import Receipt from '../components/Receipt'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import {
@@ -147,6 +148,9 @@ export default function OrderDetail() {
 
       {/* Hành động trạng thái */}
       <div className="detail__actions">
+        <button className="btn btn--ghost btn--lg btn--block" onClick={() => window.print()}>
+          🖨️ In lại phiếu
+        </button>
         {order.payment_status !== 'paid' && order.order_status !== 'cancelled' && (
           <button
             className="btn btn--primary btn--lg btn--block"
@@ -279,6 +283,8 @@ export default function OrderDetail() {
           )}
         </div>
       )}
+
+      <Receipt order={order} paid={paidSum} />
     </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import Receipt from '../components/Receipt'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
 import { UNIT_LABEL, normalizeService } from '../lib/services'
@@ -238,10 +239,15 @@ export default function OrderNew() {
           >
             💵 Thu tiền ngay
           </button>
+          <button className="btn btn--ghost btn--lg btn--block" onClick={() => window.print()}>
+            🖨️ IN PHIẾU
+          </button>
           <button className="btn btn--ghost btn--lg btn--block" onClick={startNew}>
             ＋ Tạo đơn mới
           </button>
         </div>
+        {/* Đơn vừa tạo: chưa thu tiền → paid = 0 */}
+        <Receipt order={created} paid={0} />
       </div>
     )
   }
