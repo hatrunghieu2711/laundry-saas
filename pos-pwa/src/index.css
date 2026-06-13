@@ -556,7 +556,7 @@ body {
 
 .pricing-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   gap: 10px;
 }
 .tier-btn {
@@ -1169,6 +1169,16 @@ body {
   .rcp__row--due {
     font-weight: 700;
   }
+  .rcp__paystatus {
+    text-align: center;
+    font-weight: 900;
+    font-size: 14px;
+    border: 1.5px solid #000;
+    border-radius: 6px;
+    padding: 4px 0;
+    margin: 6px 0 2px;
+    letter-spacing: 0.5px;
+  }
   .rcp__meta {
     font-size: 11px;
   }
@@ -1753,12 +1763,16 @@ body {
     flex-direction: column;
     overflow: hidden;
   }
+  /* Màn tạo đơn dùng rộng hơn các trang khác để 3 vùng cân đối. */
+  .app-main:has(.ordernew--zones) {
+    max-width: 1480px;
+  }
   .zones {
     flex: 1;
     min-height: 0;
     display: grid;
-    grid-template-columns: 96px minmax(0, 1fr) 280px;
-    gap: 12px;
+    grid-template-columns: 104px minmax(0, 1fr) 340px;
+    gap: 14px;
   }
   .zones__tabs {
     flex-direction: column;
@@ -1846,6 +1860,44 @@ body {
 /* Trong modal: pickup gọn lại */
 .modal--confirm .pickup {
   gap: 8px;
+}
+
+/* Bước thanh toán trong modal */
+.paystep {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
+.paystep__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.paystep__amount {
+  margin: 0;
+}
+
+/* Trạng thái thanh toán ở màn kết quả tạo đơn */
+.created__pay {
+  font-weight: 800;
+  font-size: 16px;
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  margin: 4px 0 14px;
+}
+.created__pay--ok {
+  background: #e7f7ed;
+  color: #15803d;
+}
+.created__pay--part {
+  background: #fffbeb;
+  color: #b45309;
+}
+.created__pay--unpaid {
+  background: var(--danger-soft);
+  color: var(--danger);
 }
 
 /* Quản lý bảng giá: danh mục + Hay chọn */

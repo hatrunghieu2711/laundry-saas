@@ -4,13 +4,14 @@ import { QRCodeSVG } from 'qrcode.react'
 import { api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import { formatPickupShort } from '../lib/datetime'
+import { PAYMENT_METHOD } from '../lib/orders'
 
 // Phiếu in khổ giấy nhiệt 80mm (in được cả giấy thường A5/A6).
 // Render qua portal ra <body> để khi @media print chỉ còn phiếu (ẩn .app-shell).
 // Ẩn hoàn toàn trên màn hình (.print-receipt display:none), chỉ hiện khi in.
 const OPEN_HOURS = '7:00 – 21:00 hằng ngày'
 
-export default function Receipt({ order, paid = 0 }) {
+export default function Receipt({ order, paid = 0, method = null }) {
   const [branch, setBranch] = useState(null)
 
   useEffect(() => {
@@ -33,6 +34,14 @@ export default function Receipt({ order, paid = 0 }) {
   const paidSum = toNumber(paid)
   const remaining = total - paidSum
   const trackUrl = `${window.location.origin}/track/${order.order_code}`
+  const methodLabel = method ? PAYMENT_METHOD[method] || method : null
+  // Trạng thái thanh toán hiển thị rõ trên phiếu.
+  const payState =
+    total > 0 && paidSum >= total
+      ? { label: methodLabel ? `ĐÃ THANH TOÁN (${methodLabel})` : 'ĐÃ THANH TOÁN', cls: 'rcp__paystatus--paid' }
+      : paidSum > 0
+        ? { label: 'THANH TOÁN MỘT PHẦN', cls: 'rcp__paystatus--part' }
+        : { label: 'CHƯA THANH TOÁN', cls: 'rcp__paystatus--unpaid' }
 
   return createPortal(
     <div className="print-receipt">
@@ -98,9 +107,11 @@ export default function Receipt({ order, paid = 0 }) {
           </div>
           <div className="rcp__row rcp__row--due">
             <span>Còn lại</span>
-            <span>{formatVND(remaining)}</span>
+            <span>{formatVND(remaining > 0 ? remaining : 0)}</span>
           </div>
         </div>
+
+        <div className={`rcp__paystatus ${payState.cls}`}>{payState.label}</div>
 
         <div className="rcp__divider" />
 

@@ -3,10 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import Receipt from '../components/Receipt'
 import WheelTimePicker from '../components/WheelTimePicker'
+import MoneyInput from '../components/MoneyInput'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
 import { defaultPickupVnWall, isPastVnWall, vnWallToISO } from '../lib/datetime'
+import { PAYMENT_METHOD } from '../lib/orders'
 import { UNIT_LABEL, normalizeService } from '../lib/services'
+
+const PREPAY_METHODS = ['cash', 'transfer', 'qr']
 
 // Màn tạo đơn (Stage 3.8): layout 3 vùng KHÔNG cuộn toàn trang
 // (tab danh mục | lưới dịch vụ | giỏ). Bấm TẠO ĐƠN → modal xác nhận
@@ -39,6 +43,12 @@ export default function OrderNew() {
   const [custFound, setCustFound] = useState(null)
   const [note, setNote] = useState('')
   const [pickup, setPickup] = useState(() => defaultPickupVnWall(4))
+  // ── bước thanh toán trong modal ──
+  const [payMode, setPayMode] = useState('prepay') // prepay | later
+  const [payMethod, setPayMethod] = useState('cash')
+  const [payAmount, setPayAmount] = useState('')
+  const [paidInfo, setPaidInfo] = useState({ amount: 0, method: null })
+  const [payWarn, setPayWarn] = useState('')
 
   useEffect(() => {
     if (!isOwner) return
@@ -204,6 +214,9 @@ export default function OrderNew() {
   const openConfirm = () => {
     if (cart.length === 0) return
     setPickup(defaultPickupVnWall(turnaround))
+    setPayMode('prepay')
+    setPayMethod('cash')
+    setPayAmount(total) // mặc định = tổng đơn
     setError('')
     setShowConfirm(true)
   }
@@ -260,6 +273,32 @@ export default function OrderNew() {
       if (note.trim()) body.notes = note.trim()
       if (isOwner) body.branch_id = branchId
       const order = await api.post('/orders', body)
+
+      // Thu tiền trước → ghi payment ngay (cần ca mở). Đơn đã tạo nên KHÔNG
+      // rollback nếu thu lỗi: chuyển sang màn kết quả + cảnh báo để thu lại.
+      let paid = { amount: 0, method: null }
+      let warn = ''
+      if (payMode === 'prepay') {
+        const amt = toNumber(payAmount)
+        if (amt > 0) {
+          try {
+            await api.post('/payments', {
+              order_id: order.id,
+              amount: amt,
+              payment_method: payMethod,
+              transaction_type: 'payment',
+            })
+            paid = { amount: amt, method: payMethod }
+          } catch (e) {
+            warn =
+              e instanceof ApiError && e.code === 'NO_OPEN_SHIFT'
+                ? 'Đơn đã tạo nhưng CHƯA thu được tiền (chưa có ca mở). Thu lại ở nút bên dưới.'
+                : 'Đơn đã tạo nhưng CHƯA ghi được thanh toán. Thu lại ở nút bên dưới.'
+          }
+        }
+      }
+      setPaidInfo(paid)
+      setPayWarn(warn)
       setShowConfirm(false)
       setCreated(order)
     } catch (err) {
@@ -285,22 +324,41 @@ export default function OrderNew() {
     setOverflowKg({})
     setSearch('')
     setError('')
+    setPaidInfo({ amount: 0, method: null })
+    setPayWarn('')
   }
 
-  // ── màn kết quả ──
+  // ── màn kết quả (bước cuối: in phiếu SAU khi đã tạo + xử lý thanh toán) ──
   if (created) {
+    const orderTotal = toNumber(created.total_amount)
+    const fullyPaid = paidInfo.amount > 0 && paidInfo.amount >= orderTotal
     return (
       <div className="ordernew">
         <div className="created">
           <p className="created__hint">Đã tạo đơn — ghi mã lên đồ/phiếu:</p>
           <div className="created__code">{created.order_code}</div>
-          <div className="created__total">{formatVND(created.total_amount)}</div>
-          <button
-            className="btn btn--primary btn--xl btn--block"
-            onClick={() => navigate(`/orders/${created.id}/pay`)}
-          >
-            💵 Thu tiền ngay
-          </button>
+          <div className="created__total">{formatVND(orderTotal)}</div>
+
+          {/* Trạng thái thanh toán của đơn vừa tạo */}
+          {paidInfo.amount > 0 ? (
+            <div className={`created__pay ${fullyPaid ? 'created__pay--ok' : 'created__pay--part'}`}>
+              {fullyPaid ? '✓ Đã thanh toán' : '◔ Thu một phần'}: {formatVND(paidInfo.amount)}
+              {paidInfo.method ? ` (${PAYMENT_METHOD[paidInfo.method] || paidInfo.method})` : ''}
+            </div>
+          ) : (
+            <div className="created__pay created__pay--unpaid">Chưa thanh toán · còn {formatVND(orderTotal)}</div>
+          )}
+
+          {payWarn && <div className="alert alert--error">{payWarn}</div>}
+
+          {!fullyPaid && (
+            <button
+              className="btn btn--primary btn--xl btn--block"
+              onClick={() => navigate(`/orders/${created.id}/pay`)}
+            >
+              💵 Thu tiền {paidInfo.amount > 0 ? `(còn ${formatVND(orderTotal - paidInfo.amount)})` : 'ngay'}
+            </button>
+          )}
           <button className="btn btn--ghost btn--lg btn--block" onClick={() => window.print()}>
             🖨️ IN PHIẾU
           </button>
@@ -308,7 +366,7 @@ export default function OrderNew() {
             ＋ Tạo đơn mới
           </button>
         </div>
-        <Receipt order={created} paid={0} />
+        <Receipt order={created} paid={paidInfo.amount} method={paidInfo.method} />
       </div>
     )
   }
@@ -565,6 +623,48 @@ export default function OrderNew() {
               </div>
             </div>
 
+            {/* Bước thanh toán */}
+            <div className="paystep">
+              <span className="field-label">Thanh toán</span>
+              <div className="seg">
+                <button
+                  type="button"
+                  className={`seg__btn ${payMode === 'prepay' ? 'seg__btn--active' : ''}`}
+                  onClick={() => setPayMode('prepay')}
+                >
+                  Thu tiền trước
+                </button>
+                <button
+                  type="button"
+                  className={`seg__btn ${payMode === 'later' ? 'seg__btn--active' : ''}`}
+                  onClick={() => setPayMode('later')}
+                >
+                  Thu sau (khi giao)
+                </button>
+              </div>
+
+              {payMode === 'prepay' && (
+                <div className="paystep__body">
+                  <div className="method-grid">
+                    {PREPAY_METHODS.map((m) => (
+                      <button
+                        type="button"
+                        key={m}
+                        className={`method-btn ${payMethod === m ? 'method-btn--active' : ''}`}
+                        onClick={() => setPayMethod(m)}
+                      >
+                        {PAYMENT_METHOD[m]}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="field paystep__amount">
+                    <span>Số tiền thu (mặc định = tổng đơn {formatVND(total)})</span>
+                    <MoneyInput value={payAmount} onChange={setPayAmount} />
+                  </label>
+                </div>
+              )}
+            </div>
+
             {error && <div className="alert alert--error">{error}</div>}
 
             <div className="modal__actions modal__actions--row">
@@ -583,7 +683,11 @@ export default function OrderNew() {
                 onClick={submit}
                 disabled={busy || isPastVnWall(pickup)}
               >
-                {busy ? 'Đang tạo…' : `Tạo đơn · ${formatVND(total)}`}
+                {busy
+                  ? 'Đang tạo…'
+                  : payMode === 'prepay'
+                    ? `Tạo & thu · ${formatVND(toNumber(payAmount))}`
+                    : `Tạo đơn · ${formatVND(total)}`}
               </button>
             </div>
           </div>
