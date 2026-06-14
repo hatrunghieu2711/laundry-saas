@@ -12,6 +12,8 @@
   --surface: #ffffff;
   --danger: #dc2626;
   --danger-soft: #fef2f2;
+  --success: #16a34a;
+  --success-soft: #f0fdf4;
   --radius: 14px;
   --tap: 48px; /* mục tiêu chạm tối thiểu > 44px */
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.05);
@@ -2218,4 +2220,85 @@ body {
 .btn--fav-on {
   color: var(--orange-dark);
   border-color: var(--orange);
+}
+
+/* ══ Stage 4.2: Sổ quỹ thu-chi (CashBook) ══════════════════════════ */
+.btn--success {
+  background: var(--success);
+  color: #fff;
+}
+.btn--success:active {
+  background: #15803d;
+}
+
+.cashbook__in {
+  color: var(--success);
+}
+.cashbook__out {
+  color: var(--danger);
+}
+
+.cashbook__totals .summary__row--head strong {
+  font-size: 18px;
+}
+.cashbook__hint {
+  margin: 10px 2px 0;
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.cashbook__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 14px 0;
+}
+
+.cashbook__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cashbook__item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--line);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+  box-shadow: var(--shadow);
+}
+.cashbook__item--income {
+  border-left-color: var(--success);
+}
+.cashbook__item--expense {
+  border-left-color: var(--danger);
+}
+.cashbook__item-main {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.cashbook__item-cat {
+  font-weight: 700;
+}
+.cashbook__item-note {
+  font-size: 13px;
+  color: var(--ink);
+}
+.cashbook__item-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+.cashbook__item strong {
+  font-size: 16px;
+  white-space: nowrap;
 }

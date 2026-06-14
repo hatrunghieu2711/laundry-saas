@@ -23,6 +23,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import Pagination
 from app.core.errors import APIError
+from app.models.cash_transaction import CashTransaction
 from app.models.payment import Payment
 from app.models.shift import Shift
 from app.models.user import User
@@ -138,11 +139,33 @@ async def close_shift(
         )
     ).one()
 
-    expected = shift.opening_cash + row.cash
+    # Sổ quỹ thu-chi TIỀN MẶT của ca — phần ảnh hưởng KÉT (transfer/qr không vào két).
+    def _ct_cash_sum(ttype: str):
+        return func.coalesce(
+            func.sum(CashTransaction.amount).filter(
+                CashTransaction.type == ttype,
+                CashTransaction.payment_method == "cash",
+            ),
+            _ZERO,
+        )
+
+    ct = (
+        await db.execute(
+            select(
+                _ct_cash_sum("income").label("income"),
+                _ct_cash_sum("expense").label("expense"),
+            ).where(CashTransaction.shift_id == shift.id)
+        )
+    ).one()
+
+    # Két cuối ca = đầu ca + tiền mặt thu đơn + thu tiền mặt - chi tiền mặt.
+    expected = shift.opening_cash + row.cash + ct.income - ct.expense
     shift.total_cash = row.cash
     shift.total_transfer = row.transfer
     shift.total_qr = row.qr
     shift.total_cod = row.cod
+    shift.total_income = ct.income
+    shift.total_expense = ct.expense
     shift.orders_count = row.orders_count
     shift.closing_cash_expected = expected
     shift.closing_cash_actual = closing_cash_actual

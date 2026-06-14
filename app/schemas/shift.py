@@ -34,6 +34,8 @@ class ShiftOut(BaseModel):
     total_transfer: Decimal | None
     total_qr: Decimal | None
     total_cod: Decimal | None
+    total_income: Decimal | None
+    total_expense: Decimal | None
     orders_count: int | None
     status: str
     opened_at: datetime

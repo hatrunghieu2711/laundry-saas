@@ -49,6 +49,10 @@ class Shift(TimestampMixin, Base):
     total_transfer: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     total_qr: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     total_cod: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    # Sổ quỹ thu-chi TIỀN MẶT ngoài đơn (Stage 4.2) — phần ảnh hưởng KÉT, tính
+    # lúc đóng ca. (income/expense qua transfer/qr không vào két nên không gộp.)
+    total_income: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    total_expense: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     orders_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="open")

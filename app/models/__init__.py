@@ -2,6 +2,7 @@
 from app.models.log import AuditLog, OrderTrackingLog  # noqa: F401
 from app.models.billing import Plan, Subscription  # noqa: F401
 from app.models.branch import Branch  # noqa: F401
+from app.models.cash_transaction import CashTransaction  # noqa: F401
 from app.models.customer import Customer  # noqa: F401
 from app.models.delivery import Delivery  # noqa: F401
 from app.models.order import Order, OrderItem  # noqa: F401
@@ -16,6 +17,7 @@ from app.models.user import User  # noqa: F401
 __all__ = [
     "AuditLog",
     "Branch",
+    "CashTransaction",
     "Customer",
     "Delivery",
     "Order",

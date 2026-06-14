@@ -10,6 +10,7 @@ const NAV = [
 ]
 // Mục trong menu ☰ (chừa chỗ thêm sau).
 const MENU = [
+  { to: '/cashbook', label: '💵 Sổ quỹ' },
   { to: '/services', label: '💰 Bảng giá', roles: ['owner', 'manager'] },
   { to: '/settings/receipt', label: '🧾 Mẫu phiếu in', roles: ['owner', 'manager'] },
 ]

@@ -55,9 +55,11 @@ Mục tiêu dài hạn: bán SaaS subscription cho 50–100 branch.
 3. Sai sót của ca cũ → ghi giao dịch điều chỉnh (adjustment) vào ca hiện tại,
    kèm `reason` bắt buộc.
 4. Đóng ca = reconciliation: hệ thống tính `closing_cash_expected`
-   (= opening_cash + SUM(cash payments của ca)), nhân viên nhập
-   `closing_cash_actual`, hệ thống lưu `cash_difference = actual - expected`
-   và tính sẵn các cột aggregate. Lệch két vượt ngưỡng → cảnh báo owner qua Telegram.
+   (= opening_cash + SUM(cash payments của ca) + SUM(thu tiền mặt) − SUM(chi tiền
+   mặt) sổ quỹ — Stage 4.2), nhân viên nhập `closing_cash_actual`, hệ thống lưu
+   `cash_difference = actual - expected` và tính sẵn các cột aggregate (gồm
+   total_income/total_expense tiền mặt). Lệch két vượt ngưỡng → cảnh báo owner qua
+   Telegram (message kèm dòng thu/chi tiền mặt ngoài dịch vụ nếu có).
 
 ## QUY TẮC MULTI-TENANT
 
@@ -124,9 +126,14 @@ mọi bảng có created_at; bảng mutable có updated_at.
 - closing_cash_actual NUMERIC(14,0) nullable    ← nhân viên nhập
 - cash_difference NUMERIC(14,0) nullable        ← actual - expected
 - total_cash, total_transfer, total_qr, total_cod NUMERIC(14,0) nullable ← aggregate lúc đóng ca
+- total_income, total_expense NUMERIC(14,0) nullable ← thu/chi TIỀN MẶT sổ quỹ, tính
+  lúc đóng ca (Stage 4.2, migration a4b5c6d7e8f9). CHỈ phần tiền mặt (ảnh hưởng két);
+  thu/chi qua transfer/qr KHÔNG gộp vào hai cột này.
 - orders_count INT nullable
 - status: open | closed
 - opened_at, closed_at nullable, created_at
+- closing_cash_expected = opening_cash + SUM(cash payments) + total_income − total_expense
+  (Stage 4.2: cộng thu tiền mặt, trừ chi tiền mặt sổ quỹ; xem cash_transactions).
 - PARTIAL UNIQUE INDEX: CREATE UNIQUE INDEX one_open_shift_per_branch
   ON shifts (branch_id) WHERE status = 'open';
 - Index: (tenant_id, branch_id, opened_at), (branch_id, status)
@@ -179,6 +186,24 @@ mọi bảng có created_at; bảng mutable có updated_at.
 - Quy ước dấu (sign): + payment/resolve_debt/adjustment dương; − refund/cancel_paid;
   debt có amount = 0 trong dòng tiền (ghi nợ, chưa thu).
 - Index: (tenant_id, branch_id, created_at), (shift_id), (order_id)
+
+### cash_transactions  ← IMMUTABLE (Stage 4.2, migration a4b5c6d7e8f9)
+- Sổ quỹ thu-chi NGOÀI đơn hàng (mua vật tư, tiền điện, ứng lương, thu khác...).
+- id UUID PK, tenant_id, branch_id, shift_id FK NOT NULL (thu/chi phải thuộc ca
+  đang mở, giống payments), type (income | expense), amount NUMERIC(14,0) LUÔN
+  DƯƠNG (dấu xác định bởi type — CHECK amount > 0), category String(64) NOT NULL
+  (gợi ý + text tự do), note TEXT nullable, payment_method (cash | transfer | qr,
+  default cash; KHÔNG có cod), created_by FK users, created_at.
+- IMMUTABLE như payments: chỉ INSERT; trigger `cash_transactions_no_update_delete`
+  (BEFORE UPDATE OR DELETE → RAISE). Sửa sai = ghi giao dịch đối ứng.
+- branch phân giải qua scope.resolve_write_branch (owner truyền branch_id; staff
+  lấy từ token). Cần ca đang OPEN tại branch → nếu không: 409 NO_OPEN_SHIFT.
+  amount ≤ 0 → 422 INVALID_AMOUNT; category rỗng → 422 CATEGORY_REQUIRED.
+- Endpoints: POST /cash-transactions, GET (pagination + filter shift_id/branch_id/
+  type/from/to), GET /{id}. KHÔNG có UPDATE/DELETE.
+- Đóng ca: SUM(income) − SUM(expense) phần TIỀN MẶT cộng/trừ vào
+  closing_cash_expected; lưu shift.total_income/total_expense (xem shifts).
+- Index: (tenant_id, branch_id, created_at), (shift_id)
 
 ### deliveries
 - id UUID PK, tenant_id, branch_id, order_id FK, shipper_id FK users,
@@ -308,6 +333,21 @@ sms_logs, notifications, inventory, machines.
     thì BẮT BUỘC `service_name` + `unit_price` (nhập tay, giữ tương thích cũ).
     snapshot tên bậc tier vào `service_name` dạng "Giặt sấy (≤3kg)".
 
+- **Sổ quỹ thu-chi: chỉ phần TIỀN MẶT vào reconciliation; `total_income`/
+  `total_expense` là cash-only (chốt Stage 4.2).** `cash_transactions` cho phép
+  payment_method cash/transfer/qr, nhưng CHỈ thu/chi tiền mặt ảnh hưởng KÉT nên
+  chỉ phần cash được cộng/trừ vào `closing_cash_expected` và lưu vào hai cột
+  aggregate. Thu/chi qua transfer/qr vẫn ghi nhận (để báo cáo dòng tiền) nhưng
+  KHÔNG vào két, KHÔNG vào `total_income`/`total_expense`.
+  - **Lý do:** giữ bất biến reconciliation minh bạch, tự kiểm:
+    `expected = opening + total_cash(payments) + total_income − total_expense`
+    đúng KHÍT với các cột đã lưu. Tách biệt "ảnh hưởng két" (cash) khỏi "ghi nhận
+    dòng tiền" (mọi method) — đúng mục tiêu #1 chống thất thoát TIỀN MẶT.
+  - **Cách áp dụng:** muốn tổng thu/chi MỌI method thì query `cash_transactions`
+    theo `type` (đừng đọc từ `shifts.total_income`); hai cột trên chỉ là cash.
+    `amount` luôn dương (magnitude), dấu suy từ `type`; sửa sai = ghi giao dịch
+    đối ứng (bảng IMMUTABLE như payments, trigger chặn UPDATE/DELETE).
+
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
 - **Múi giờ POS cố định Việt Nam (UTC+7) ở frontend (chốt Stage 3.8).** Trước đây
@@ -353,6 +393,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 3.8: thiết kế lại màn tạo đơn 3 vùng không cuộn + tab danh mục/Hay chọn + fix pickup_at múi giờ VN + tenant_settings.default_turnaround_hours + GET/PUT /settings
 - [x] Stage 3.9: cho lùi trạng thái có kiểm soát + gộp màn "Đơn hàng" (Kanban/List + search q) + nav restructure (☰ menu)
 - [x] Stage 4.1: custom bill template (receipt_config) + GET/PUT /settings/receipt + màn cấu hình phiếu (preview 80mm realtime)
+- [x] Stage 4.2: sổ quỹ thu-chi (cash_transactions IMMUTABLE) + tích hợp đóng ca (expected cộng thu/trừ chi tiền mặt) + màn "Sổ quỹ" POS + Telegram kèm dòng thu/chi
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)

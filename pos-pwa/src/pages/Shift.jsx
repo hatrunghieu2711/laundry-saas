@@ -32,7 +32,21 @@ async function fetchShiftSummary(shiftId) {
     offset += page.items.length
     if (page.items.length === 0 || offset >= page.total) break
   }
-  return { totals, ordersCount: orderIds.size }
+  // Sổ quỹ thu-chi TIỀN MẶT (Stage 4.2) — vào/ra két, cộng vào dự kiến cuối ca.
+  let incomeCash = 0
+  let expenseCash = 0
+  offset = 0
+  for (;;) {
+    const page = await api.get(`/cash-transactions?shift_id=${shiftId}&limit=${limit}&offset=${offset}`)
+    for (const t of page.items) {
+      if (t.payment_method !== 'cash') continue
+      if (t.type === 'income') incomeCash += toNumber(t.amount)
+      else expenseCash += toNumber(t.amount)
+    }
+    offset += page.items.length
+    if (page.items.length === 0 || offset >= page.total) break
+  }
+  return { totals, ordersCount: orderIds.size, incomeCash, expenseCash }
 }
 
 function diffLevel(diff) {
@@ -147,7 +161,12 @@ export default function Shift() {
     await loadCurrent()
   }
 
-  const expected = summary ? toNumber(shift?.opening_cash) + summary.totals.cash : 0
+  const expected = summary
+    ? toNumber(shift?.opening_cash) +
+      summary.totals.cash +
+      summary.incomeCash -
+      summary.expenseCash
+    : 0
   const actualNum = toNumber(actual)
   const liveDiff = actualNum - expected
   const level = actual === '' ? null : diffLevel(liveDiff)
@@ -270,6 +289,18 @@ export default function Shift() {
                 <span>{summary ? formatVND(summary.totals[k]) : '…'}</span>
               </div>
             ))}
+            {summary && summary.incomeCash > 0 && (
+              <div className="summary__row">
+                <span>＋ Thu khác (tiền mặt)</span>
+                <span>{formatVND(summary.incomeCash)}</span>
+              </div>
+            )}
+            {summary && summary.expenseCash > 0 && (
+              <div className="summary__row">
+                <span>－ Chi (tiền mặt)</span>
+                <span>{formatVND(summary.expenseCash)}</span>
+              </div>
+            )}
           </div>
 
           <label className="field">
@@ -334,6 +365,18 @@ function ResultCard({ closed, onBack }) {
             <span>{formatVND(closed[`total_${k}`])}</span>
           </div>
         ))}
+        {toNumber(closed.total_income) > 0 && (
+          <div className="summary__row">
+            <span>＋ Thu khác (tiền mặt)</span>
+            <span>{formatVND(closed.total_income)}</span>
+          </div>
+        )}
+        {toNumber(closed.total_expense) > 0 && (
+          <div className="summary__row">
+            <span>－ Chi (tiền mặt)</span>
+            <span>{formatVND(closed.total_expense)}</span>
+          </div>
+        )}
       </div>
       <div className={`diff diff--${level}`}>
         <div className="diff__line">

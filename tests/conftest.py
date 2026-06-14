@@ -20,8 +20,8 @@ get_settings().cookie_secure = False
 
 # Các bảng test chạm tới — dọn giữa mỗi test (CASCADE lo FK).
 _CLEAN_TABLES = (
-    "payments, order_items, orders, service_tiers, services, shifts, "
-    "refresh_tokens, users, branches, customers, tenant_settings, tenants"
+    "cash_transactions, payments, order_items, orders, service_tiers, services, "
+    "shifts, refresh_tokens, users, branches, customers, tenant_settings, tenants"
 )
 
 

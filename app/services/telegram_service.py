@@ -59,6 +59,20 @@ def build_shift_close_message(
         f"— QR: {_vnd(shift.total_qr)}",
         f"— COD: {_vnd(shift.total_cod)}",
         f"🧺 Số đơn: {int(shift.orders_count or 0)}",
+    ]
+
+    # Sổ quỹ thu-chi tiền mặt ngoài dịch vụ (chỉ hiện khi có) — để owner thấy đủ
+    # dòng tiền vào/ra két ngoài doanh thu đơn.
+    income = int(shift.total_income or 0)
+    expense = int(shift.total_expense or 0)
+    if income or expense:
+        lines.append("")
+        if income:
+            lines.append(f"➕ Thu khác (tiền mặt): {_vnd(income)}")
+        if expense:
+            lines.append(f"➖ Chi (tiền mặt): {_vnd(expense)}")
+
+    lines += [
         "",
         f"📊 Dự kiến cuối ca: {_vnd(shift.closing_cash_expected)}",
         f"📥 Thực tế đếm: {_vnd(shift.closing_cash_actual)}",

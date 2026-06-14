@@ -17,13 +17,15 @@ from app.services import telegram_service
 from tests.conftest import auth_headers, login
 
 
-def _fake_shift(cash_difference: int) -> SimpleNamespace:
+def _fake_shift(cash_difference: int, *, income: int = 0, expense: int = 0) -> SimpleNamespace:
     return SimpleNamespace(
         opening_cash=Decimal(500000),
         total_cash=Decimal(300000),
         total_transfer=Decimal(150000),
         total_qr=Decimal(50000),
         total_cod=Decimal(0),
+        total_income=Decimal(income),
+        total_expense=Decimal(expense),
         orders_count=7,
         closing_cash_expected=Decimal(800000),
         closing_cash_actual=Decimal(800000 + cash_difference),
@@ -53,6 +55,24 @@ def test_message_large_diff_has_warning():
     assert "⚠️" in msg
     assert "LỆCH KÉT" in msg
     assert "Lệch két: -120.000đ" in msg
+
+
+def test_message_shows_income_expense_when_present():
+    msg = telegram_service.build_shift_close_message(
+        branch_name="CN A", closed_by_name="B",
+        shift=_fake_shift(0, income=80000, expense=30000), threshold=Decimal(50000),
+    )
+    assert "Thu khác (tiền mặt): 80.000đ" in msg
+    assert "Chi (tiền mặt): 30.000đ" in msg
+
+
+def test_message_hides_income_expense_when_zero():
+    msg = telegram_service.build_shift_close_message(
+        branch_name="CN A", closed_by_name="B",
+        shift=_fake_shift(0), threshold=Decimal(50000),
+    )
+    assert "Thu khác (tiền mặt)" not in msg
+    assert "Chi (tiền mặt)" not in msg
 
 
 # ── integration fixtures ────────────────────────────────────────────────────

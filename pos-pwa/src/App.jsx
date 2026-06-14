@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import Board from './pages/Board'
+import CashBook from './pages/CashBook'
 import Login from './pages/Login'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
@@ -24,6 +25,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Protected><Shift /></Protected>} />
       <Route path="/board" element={<Protected><Board /></Protected>} />
+      <Route path="/cashbook" element={<Protected><CashBook /></Protected>} />
       {/* "Đơn hàng" gộp vào /board (Stage 3.9) — /orders cũ redirect. */}
       <Route path="/orders" element={<Navigate to="/board" replace />} />
       <Route path="/orders/new" element={<Protected><OrderNew /></Protected>} />
