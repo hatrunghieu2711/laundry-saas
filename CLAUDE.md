@@ -278,7 +278,23 @@ sms_logs, notifications, inventory, machines.
   shift reconciliation, sign convention, scenario integration (mở ca → đơn →
   thu → refund → đóng ca → kiểm tra expected/difference/aggregates).
 - Viết test TRƯỚC khi viết service cho logic tài chính.
-- Chạy test: docker compose exec app sh -c "cd /code && pytest tests/ -x -q"
+- **DATABASE TEST TÁCH RIÊNG — KHÔNG BAO GIỜ chạy test trên DB sản xuất.** Test
+  TRUNCATE bảng giữa mỗi case nên PHẢI dùng DB riêng (`laundry_test`):
+  - `tests/conftest.py` trỏ `DATABASE_URL` sang DB test TRƯỚC khi import app, tự
+    tạo `laundry_test` nếu chưa có và `alembic upgrade head` lên đó (mỗi session).
+  - Nguồn URL test: env `TEST_DATABASE_URL`; nếu không set thì tự suy ra bằng cách
+    đổi tên db trong `DATABASE_URL` thành `<db>_test`.
+  - LƯỚI AN TOÀN: conftest + fixture `clean_db` ASSERT tên DB kết thúc `_test`
+    TRƯỚC mọi TRUNCATE; nếu không phải → raise, dừng ngay (chống xóa nhầm DB thật).
+- Chạy test (set TEST_DATABASE_URL rõ ràng cho chắc chắn):
+  ```
+  docker compose exec \
+    -e TEST_DATABASE_URL="postgresql+asyncpg://laundry:change_me_in_prod@postgres:5432/laundry_test" \
+    app sh -c "cd /code && pytest tests/ -x -q"
+  ```
+  (Bỏ `-e ...` cũng được — conftest tự suy ra `laundry_test` từ `DATABASE_URL`.)
+- alembic chạy được trên cả 2 DB: prod đọc `DATABASE_URL` mặc định; test set
+  `DATABASE_URL`/`TEST_DATABASE_URL` trỏ `laundry_test` rồi `alembic upgrade head`.
 - Sau mỗi thay đổi code, chạy test và báo kết quả trước khi kết thúc task.
 
 ## WORKFLOW

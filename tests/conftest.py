@@ -1,19 +1,104 @@
-"""Fixtures dùng chung cho test (chạy trong app container, DB postgres thật)."""
+"""Fixtures dùng chung cho test.
+
+LƯỚI AN TOÀN — test PHẢI chạy trên DATABASE RIÊNG (tên kết thúc '_test'):
+- conftest trỏ DATABASE_URL sang DB test TRƯỚC khi import app (engine build 1 lần
+  trên DB test), tự tạo DB test nếu chưa có và chạy migration lên đó.
+- Mọi TRUNCATE/teardown đều ASSERT chỉ thực thi trên DB '_test'. TUYỆT ĐỐI không
+  đụng DB sản xuất (vd 'laundry'). Nếu URL không phải '_test' → raise, dừng ngay.
+"""
+import asyncio
+import os
+import subprocess
 import uuid
 from datetime import datetime, timedelta, timezone
 
 import jwt
-import pytest
+import pytest  # noqa: F401
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
+from sqlalchemy.engine import make_url
+from sqlalchemy.ext.asyncio import create_async_engine
 
-from app.core.config import get_settings
-from app.core.database import SessionFactory, engine
-from app.core.security import hash_password
-from app.main import app
-from app.models.tenant import Tenant
-from app.models.user import User
+_PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+
+# ── Phân giải URL DB test (TRƯỚC khi import app) ──────────────────────────────
+def _derive_test_url() -> str:
+    """URL DB test:
+    - TEST_DATABASE_URL set → dùng NGUYÊN VĂN (không tự sửa). Safety check bên dưới
+      sẽ ASSERT tên '_test'; nếu lỡ trỏ DB sản xuất → raise, KHÔNG đụng DB đó.
+    - Không set → suy ra từ DATABASE_URL bằng cách đổi tên db thành '<db>_test'.
+    """
+    explicit = os.environ.get("TEST_DATABASE_URL")
+    if explicit:
+        return explicit
+    base = os.environ.get("DATABASE_URL")
+    if not base:
+        raise RuntimeError("Cần TEST_DATABASE_URL hoặc DATABASE_URL để chạy test")
+    url = make_url(base)
+    db = url.database or ""
+    if db.endswith("_test"):
+        return base
+    return url.set(database=f"{db}_test").render_as_string(hide_password=False)
+
+
+_TEST_URL = _derive_test_url()
+_TEST_DB_NAME = make_url(_TEST_URL).database or ""
+
+# SAFETY CHECK: từ chối chạy nếu DB không kết thúc '_test' (chống xóa nhầm DB thật).
+if not _TEST_DB_NAME.endswith("_test"):
+    raise RuntimeError(
+        f"AN TOÀN: database test phải kết thúc bằng '_test' (nhận '{_TEST_DB_NAME}'). "
+        "Dừng để tránh TRUNCATE nhầm database sản xuất."
+    )
+
+# Trỏ app + alembic sang DB test TRƯỚC khi import app.core.* (engine build 1 lần).
+os.environ["DATABASE_URL"] = _TEST_URL
+
+from app.core.config import get_settings  # noqa: E402
+
+get_settings.cache_clear()  # bỏ cache phòng khi URL cũ đã được đọc
+
+from app.core.database import SessionFactory, engine  # noqa: E402
+from app.core.security import hash_password  # noqa: E402
+from app.main import app  # noqa: E402
+from app.models.tenant import Tenant  # noqa: E402
+from app.models.user import User  # noqa: E402
+
+
+async def _ensure_test_db() -> None:
+    """Tạo database test nếu chưa có — kết nối DB bảo trì 'postgres', AUTOCOMMIT
+    (CREATE DATABASE không chạy trong transaction)."""
+    admin_url = make_url(_TEST_URL).set(database="postgres")
+    admin = create_async_engine(admin_url, isolation_level="AUTOCOMMIT")
+    try:
+        async with admin.connect() as conn:
+            exists = await conn.scalar(
+                text("SELECT 1 FROM pg_database WHERE datname = :n"),
+                {"n": _TEST_DB_NAME},
+            )
+            if not exists:
+                await conn.execute(text(f'CREATE DATABASE "{_TEST_DB_NAME}"'))
+    finally:
+        await admin.dispose()
+
+
+def _provision_test_db() -> None:
+    """Tạo DB test + migrate lên head (idempotent, mỗi session một lần).
+
+    alembic env.py đọc DATABASE_URL (đã trỏ DB test) nên migrate đúng DB test —
+    cùng một migration chạy được trên cả DB sản xuất lẫn DB test."""
+    asyncio.run(_ensure_test_db())
+    subprocess.run(
+        ["alembic", "upgrade", "head"],
+        check=True,
+        cwd=_PROJECT_ROOT,
+        env=os.environ.copy(),
+    )
+
+
+_provision_test_db()
 
 # Test client chạy qua http:// — tắt cookie Secure để httpx giữ/gửi cookie.
 get_settings().cookie_secure = False
@@ -54,6 +139,12 @@ END $$;
 @pytest_asyncio.fixture(autouse=True)
 async def clean_db():
     """Dọn DB trước test; dispose engine sau test để pool gắn đúng event loop."""
+    # LƯỚI AN TOÀN cuối: chỉ TRUNCATE trên DB '_test'. Nếu engine lỡ trỏ DB khác
+    # (cấu hình sai) → dừng NGAY, KHÔNG xóa gì — tránh phá DB sản xuất.
+    db_name = engine.url.database or ""
+    assert db_name.endswith("_test"), (
+        f"AN TOÀN: từ chối TRUNCATE trên DB '{db_name}' (không kết thúc bằng '_test')."
+    )
     async with engine.begin() as conn:
         await conn.execute(text(f"TRUNCATE {_CLEAN_TABLES} CASCADE"))
         await conn.execute(text(_DROP_ORDER_SEQS))
