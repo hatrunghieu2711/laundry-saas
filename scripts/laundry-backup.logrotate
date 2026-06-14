@@ -1,0 +1,11 @@
+# Laundry SaaS — logrotate cho log backup.
+# Cài: cp scripts/laundry-backup.logrotate /etc/logrotate.d/laundry-backup
+/var/log/laundry-backup.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    missingok
+    notifempty
+    create 0640 root root
+}

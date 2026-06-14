@@ -1,0 +1,6 @@
+# Laundry SaaS — sao lưu DB sản xuất `laundry` hằng ngày lúc 02:00.
+# Cài: cp scripts/laundry-backup.cron /etc/cron.d/laundry-backup && chmod 644 /etc/cron.d/laundry-backup
+# Script tự ghi log vào /var/log/laundry-backup.log; cron không cần nhận output.
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+MAILTO=""
+0 2 * * * root /opt/laundry-saas/scripts/backup.sh >/dev/null 2>&1

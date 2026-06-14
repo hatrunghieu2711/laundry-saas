@@ -23,3 +23,8 @@ htmlcov/
 # Docker volumes (nếu mount cục bộ)
 pg_data/
 redis_data/
+
+# Database backups — KHÔNG BAO GIỜ commit (chứa data thật)
+*.sql
+*.sql.gz
+backups/
