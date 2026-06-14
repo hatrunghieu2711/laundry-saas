@@ -9,6 +9,7 @@
 """
 import uuid
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, Index, Integer, Numeric, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -16,6 +17,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 from app.models.base import Money, TimestampMixin, UpdatedAtMixin, uuid_pk
+
+if TYPE_CHECKING:
+    from app.models.category import Category
 
 # unit/pricing_type lưu dạng String + validate ở Pydantic (đồng bộ với order_status).
 UNITS = ("kg", "cai", "con", "bo", "luot")
@@ -37,10 +41,15 @@ class Service(TimestampMixin, UpdatedAtMixin, Base):
     )
     display_order: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
-    # Danh mục (vd "Giặt sấy", "Đồ lẻ") để gom tab ở màn tạo đơn; null = chưa phân loại.
-    category: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # Danh mục (thực thể riêng, Stage 4.3): gom tab màn tạo đơn; null = chưa phân loại.
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("categories.id"), nullable=True
+    )
     # "Hay chọn": owner đánh dấu dịch vụ thường dùng -> tab đầu màn tạo đơn.
     is_favorite: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+
+    # Nhúng info danh mục (name/icon) vào ServiceOut — selectin tránh N+1.
+    category: Mapped["Category | None"] = relationship("Category", lazy="selectin")
 
     tiers: Mapped[list["ServiceTier"]] = relationship(
         lazy="selectin",

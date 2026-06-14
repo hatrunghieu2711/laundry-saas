@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.core.database import SessionFactory
 from app.core.security import hash_password
+from app.models.category import Category
 from app.models.service import Service, ServiceTier
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -63,6 +64,23 @@ async def seed() -> None:
         else:
             print(f"[seed] owner exists phone={OWNER_PHONE}")
 
+        # Danh mục "Giặt sấy" (Stage 4.3, idempotent).
+        giat_say_cat = (
+            await db.execute(
+                select(Category).where(
+                    Category.tenant_id == tenant.id, Category.name == GIAT_SAY_NAME
+                )
+            )
+        ).scalar_one_or_none()
+        if giat_say_cat is None:
+            giat_say_cat = Category(
+                tenant_id=tenant.id, name=GIAT_SAY_NAME, icon="🧺",
+                display_order=0, is_active=True,
+            )
+            db.add(giat_say_cat)
+            await db.flush()
+            print(f"[seed] created category '{GIAT_SAY_NAME}'")
+
         # Bảng giá giặt sấy (idempotent: chỉ tạo nếu chưa có).
         giat_say = (
             await db.execute(
@@ -79,6 +97,7 @@ async def seed() -> None:
                 pricing_type="tier",
                 unit_price=0,
                 display_order=1,
+                category_id=giat_say_cat.id,
                 is_active=True,
                 tiers=[
                     ServiceTier(

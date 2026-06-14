@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
+import { normalizeCategory } from '../lib/categories'
 import { formatVND } from '../lib/format'
 import { UNITS, UNIT_LABEL, normalizeService } from '../lib/services'
 
@@ -11,7 +13,7 @@ const EMPTY_TIER = { label: '', max_value: '', price: '', per_unit: false }
 function blankForm() {
   return {
     id: null, name: '', unit: 'kg', pricing_type: 'per_unit', unit_price: '',
-    category: '', is_favorite: false, tiers: [{ ...EMPTY_TIER }],
+    category_id: '', is_favorite: false, tiers: [{ ...EMPTY_TIER }],
   }
 }
 
@@ -21,7 +23,7 @@ function toForm(svc) {
     name: svc.name,
     unit: svc.unit,
     pricing_type: svc.pricing_type,
-    category: svc.category || '',
+    category_id: svc.category_id || '',
     is_favorite: !!svc.is_favorite,
     unit_price: svc.pricing_type === 'per_unit' ? String(svc.unit_price) : '',
     tiers:
@@ -41,12 +43,21 @@ export default function ServicesManage() {
   const canManage = user?.role === 'owner' || user?.role === 'manager'
 
   const [items, setItems] = useState([])
+  const [categories, setCategories] = useState([])
   const [showInactive, setShowInactive] = useState(false)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [form, setForm] = useState(null) // null = đóng form; object = đang thêm/sửa
   const [saving, setSaving] = useState(false)
   const [confirmDel, setConfirmDel] = useState(null)
+
+  // Danh mục cho dropdown (chọn từ danh sách chuẩn, không gõ text tự do).
+  useEffect(() => {
+    api
+      .get('/categories?limit=200')
+      .then((p) => setCategories(p.items.map(normalizeCategory)))
+      .catch(() => setCategories([]))
+  }, [])
 
   const reload = useCallback(async () => {
     setLoading(true)
@@ -83,7 +94,7 @@ export default function ServicesManage() {
       unit: form.unit,
       pricing_type: form.pricing_type,
       display_order: 0,
-      category: form.category.trim() || null,
+      category_id: form.category_id || null,
       is_favorite: !!form.is_favorite,
     }
     if (form.pricing_type === 'per_unit') {
@@ -190,14 +201,22 @@ export default function ServicesManage() {
           </label>
 
           <label className="field">
-            <span>Danh mục (gom tab màn tạo đơn — vd “Giặt sấy”, “Đồ lẻ”)</span>
-            <input
+            <span>Danh mục (gom tab màn tạo đơn)</span>
+            <select
               className="input"
-              type="text"
-              placeholder="Để trống = nhóm “Khác”"
-              value={form.category}
-              onChange={(e) => setField('category', e.target.value)}
-            />
+              value={form.category_id}
+              onChange={(e) => setField('category_id', e.target.value)}
+            >
+              <option value="">— Chưa phân loại (nhóm “Khác”) —</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {(c.icon ? `${c.icon} ` : '') + c.name}
+                </option>
+              ))}
+            </select>
+            <Link className="svc-form__link" to="/categories">
+              ⚙ Quản lý danh mục
+            </Link>
           </label>
 
           <label className="svc-fav-toggle">
@@ -347,7 +366,11 @@ export default function ServicesManage() {
                 <span className="svc-manage__name">
                   {svc.is_favorite && <span className="svc-manage__star" title="Hay chọn">⭐</span>}
                   {svc.name}
-                  {svc.category && <span className="svc-manage__cat">{svc.category}</span>}
+                  {svc.category && (
+                    <span className="svc-manage__cat">
+                      {(svc.category.icon ? `${svc.category.icon} ` : '') + svc.category.name}
+                    </span>
+                  )}
                   {!svc.is_active && <span className="svc-manage__badge">đã ẩn</span>}
                 </span>
                 <span className="svc-manage__meta">

@@ -6,6 +6,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from app.schemas.category import CategoryBrief
+
 Unit = Literal["kg", "cai", "con", "bo", "luot"]
 PricingType = Literal["per_unit", "tier"]
 
@@ -36,7 +38,7 @@ class ServiceCreate(BaseModel):
     pricing_type: PricingType
     unit_price: Decimal = Field(default=Decimal(0), ge=0)
     display_order: int = 0
-    category: str | None = Field(default=None, max_length=64)
+    category_id: uuid.UUID | None = None
     is_favorite: bool = False
     tiers: list[ServiceTierIn] = Field(default_factory=list)
 
@@ -58,7 +60,7 @@ class ServiceUpdate(BaseModel):
     unit_price: Decimal | None = Field(default=None, ge=0)
     display_order: int | None = None
     is_active: bool | None = None
-    category: str | None = Field(default=None, max_length=64)
+    category_id: uuid.UUID | None = None
     is_favorite: bool | None = None
     tiers: list[ServiceTierIn] | None = None
 
@@ -74,7 +76,8 @@ class ServiceOut(BaseModel):
     unit_price: Decimal
     display_order: int
     is_active: bool
-    category: str | None
+    category_id: uuid.UUID | None
+    category: CategoryBrief | None   # info gọn (name/icon) để frontend render
     is_favorite: bool
     created_at: datetime
     updated_at: datetime

@@ -4,6 +4,7 @@ from fastapi import APIRouter
 from app.api.v1.auth import router as auth_router
 from app.api.v1.branches import router as branches_router
 from app.api.v1.cash_transactions import router as cash_transactions_router
+from app.api.v1.categories import router as categories_router
 from app.api.v1.customers import router as customers_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.payments import router as payments_router
@@ -23,6 +24,7 @@ api_router.include_router(orders_router)
 api_router.include_router(payments_router)
 api_router.include_router(cash_transactions_router)
 api_router.include_router(customers_router)
+api_router.include_router(categories_router)
 api_router.include_router(services_router)
 api_router.include_router(settings_router)
 

@@ -2302,3 +2302,73 @@ body {
   font-size: 16px;
   white-space: nowrap;
 }
+
+/* ══ Stage 4.3: Danh mục dịch vụ (CategoriesManage) ════════════════ */
+.svc-form__link {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 13px;
+  color: var(--orange-dark);
+  text-decoration: none;
+}
+
+/* Bộ chọn icon (emoji) */
+.icon-picker {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 8px;
+}
+.icon-opt {
+  min-height: 46px;
+  font-size: 22px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius);
+  background: #fff;
+  cursor: pointer;
+}
+.icon-opt--active {
+  border-color: var(--orange);
+  background: var(--orange-soft);
+}
+
+/* Danh sách danh mục */
+.cat-manage-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cat-manage {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 10px 14px;
+}
+.cat-manage__order {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cat-manage__order .qty-btn {
+  min-height: 26px;
+  min-width: 34px;
+  line-height: 1;
+}
+.cat-manage__icon {
+  font-size: 26px;
+  width: 34px;
+  text-align: center;
+}
+.cat-manage__name {
+  flex: 1;
+  font-weight: 700;
+  font-size: 17px;
+  min-width: 0;
+}
+.cat-manage__actions {
+  display: flex;
+  gap: 6px;
+}

@@ -12,6 +12,7 @@ from app.api.deps import Pagination
 from app.core.errors import APIError
 from app.models.service import Service, ServiceTier
 from app.schemas.service import ServiceCreate, ServiceTierIn, ServiceUpdate
+from app.services import category_service
 
 
 def _make_tiers(tiers: list[ServiceTierIn]) -> list[ServiceTier]:
@@ -72,6 +73,9 @@ async def get_active_service(
 async def create_service(
     db: AsyncSession, tenant_id: uuid.UUID, data: ServiceCreate
 ) -> Service:
+    if data.category_id is not None:
+        # Xác minh danh mục thuộc tenant + còn active (422 INVALID_CATEGORY nếu sai).
+        await category_service.get_active_category(db, tenant_id, data.category_id)
     service = Service(
         tenant_id=tenant_id,
         name=data.name,
@@ -79,7 +83,7 @@ async def create_service(
         unit_price=data.unit_price,
         pricing_type=data.pricing_type,
         display_order=data.display_order,
-        category=data.category,
+        category_id=data.category_id,
         is_favorite=data.is_favorite,
         is_active=True,
         tiers=_make_tiers(data.tiers),
@@ -95,6 +99,9 @@ async def update_service(
     service = await get_service(db, tenant_id, service_id)
     changes = data.model_dump(exclude_unset=True)
     tiers = changes.pop("tiers", None)
+    # Đổi danh mục: xác minh thuộc tenant + active (cho phép set null để bỏ danh mục).
+    if "category_id" in changes and changes["category_id"] is not None:
+        await category_service.get_active_category(db, tenant_id, changes["category_id"])
     for field, value in changes.items():
         setattr(service, field, value)
     if tiers is not None:

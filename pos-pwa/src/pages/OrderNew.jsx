@@ -9,6 +9,7 @@ import { formatVND, toNumber } from '../lib/format'
 import { defaultPickupVnWall, isPastVnWall, vnWallToISO } from '../lib/datetime'
 import { PAYMENT_METHOD } from '../lib/orders'
 import { UNIT_LABEL, normalizeService } from '../lib/services'
+import { DEFAULT_CATEGORY_ICON } from '../lib/categories'
 
 const PREPAY_METHODS = ['cash', 'transfer', 'qr']
 
@@ -172,21 +173,29 @@ export default function OrderNew() {
     return items
   }
 
-  // ── danh mục (tab) ──
+  // ── danh mục (tab) — mỗi category dùng icon riêng, theo display_order ──
   const tabs = useMemo(() => {
     const favs = services.filter((s) => s.is_favorite)
-    const cats = []
-    const seen = new Set()
+    // Gom danh mục có dịch vụ (giữ object category nhúng trong service).
+    const catMap = new Map()
     for (const s of services) {
-      if (s.category && !seen.has(s.category)) {
-        seen.add(s.category)
-        cats.push(s.category)
+      if (s.category_id && s.category && !catMap.has(s.category_id)) {
+        catMap.set(s.category_id, s.category)
       }
     }
-    const uncat = services.filter((s) => !s.category)
+    const cats = [...catMap.values()].sort(
+      (a, b) =>
+        (a.display_order ?? 0) - (b.display_order ?? 0) || a.name.localeCompare(b.name),
+    )
+    const uncat = services.filter((s) => !s.category_id)
     const list = [{ key: '__fav', label: 'Hay chọn', icon: '⭐', items: favs }]
     for (const c of cats) {
-      list.push({ key: c, label: c, icon: '🧺', items: services.filter((s) => s.category === c) })
+      list.push({
+        key: c.id,
+        label: c.name,
+        icon: c.icon || DEFAULT_CATEGORY_ICON,
+        items: services.filter((s) => s.category_id === c.id),
+      })
     }
     if (uncat.length) list.push({ key: '__other', label: 'Khác', icon: '📦', items: uncat })
     return list

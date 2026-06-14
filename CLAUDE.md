@@ -158,11 +158,21 @@ mọi bảng có created_at; bảng mutable có updated_at.
   SNAPSHOT lúc tạo đơn — sửa bảng giá sau KHÔNG đổi giá đơn cũ.
 - Index: (order_id)
 
+### categories (Stage 4.3, migration b5c6d7e8f9a0) — danh mục dịch vụ
+- id UUID PK, tenant_id FK, name String(64), icon String(32) nullable (emoji/tên icon),
+  display_order INT, is_active bool, created_at, updated_at.
+- Tách từ `services.category` text cũ thành thực thể riêng (có icon + thứ tự) để owner
+  quản lý tập trung. Soft delete qua is_active. Tenant-scoped.
+- Index: (tenant_id, is_active, display_order).
+- CRUD /categories: owner/manager ghi (tạo/sửa/xóa-soft/PUT reorder); mọi role đọc.
+  Chặn xóa danh mục còn dịch vụ ACTIVE đang dùng → 409 CATEGORY_IN_USE ("còn N dịch vụ").
+
 ### services (Stage 3.5A, migration 8824c0db78cf) — bảng giá động
 - id UUID PK, tenant_id FK, name, unit (kg|cai|con|bo|luot), unit_price NUMERIC(14,0),
   pricing_type (per_unit|tier), display_order INT, is_active bool, created_at, updated_at
-- category String(64) nullable + is_favorite bool (Stage 3.8, migration e2f3a4b5c6d7):
-  gom tab màn tạo đơn; "Hay chọn" = is_favorite=true. owner đánh dấu ở màn bảng giá.
+- category_id UUID FK nullable → categories (Stage 4.3, migration b5c6d7e8f9a0; THAY cho
+  cột text `category` cũ) + is_favorite bool (Stage 3.8): gom tab màn tạo đơn; "Hay chọn"
+  = is_favorite=true. ServiceOut nhúng object `category` {id,name,icon,display_order}.
 - per_unit: subtotal = quantity × unit_price (vd Áo Vest 60k/cái).
 - tier: bậc cân qua bảng `service_tiers` (giặt sấy 60/90/120k...).
 - Soft delete qua is_active. Tenant-scoped. Index: (tenant_id, is_active, display_order)
@@ -364,6 +374,20 @@ sms_logs, notifications, inventory, machines.
     `amount` luôn dương (magnitude), dấu suy từ `type`; sửa sai = ghi giao dịch
     đối ứng (bảng IMMUTABLE như payments, trigger chặn UPDATE/DELETE).
 
+- **Danh mục là thực thể riêng; xóa danh mục = CHẶN nếu còn dịch vụ (không tự
+  null hóa) (chốt Stage 4.3).** `services.category` text → `categories` (icon +
+  display_order) + `services.category_id`. Chọn danh mục cho dịch vụ bằng DROPDOWN
+  từ danh sách chuẩn — KHÔNG gõ text tự do (tránh trùng/sai chính tả phân mảnh tab).
+  - **Lý do:** danh mục cần icon + thứ tự + sửa-một-chỗ-đổi-mọi-nơi; text tự do
+    không làm được. Chặn xóa (thay vì set category_id=null hàng loạt) là cách AN
+    TOÀN: tránh mất phân loại ngầm; báo "còn N dịch vụ" để owner chủ động xử lý.
+  - **Cách áp dụng:** ServiceCreate/Update nhận `category_id` (validate thuộc tenant
+    + active → 422 INVALID_CATEGORY); ServiceOut trả `category_id` + object `category`.
+    Xóa danh mục: `soft_delete_category` đếm service ACTIVE cùng category_id, >0 →
+    409 CATEGORY_IN_USE. Migration backfill: gom các text `category` DISTINCT theo
+    (tenant, name) thành 1 category, map category_id, rồi DROP cột text (đã verify
+    trên prod thật: "Giặt sấy"×4 + "Giặt hấp"×1 → 2 category, 0 mất mát).
+
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
 - **Múi giờ POS cố định Việt Nam (UTC+7) ở frontend (chốt Stage 3.8).** Trước đây
@@ -410,6 +434,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 3.9: cho lùi trạng thái có kiểm soát + gộp màn "Đơn hàng" (Kanban/List + search q) + nav restructure (☰ menu)
 - [x] Stage 4.1: custom bill template (receipt_config) + GET/PUT /settings/receipt + màn cấu hình phiếu (preview 80mm realtime)
 - [x] Stage 4.2: sổ quỹ thu-chi (cash_transactions IMMUTABLE) + tích hợp đóng ca (expected cộng thu/trừ chi tiền mặt) + màn "Sổ quỹ" POS + Telegram kèm dòng thu/chi
+- [x] Stage 4.3: danh mục dịch vụ thành thực thể riêng (categories: icon + thứ tự) + services.category_id + migration backfill (gom text trùng) + CRUD + màn "Danh mục" (icon picker, ↑/↓) + dropdown chọn danh mục ở bảng giá + tab danh mục icon riêng ở màn tạo đơn
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)

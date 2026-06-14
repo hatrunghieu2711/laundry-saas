@@ -121,17 +121,22 @@ async def test_staff_cannot_write_can_read(client: AsyncClient, sctx: dict):
 
 
 async def test_service_category_and_favorite(client: AsyncClient, sctx: dict):
+    # Category là thực thể riêng (Stage 4.3): tạo trước rồi tham chiếu category_id.
+    cat = (await client.post("/api/v1/categories", json={"name": "Đồ lẻ", "icon": "👕"},
+                             headers=auth_headers(sctx["owner_token"]))).json()
     r = await _create_service(
         client, sctx["owner_token"], name="Áo sơ mi", unit="cai",
-        pricing_type="per_unit", unit_price=15000, category="Đồ lẻ", is_favorite=True,
+        pricing_type="per_unit", unit_price=15000, category_id=cat["id"], is_favorite=True,
     )
     assert r.status_code == 201, r.text
     svc = r.json()
-    assert svc["category"] == "Đồ lẻ"
+    assert svc["category_id"] == cat["id"]
+    assert svc["category"]["name"] == "Đồ lẻ"          # ServiceOut nhúng info category
     assert svc["is_favorite"] is True
 
     # mặc định khi không gửi: category None, is_favorite False.
     plain = await _ao_vest(client, sctx["owner_token"])
+    assert plain["category_id"] is None
     assert plain["category"] is None
     assert plain["is_favorite"] is False
 

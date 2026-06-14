@@ -12,10 +12,12 @@ export const UNITS = [
 export const UNIT_LABEL = Object.fromEntries(UNITS.map((u) => [u.value, u.label]))
 
 // Chuẩn hoá field tiền (nợ kỹ thuật 5E+4 → Number) + sort tiers theo display_order.
+// category là thực thể riêng (Stage 4.3): category_id + object category {id,name,icon}.
 export function normalizeService(s) {
   return {
     ...s,
-    category: s.category || null,
+    category_id: s.category_id || null,
+    category: s.category || null, // { id, name, icon, display_order } | null
     is_favorite: !!s.is_favorite,
     unit_price: toNumber(s.unit_price),
     tiers: (s.tiers || [])

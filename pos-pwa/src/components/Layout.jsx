@@ -12,6 +12,7 @@ const NAV = [
 const MENU = [
   { to: '/cashbook', label: '💵 Sổ quỹ' },
   { to: '/services', label: '💰 Bảng giá', roles: ['owner', 'manager'] },
+  { to: '/categories', label: '🗂️ Danh mục', roles: ['owner', 'manager'] },
   { to: '/settings/receipt', label: '🧾 Mẫu phiếu in', roles: ['owner', 'manager'] },
 ]
 
