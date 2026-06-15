@@ -36,6 +36,13 @@ class Settings(BaseSettings):
     public_track_rate_limit: int = 30  # số request tối đa / cửa sổ / IP
     public_track_rate_window: int = 60  # độ dài cửa sổ (giây)
 
+    # Uploads (logo phiếu in). Thư mục nằm trong volume ./:/code → ra host
+    # /opt/laundry-saas/uploads; nginx serve trực tiếp tại url_prefix.
+    upload_dir: str = "/code/uploads"
+    upload_url_prefix: str = "/uploads"
+    logo_max_bytes: int = 512 * 1024  # ~500KB ảnh gốc tải lên
+    logo_max_px: int = 480            # cạnh lớn nhất sau khi resize (đủ nét 80mm)
+
 
 @lru_cache
 def get_settings() -> Settings:

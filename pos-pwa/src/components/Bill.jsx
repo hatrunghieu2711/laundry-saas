@@ -1,114 +1,160 @@
 import { QRCodeSVG } from 'qrcode.react'
-import { formatDateTime, formatVND, toNumber } from '../lib/format'
+import { formatVND, toNumber } from '../lib/format'
 import { formatPickupShort } from '../lib/datetime'
-import { PAYMENT_METHOD } from '../lib/orders'
 
-// Nội dung phiếu (.rcp) render theo cấu hình blocks {key,enabled,order}.
-// Dùng chung cho in (Receipt.jsx, qua portal) và preview (màn cấu hình).
-export default function BillContent({ config, order, paid = 0, method = null }) {
+// Phiếu (.rcp) SONG NGỮ Việt/Anh — layout CỐ ĐỊNH khớp mẫu Giặt Ủi 2H (Stage 5.3).
+// Nhãn song ngữ cứng ở đây; owner chỉ sửa nội dung (text + logo) và bật/tắt
+// khối ghi chú + phụ thu trong /settings/receipt. Dùng chung cho in + preview.
+export default function BillContent({ config, order }) {
   if (!order) return null
-  const total = toNumber(order.total_amount)
-  const paidSum = toNumber(paid)
-  const remaining = total - paidSum
+
+  const subtotal = toNumber(order.total_amount)
+  const pct = toNumber(config.surcharge_percent)
+  const surchargeOn = !!config.surcharge_enabled && pct > 0
+  const surcharge = surchargeOn ? Math.round((subtotal * pct) / 100) : 0
+  const grandTotal = subtotal + surcharge
+
   // QR trỏ về trang tracking công khai (subdomain riêng), KHÔNG phải origin POS.
-  // Cấu hình qua VITE_TRACK_BASE_URL khi build; mặc định track.giatui2h.com.
   const trackBase = import.meta.env.VITE_TRACK_BASE_URL || 'https://track.giatui2h.com'
   const trackUrl = `${trackBase}/track/${order.order_code}`
-  const methodLabel = method ? PAYMENT_METHOD[method] || method : null
-  const payState =
-    total > 0 && paidSum >= total
-      ? { label: methodLabel ? `ĐÃ THANH TOÁN (${methodLabel})` : 'ĐÃ THANH TOÁN', cls: 'rcp__paystatus--paid' }
-      : paidSum > 0
-        ? { label: 'THANH TOÁN MỘT PHẦN', cls: 'rcp__paystatus--part' }
-        : { label: 'CHƯA THANH TOÁN', cls: 'rcp__paystatus--unpaid' }
 
-  const render = {
-    header: () => (
+  const noteOn = !!config.note_enabled && (config.note_vi || config.note_en)
+
+  // Một dòng chân phiếu song ngữ: chỉ hiện khi có giá trị.
+  const footRows = [
+    ['Hotline', config.hotline],
+    ['Web', config.web],
+    ['Địa chỉ / Add', config.address],
+    ['Zalo / WA / Kakao', config.zalo_wa_kakao],
+    ['Giờ mở cửa / OPEN', config.open_hours],
+  ].filter(([, v]) => v && String(v).trim())
+
+  return (
+    <div className="rcp">
+      {/* ── Logo + tiêu đề ─────────────────────────────────────────── */}
       <div className="rcp__header">
-        {config.logo_text && <div className="rcp__logo">{config.logo_text}</div>}
-        <div className="rcp__brand">{config.shop_name || 'Phiếu đơn hàng'}</div>
-        {config.address && <div className="rcp__branch">{config.address}</div>}
-        {config.phone && <div className="rcp__branch">ĐT: {config.phone}</div>}
+        {config.logo_url ? (
+          <img className="rcp__logo-img" src={config.logo_url} alt={config.shop_name || 'logo'} />
+        ) : (
+          config.logo_text && <div className="rcp__logo">{config.logo_text}</div>
+        )}
+        {config.shop_name && <div className="rcp__brand">{config.shop_name}</div>}
+        <div className="rcp__title">RECEIPT — BIÊN NHẬN</div>
       </div>
-    ),
-    order_code: () => (
-      <div>
-        <div className="rcp__code-label">Mã đơn</div>
-        <div className="rcp__code">{order.order_code}</div>
+
+      <div className="rcp__divider" />
+
+      {/* ── Khách + giờ nhận/giao ──────────────────────────────────── */}
+      <div className="rcp__info">
+        <div className="rcp__info-row">
+          <span className="rcp__info-cell">
+            <b>Tên / Name:</b> {order.customer_name || '—'}
+          </span>
+          <span className="rcp__info-cell">
+            <b>ĐT / Tel:</b> {order.customer_phone || '—'}
+          </span>
+        </div>
+        <div className="rcp__info-row">
+          <span className="rcp__info-cell">
+            <b>Giờ nhận / Receiving:</b> {formatPickupShort(order.created_at)}
+          </span>
+          <span className="rcp__info-cell">
+            <b>Giờ giao / Delivery:</b> {order.pickup_at ? formatPickupShort(order.pickup_at) : '—'}
+          </span>
+        </div>
       </div>
-    ),
-    pickup_time: () =>
-      order.pickup_at ? (
-        <div className="rcp__pickup">Hẹn lấy: {formatPickupShort(order.pickup_at)}</div>
-      ) : null,
-    qr_tracking: () => (
+
+      <div className="rcp__divider" />
+
+      {/* ── Bảng món: Dịch vụ/SL/Giá/Tổng (Service/Qty/Price/Total) ──── */}
+      <table className="rcp__table">
+        <thead>
+          <tr>
+            <th className="rcp__th rcp__th--name">
+              Dịch vụ<span className="rcp__th-en">Service</span>
+            </th>
+            <th className="rcp__th rcp__th--qty">
+              SL<span className="rcp__th-en">Qty</span>
+            </th>
+            <th className="rcp__th rcp__th--num">
+              Giá<span className="rcp__th-en">Price</span>
+            </th>
+            <th className="rcp__th rcp__th--num">
+              Tổng<span className="rcp__th-en">Total</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {order.items.map((it) => (
+            <tr className="rcp__tr" key={it.id}>
+              <td className="rcp__td rcp__td--name">{it.service_name}</td>
+              <td className="rcp__td rcp__td--qty">{toNumber(it.quantity)}</td>
+              <td className="rcp__td rcp__td--num">{formatVND(it.unit_price)}</td>
+              <td className="rcp__td rcp__td--num">{formatVND(it.subtotal)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* ── Tổng tiền · (Phụ thu) · Tổng cộng ──────────────────────── */}
+      <div className="rcp__totals">
+        <div className="rcp__row">
+          <span>Tổng tiền / Subtotal</span>
+          <span>{formatVND(subtotal)}</span>
+        </div>
+        {surchargeOn && (
+          <div className="rcp__row">
+            <span>
+              {config.surcharge_label_vi} / {config.surcharge_label_en} ({pct}%)
+            </span>
+            <span>{formatVND(surcharge)}</span>
+          </div>
+        )}
+        <div className="rcp__row rcp__row--total">
+          <span>TỔNG CỘNG / TOTAL</span>
+          <span>{formatVND(grandTotal)}</span>
+        </div>
+      </div>
+
+      {/* ── Ghi chú trách nhiệm (song ngữ, in nghiêng) ─────────────── */}
+      {noteOn && (
+        <>
+          <div className="rcp__divider" />
+          <div className="rcp__note">
+            <div className="rcp__note-label">Lưu ý / Important Note</div>
+            {config.note_vi && <div className="rcp__note-vi">{config.note_vi}</div>}
+            {config.note_en && <div className="rcp__note-en">{config.note_en}</div>}
+          </div>
+        </>
+      )}
+
+      <div className="rcp__divider" />
+
+      {/* ── QR tracking ────────────────────────────────────────────── */}
       <div className="rcp__qr">
         <QRCodeSVG value={trackUrl} size={132} level="M" />
-        <div className="rcp__qr-cap">Quét để tra cứu đơn</div>
+        <div className="rcp__qr-cap">Quét mã QR / Scan QR to track</div>
       </div>
-    ),
-    items: () => (
-      <div className="rcp__items">
-        <div className="rcp__row rcp__row--head">
-          <span>Dịch vụ</span>
-          <span>Thành tiền</span>
-        </div>
-        {order.items.map((it) => (
-          <div className="rcp__row" key={it.id}>
-            <span className="rcp__item-name">
-              {it.service_name}
-              <small> × {toNumber(it.quantity)}</small>
-            </span>
-            <span>{formatVND(it.subtotal)}</span>
+
+      {/* ── Số đơn ─────────────────────────────────────────────────── */}
+      <div className="rcp__no">
+        Số / No: <b>{order.order_code}</b>
+      </div>
+
+      {/* ── Chân phiếu song ngữ ────────────────────────────────────── */}
+      {(footRows.length > 0 || config.footer_text) && (
+        <>
+          <div className="rcp__divider" />
+          <div className="rcp__foot">
+            {footRows.map(([label, value]) => (
+              <div className="rcp__foot-row" key={label}>
+                <span className="rcp__foot-label">{label}:</span> {value}
+              </div>
+            ))}
+            {config.footer_text && <div className="rcp__foot-tag">{config.footer_text}</div>}
           </div>
-        ))}
-      </div>
-    ),
-    totals: () => (
-      <div className="rcp__totals">
-        <div className="rcp__row rcp__row--total">
-          <span>Tổng tiền</span>
-          <span>{formatVND(total)}</span>
-        </div>
-        <div className="rcp__row">
-          <span>Đã thanh toán</span>
-          <span>{formatVND(paidSum)}</span>
-        </div>
-        <div className="rcp__row rcp__row--due">
-          <span>Còn lại</span>
-          <span>{formatVND(remaining > 0 ? remaining : 0)}</span>
-        </div>
-      </div>
-    ),
-    payment_status: () => <div className={`rcp__paystatus ${payState.cls}`}>{payState.label}</div>,
-    meta: () => (
-      <div className="rcp__meta">
-        <div>
-          Lập lúc: {formatDateTime(order.created_at)}
-          {order.created_by_name ? ` · ${order.created_by_name}` : ''}
-        </div>
-        {order.customer_name && <div>Khách: {order.customer_name}</div>}
-      </div>
-    ),
-    footer: () => (
-      <div className="rcp__foot">
-        {config.footer_text && <div>{config.footer_text}</div>}
-        {config.open_hours && <div>Mở cửa {config.open_hours}</div>}
-      </div>
-    ),
-  }
-
-  const blocks = [...(config.blocks || [])]
-    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-    .filter((b) => b.enabled)
-
-  const nodes = []
-  blocks.forEach((b, i) => {
-    const el = render[b.key]?.()
-    if (!el) return
-    if (nodes.length) nodes.push(<div className="rcp__divider" key={`d${i}`} />)
-    nodes.push(<div key={b.key}>{el}</div>)
-  })
-
-  return <div className="rcp">{nodes}</div>
+        </>
+      )}
+    </div>
+  )
 }

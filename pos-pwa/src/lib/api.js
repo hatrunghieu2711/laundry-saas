@@ -100,9 +100,46 @@ export async function apiFetch(
   return data
 }
 
+// Upload multipart (FormData) — KHÔNG set Content-Type (browser tự gắn boundary),
+// nên không dùng được apiFetch (vốn JSON.stringify). Tự xử lý refresh-on-401 1 lần.
+export async function apiUpload(path, formData, { _retry = false } = {}) {
+  const token = getAccessToken()
+  const headers = {}
+  if (token) headers['Authorization'] = `Bearer ${token}`
+
+  const resp = await fetch(`${BASE}${path}`, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  })
+
+  if (resp.status === 401 && !_retry) {
+    try {
+      await refreshOnce()
+    } catch {
+      clearSession()
+      redirectToLogin()
+      throw new ApiError(401, 'SESSION_EXPIRED', 'Phiên đăng nhập đã hết hạn')
+    }
+    return apiUpload(path, formData, { _retry: true })
+  }
+
+  const data = await parseJson(resp)
+  if (!resp.ok) {
+    if (resp.status === 401) {
+      clearSession()
+      redirectToLogin()
+    }
+    throw new ApiError(resp.status, data?.code || 'ERROR', data?.message || 'Tải lên thất bại')
+  }
+  return data
+}
+
 export const api = {
   get: (path, opts) => apiFetch(path, { ...opts, method: 'GET' }),
   post: (path, body, opts) => apiFetch(path, { ...opts, method: 'POST', body }),
+  upload: (path, formData) => apiUpload(path, formData),
   put: (path, body, opts) => apiFetch(path, { ...opts, method: 'PUT', body }),
   patch: (path, body, opts) => apiFetch(path, { ...opts, method: 'PATCH', body }),
   del: (path, opts) => apiFetch(path, { ...opts, method: 'DELETE' }),

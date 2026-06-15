@@ -77,6 +77,7 @@ class OrderOut(BaseModel):
     branch_id: uuid.UUID
     customer_id: uuid.UUID | None
     customer_name: str | None
+    customer_phone: str | None
     order_code: str
     total_amount: Decimal
     payment_status: str

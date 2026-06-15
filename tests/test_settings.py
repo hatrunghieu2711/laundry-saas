@@ -58,41 +58,52 @@ async def test_staff_can_read_pos_cannot_update(client: AsyncClient, owner: dict
     assert full.status_code == 403
 
 
-async def test_receipt_default_and_blocks(client: AsyncClient, owner: dict):
+async def test_receipt_default_bilingual(client: AsyncClient, owner: dict):
+    """Mẫu mặc định song ngữ 2H: logo text 2H, ghi chú bật, phụ thu tắt."""
     t = await login(client, owner["phone"], owner["password"])
     r = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))
     assert r.status_code == 200, r.text
     cfg = r.json()
     assert cfg["logo_text"] == "2H"
-    keys = [b["key"] for b in cfg["blocks"]]
-    assert keys[0] == "header" and "qr_tracking" in keys and keys[-1] == "footer"
-    assert all(b["enabled"] for b in cfg["blocks"])
+    assert cfg["logo_url"] == ""
+    assert cfg["note_enabled"] is True
+    assert cfg["note_vi"] and cfg["note_en"]  # có ghi chú song ngữ mặc định
+    assert cfg["surcharge_enabled"] is False  # phụ thu mặc định TẮT
+    assert "blocks" not in cfg  # layout giờ cố định, không còn blocks
 
 
 async def test_receipt_update_by_owner(client: AsyncClient, owner: dict):
     t = await login(client, owner["phone"], owner["password"])
     body = {
         "shop_name": "Tiệm Giặt ABC",
-        "address": "12 Trần Phú",
-        "phone": "0258123456",
-        "footer_text": "Hẹn gặp lại!",
-        "open_hours": "8h-20h",
         "logo_text": "ABC",
-        "blocks": [
-            {"key": "header", "enabled": True, "order": 0},
-            {"key": "items", "enabled": True, "order": 1},
-            {"key": "qr_tracking", "enabled": False, "order": 2},
-        ],
+        "hotline": "0258 123 456",
+        "web": "giatabc.vn",
+        "address": "12 Trần Phú, Nha Trang",
+        "zalo_wa_kakao": "0905 000 111",
+        "open_hours": "8:00 – 20:00 / Daily",
+        "footer_text": "Hẹn gặp lại! / See you again!",
+        "note_enabled": True,
+        "note_vi": "Giữ biên nhận khi nhận đồ.",
+        "note_en": "Keep this receipt to collect.",
+        "surcharge_enabled": True,
+        "surcharge_percent": 20,
+        "surcharge_label_vi": "Phụ thu Tết",
+        "surcharge_label_en": "Tet surcharge",
+        # client cố tình gửi logo_url bậy — server PHẢI bỏ qua (giữ "").
+        "logo_url": "https://evil.example/x.png",
     }
     upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
     assert upd.status_code == 200, upd.text
     cfg = upd.json()
     assert cfg["shop_name"] == "Tiệm Giặt ABC"
-    qr = next(b for b in cfg["blocks"] if b["key"] == "qr_tracking")
-    assert qr["enabled"] is False
+    assert cfg["hotline"] == "0258 123 456"
+    assert cfg["surcharge_enabled"] is True
+    assert int(float(cfg["surcharge_percent"])) == 20
+    assert cfg["logo_url"] == ""  # KHÔNG nhận logo_url từ body PUT
     # đọc lại vẫn giữ
     again = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))
-    assert again.json()["shop_name"] == "Tiệm Giặt ABC"
+    assert again.json()["zalo_wa_kakao"] == "0905 000 111"
 
 
 async def test_receipt_staff_read_owner_write(client: AsyncClient, owner: dict):
@@ -100,9 +111,64 @@ async def test_receipt_staff_read_owner_write(client: AsyncClient, owner: dict):
     staff = await _staff_token(client, owner_token)
     ok = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(staff))
     assert ok.status_code == 200  # POS đọc được
-    bad = await client.put(f"{SETTINGS}/receipt", json={"shop_name": "X", "blocks": []},
+    bad = await client.put(f"{SETTINGS}/receipt", json={"shop_name": "X"},
                            headers=auth_headers(staff))
     assert bad.status_code == 403  # staff không sửa
+
+
+# ── Upload logo phiếu (Stage 5.3) ───────────────────────────────────────────
+def _png_bytes(size: int = 64) -> bytes:
+    """Sinh 1 ảnh PNG hợp lệ trong bộ nhớ (Pillow)."""
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (size, size), (10, 120, 200)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+async def test_logo_upload_owner(client: AsyncClient, owner: dict, tmp_path, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
+    t = await login(client, owner["phone"], owner["password"])
+    files = {"file": ("logo.png", _png_bytes(), "image/png")}
+    r = await client.post(f"{SETTINGS}/receipt/logo", files=files, headers=auth_headers(t))
+    assert r.status_code == 200, r.text
+    cfg = r.json()
+    assert cfg["logo_url"].startswith(f"/uploads/logo/{owner['tenant_id']}.png")
+    # file thực sự được ghi xuống thư mục upload
+    import os
+
+    assert os.path.exists(tmp_path / "logo" / f"{owner['tenant_id']}.png")
+    # GET đọc lại thấy logo_url; PUT text sau đó VẪN giữ logo_url.
+    again = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))
+    assert again.json()["logo_url"] == cfg["logo_url"]
+    upd = await client.put(f"{SETTINGS}/receipt", json={"shop_name": "Z"}, headers=auth_headers(t))
+    assert upd.json()["logo_url"] == cfg["logo_url"]  # logo không bị PUT xoá
+
+
+async def test_logo_upload_staff_forbidden(client: AsyncClient, owner: dict, tmp_path, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
+    owner_token = await login(client, owner["phone"], owner["password"])
+    staff = await _staff_token(client, owner_token)
+    files = {"file": ("logo.png", _png_bytes(), "image/png")}
+    r = await client.post(f"{SETTINGS}/receipt/logo", files=files, headers=auth_headers(staff))
+    assert r.status_code == 403
+
+
+async def test_logo_upload_rejects_non_image(client: AsyncClient, owner: dict, tmp_path, monkeypatch):
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "upload_dir", str(tmp_path))
+    t = await login(client, owner["phone"], owner["password"])
+    files = {"file": ("note.txt", b"not an image", "text/plain")}
+    r = await client.post(f"{SETTINGS}/receipt/logo", files=files, headers=auth_headers(t))
+    assert r.status_code == 422
+    assert r.json()["code"] in ("INVALID_IMAGE_TYPE", "INVALID_IMAGE")
 
 
 async def test_settings_tenant_isolation(client: AsyncClient, owner: dict, owner2: dict):

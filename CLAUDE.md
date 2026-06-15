@@ -253,14 +253,30 @@ mọi bảng có created_at; bảng mutable có updated_at.
   KHÔNG lộ secret), GET /settings (owner/manager, đầy đủ), PUT /settings (owner).
   Row settings tạo LAZY khi đọc lần đầu (server_default lo giá trị mặc định).
 - default_turnaround_hours: POS gợi ý giờ hẹn giao = now(VN) + giá trị này.
-- receipt_config JSONB nullable (Stage 4.1, migration f3a4b5c6d7e8): mẫu phiếu in
-  per-tenant — text (shop_name/address/phone/footer_text/open_hours/logo_text) +
-  `blocks` [{key,enabled,order}] (header, order_code, pickup_time, qr_tracking,
-  items, totals, payment_status, meta, footer). NULL → service trả DEFAULT_RECEIPT
-  (tất cả khối bật, thứ tự chuẩn) và tự bổ sung khối mặc định còn thiếu.
-  Endpoints: GET /settings/receipt (mọi role — POS render bill), PUT /settings/receipt
-  (owner). Frontend: Receipt.jsx/Bill.jsx render khối theo enabled+order; màn cấu
-  hình /settings/receipt (menu ☰) có preview 80mm realtime.
+- receipt_config JSONB nullable (Stage 4.1, migration f3a4b5c6d7e8; KHÔNG cần
+  migration mới ở Stage 5.3 vì chỉ đổi shape JSONB): mẫu phiếu in per-tenant.
+  - **Stage 5.3 — layout phiếu SONG NGỮ Việt/Anh CỐ ĐỊNH khớp mẫu 2H** (bỏ hệ
+    thống `blocks` reorder cũ; nhãn song ngữ cứng trong Bill.jsx). Field text owner
+    sửa: shop_name, logo_text (fallback), logo_url (ảnh — set bởi endpoint upload,
+    KHÔNG nhận qua PUT), hotline, web, address, zalo_wa_kakao, open_hours,
+    footer_text, note_vi/note_en (ghi chú trách nhiệm song ngữ, in nghiêng),
+    surcharge_label_vi/en + surcharge_percent. Hai khối bật/tắt: `note_enabled`
+    (mặc định bật), `surcharge_enabled` (mặc định TẮT — chỉ dùng Tết; phụ thu =
+    % trên tổng món, làm Tổng cộng = Tổng tiền + phụ thu).
+  - NULL → service trả DEFAULT_RECEIPT; get_receipt merge `{**DEFAULT, **cfg}` để
+    cấu hình cũ thiếu field mới vẫn đủ. update_receipt GIỮ logo_url đang lưu (PUT
+    body không đổi được logo_url).
+  - Endpoints: GET /settings/receipt (mọi role — POS render bill), PUT
+    /settings/receipt (owner), **POST /settings/receipt/logo (owner)** — upload
+    ảnh PNG/JPG ~500KB, Pillow validate + resize (cạnh ≤480px) + optimize → lưu
+    {upload_dir}/logo/{tenant_id}.png, trả logo_url kèm cache-bust `?v=mtime`.
+  - Upload tĩnh: `app/services/logo_store.py`; thư mục `upload_dir=/code/uploads`
+    (volume ./:/code → host /opt/laundry-saas/uploads, gitignore). **nginx serve
+    `/uploads/`** trên pos.giatui2h.com (alias /opt/laundry-saas/uploads/, xem
+    scripts/nginx-pos.conf). Deps mới: `pillow`, `python-multipart`.
+  - Frontend: Receipt.jsx/Bill.jsx render layout cố định song ngữ; màn cấu hình
+    /settings/receipt (menu ☰) — upload logo, sửa text song ngữ, bật/tắt phụ
+    thu/ghi chú, preview 80mm realtime song ngữ.
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -405,6 +421,22 @@ sms_logs, notifications, inventory, machines.
     (tenant, name) thành 1 category, map category_id, rồi DROP cột text (đã verify
     trên prod thật: "Giặt sấy"×4 + "Giặt hấp"×1 → 2 category, 0 mất mát).
 
+- **Phiếu bill: layout SONG NGỮ CỐ ĐỊNH thay vì blocks reorder; logo lưu file
+  tĩnh; phụ thu là display-only (chốt Stage 5.3).** Bỏ hệ thống `blocks`
+  {key,enabled,order} (Stage 4.1) — layout giờ khớp cứng mẫu giấy 2H, nhãn song
+  ngữ Việt/Anh hardcode trong Bill.jsx. Owner chỉ sửa NỘI DUNG (text + logo ảnh)
+  và bật/tắt 2 khối: ghi chú trách nhiệm + phụ thu.
+  - **Lý do:** mẫu 2H là phiếu giấy quy chuẩn, không cần khách tự xếp lại khối;
+    cố định layout giảm phức tạp và bảo đảm in đúng mẫu. Logo lưu file tĩnh
+    (nginx serve /uploads/) thay vì base64 trong DB để phiếu nhẹ + cache được.
+  - **Cách áp dụng:** logo_url chỉ đổi qua POST /settings/receipt/logo (Pillow
+    validate type/size + resize ≤480px + optimize PNG; cache-bust `?v=mtime`);
+    PUT /settings/receipt KHÔNG nhận logo_url (ReceiptUpdate strip về "", service
+    giữ giá trị cũ). **Phụ thu (Tết) là DISPLAY-ONLY**: Tổng cộng trên phiếu =
+    Tổng tiền × (1+%); KHÔNG đụng order.total_amount/payments (tiền thật vẫn theo
+    đơn). Mặc định tắt. Bill không còn hiển thị trạng thái thanh toán/đã thu/còn
+    lại như mẫu cũ — mẫu 2H tập trung tổng đơn cho khách.
+
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
 - **Múi giờ POS cố định Việt Nam (UTC+7) ở frontend (chốt Stage 3.8).** Trước đây
@@ -465,6 +497,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.1: order_code prefix tùy biến per-branch (branches.order_prefix) + format `{prefix}-{số ≥5 chữ số, tự nới}` + CRUD validate (định dạng + unique trong tenant) + màn "Chi nhánh" (owner sửa tiền tố)
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
+- [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)
 - [ ] Stage 7+: Public API, subscriptions — chỉ khi có khách ngoài thật

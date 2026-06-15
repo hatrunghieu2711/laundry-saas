@@ -17,6 +17,10 @@ httpx==0.28.1
 pydantic==2.10.4
 pydantic-settings==2.7.1
 
+# Upload logo phiếu in (multipart form + xử lý ảnh resize/optimize)
+python-multipart==0.0.20
+pillow==11.1.0
+
 # Auth (JWT + bcrypt)
 pyjwt==2.10.1
 passlib==1.7.4

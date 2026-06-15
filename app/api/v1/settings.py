@@ -6,12 +6,13 @@
 """
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, File, UploadFile
 
 from app.api.deps import DbSession, require_role
 from app.models.user import User
 from app.schemas.settings import (
     ReceiptConfig,
+    ReceiptUpdate,
     SettingsOut,
     SettingsPublic,
     SettingsUpdate,
@@ -40,12 +41,22 @@ async def update_settings(payload: SettingsUpdate, actor: Owner, db: DbSession) 
     return await settings_service.update_settings(db, actor.tenant_id, payload)
 
 
-# ── mẫu phiếu in (Stage 4.1) ────────────────────────────────────────────────
+# ── mẫu phiếu in (Stage 4.1 → song ngữ 2H Stage 5.3) ────────────────────────
 @router.get("/receipt", response_model=ReceiptConfig)
 async def get_receipt(actor: Reader, db: DbSession) -> ReceiptConfig:
     return await settings_service.get_receipt(db, actor.tenant_id)
 
 
 @router.put("/receipt", response_model=ReceiptConfig)
-async def put_receipt(payload: ReceiptConfig, actor: Owner, db: DbSession) -> ReceiptConfig:
+async def put_receipt(payload: ReceiptUpdate, actor: Owner, db: DbSession) -> ReceiptConfig:
     return await settings_service.update_receipt(db, actor.tenant_id, payload)
+
+
+@router.post("/receipt/logo", response_model=ReceiptConfig)
+async def upload_logo(
+    actor: Owner, db: DbSession, file: Annotated[UploadFile, File()]
+) -> ReceiptConfig:
+    """Upload logo phiếu (owner). PNG/JPG ~500KB; server resize/optimize, lưu
+    file tĩnh và set logo_url. Trả cấu hình phiếu mới."""
+    raw = await file.read()
+    return await settings_service.save_logo(db, actor.tenant_id, raw, file.content_type)

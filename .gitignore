@@ -24,6 +24,9 @@ htmlcov/
 pg_data/
 redis_data/
 
+# Uploads runtime (logo phiếu in) — file người dùng tải lên, KHÔNG commit
+uploads/
+
 # Database backups — KHÔNG BAO GIỜ commit (chứa data thật)
 *.sql
 *.sql.gz

@@ -73,6 +73,10 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
     def customer_name(self) -> str | None:
         return self.customer.full_name if self.customer else None
 
+    @property
+    def customer_phone(self) -> str | None:
+        return self.customer.phone if self.customer else None
+
     __table_args__ = (
         UniqueConstraint("tenant_id", "order_code", name="uq_orders_tenant_order_code"),
         Index("ix_orders_tenant_branch_created", "tenant_id", "branch_id", "created_at"),
