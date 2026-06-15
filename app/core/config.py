@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     cookie_secure: bool = True
     cookie_samesite: str = "strict"
 
+    # Rate limit trang tracking công khai (theo IP, fixed-window Redis).
+    public_track_rate_limit: int = 30  # số request tối đa / cửa sổ / IP
+    public_track_rate_window: int = 60  # độ dài cửa sổ (giây)
+
 
 @lru_cache
 def get_settings() -> Settings:

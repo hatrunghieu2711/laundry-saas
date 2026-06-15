@@ -14,6 +14,7 @@ const MENU = [
   { to: '/services', label: '💰 Bảng giá', roles: ['owner', 'manager'] },
   { to: '/categories', label: '🗂️ Danh mục', roles: ['owner', 'manager'] },
   { to: '/settings/receipt', label: '🧾 Mẫu phiếu in', roles: ['owner', 'manager'] },
+  { to: '/branches', label: '🏢 Chi nhánh', roles: ['owner'] },
 ]
 
 export default function Layout({ children }) {

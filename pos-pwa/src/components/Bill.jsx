@@ -10,7 +10,10 @@ export default function BillContent({ config, order, paid = 0, method = null }) 
   const total = toNumber(order.total_amount)
   const paidSum = toNumber(paid)
   const remaining = total - paidSum
-  const trackUrl = `${window.location.origin}/track/${order.order_code}`
+  // QR trỏ về trang tracking công khai (subdomain riêng), KHÔNG phải origin POS.
+  // Cấu hình qua VITE_TRACK_BASE_URL khi build; mặc định track.giatui2h.com.
+  const trackBase = import.meta.env.VITE_TRACK_BASE_URL || 'https://track.giatui2h.com'
+  const trackUrl = `${trackBase}/track/${order.order_code}`
   const methodLabel = method ? PAYMENT_METHOD[method] || method : null
   const payState =
     total > 0 && paidSum >= total

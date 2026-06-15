@@ -61,6 +61,7 @@ from app.core.config import get_settings  # noqa: E402
 get_settings.cache_clear()  # bỏ cache phòng khi URL cũ đã được đọc
 
 from app.core.database import SessionFactory, engine  # noqa: E402
+from app.core.redis import redis_client  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models.tenant import Tenant  # noqa: E402
@@ -151,6 +152,12 @@ async def clean_db():
         await conn.execute(text(_DROP_ORDER_SEQS))
     yield
     await engine.dispose()
+    # Redis client singleton (rate limit) gắn vào event loop lần dùng đầu; mỗi test
+    # chạy loop riêng → ngắt pool để test sau tạo kết nối mới trên loop của nó.
+    try:
+        await redis_client.connection_pool.disconnect()
+    except Exception:
+        pass
 
 
 @pytest_asyncio.fixture

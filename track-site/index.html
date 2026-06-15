@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#F97316" />
+  <meta name="robots" content="noindex" />
+  <title>Tra cứu đơn — Giặt Ủi 2H</title>
+  <style>
+    :root {
+      --orange: #F97316;
+      --orange-dark: #C2410C;
+      --ink: #1F2937;
+      --muted: #6B7280;
+      --line: #E5E7EB;
+      --done: #16A34A;
+      --bg: #F8F7F5;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      line-height: 1.45;
+      min-height: 100vh;
+      padding: 16px;
+      padding: max(16px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
+    }
+    .wrap { max-width: 480px; margin: 0 auto; }
+    .brand {
+      display: flex; align-items: center; gap: 10px;
+      justify-content: center; margin: 8px 0 18px;
+    }
+    .logo {
+      width: 40px; height: 40px; border-radius: 11px;
+      background: var(--orange); color: #fff;
+      display: grid; place-items: center;
+      font-weight: 800; font-size: 18px; letter-spacing: .5px;
+    }
+    .brand b { font-size: 17px; }
+    .card {
+      background: #fff; border: 1px solid var(--line); border-radius: 16px;
+      padding: 18px 16px; margin-bottom: 14px;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    }
+    .code-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+    .code { font-size: 26px; font-weight: 800; letter-spacing: .5px; margin-top: 2px; }
+    .pickup { margin-top: 10px; font-size: 14px; color: var(--ink); }
+    .pickup b { color: var(--orange-dark); }
+
+    /* Step indicator */
+    .steps { list-style: none; margin: 6px 0 0; padding: 0; }
+    .step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 18px; }
+    .step:last-child { padding-bottom: 0; }
+    .step::before {
+      content: ""; position: absolute; left: 13px; top: 28px; bottom: -2px;
+      width: 2px; background: var(--line);
+    }
+    .step:last-child::before { display: none; }
+    .dot {
+      flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+      border: 2px solid var(--line); background: #fff;
+      display: grid; place-items: center; font-size: 14px; color: transparent; z-index: 1;
+    }
+    .step.done .dot { background: var(--done); border-color: var(--done); color: #fff; }
+    .step.current .dot { background: var(--orange); border-color: var(--orange); color: #fff; box-shadow: 0 0 0 4px rgba(249,115,22,.18); }
+    .step.done::before { background: var(--done); }
+    .step-body { padding-top: 3px; }
+    .step-name { font-weight: 600; font-size: 15px; color: var(--muted); }
+    .step.done .step-name, .step.current .step-name { color: var(--ink); }
+    .step.current .step-name { color: var(--orange-dark); }
+    .step-time { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+    .banner { border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 15px; text-align: center; }
+    .banner--cancel { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
+    .banner--done { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+
+    .contact { font-size: 14px; }
+    .contact h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .contact .name { font-weight: 700; }
+    .contact .row { color: var(--muted); margin-top: 2px; }
+    .contact a { color: var(--orange-dark); text-decoration: none; font-weight: 600; }
+
+    .state { text-align: center; padding: 40px 16px; color: var(--muted); }
+    .state .big { font-size: 40px; margin-bottom: 8px; }
+    .state h2 { color: var(--ink); margin: 0 0 6px; font-size: 18px; }
+    .foot { text-align: center; color: var(--muted); font-size: 12px; margin-top: 18px; }
+    .skeleton { color: var(--muted); text-align: center; padding: 40px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand">
+      <span class="logo">2H</span>
+      <b>Giặt Ủi 2H</b>
+    </div>
+    <div id="app"><div class="skeleton">Đang tải…</div></div>
+    <div class="foot">Trang tra cứu đơn hàng · Giặt Ủi 2H</div>
+  </div>
+
+  <script>
+    // Các bước hiển thị (theo state machine xử lý tại tiệm → giao).
+    var STEPS = [
+      { key: 'created', label: 'Đã nhận' },
+      { key: 'washing', label: 'Đang giặt' },
+      { key: 'drying', label: 'Đang sấy' },
+      { key: 'ready', label: 'Sẵn sàng' },
+      { key: 'delivered', label: 'Đã giao' }
+    ];
+    var STATUS_LABEL = {
+      created: 'Đã nhận', washing: 'Đang giặt', drying: 'Đang sấy',
+      ready: 'Sẵn sàng', delivered: 'Đã giao', completed: 'Hoàn tất', cancelled: 'Đã hủy'
+    };
+
+    function el(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+    // ISO UTC -> giờ VN (UTC+7), độc lập múi giờ thiết bị khách.
+    function fmtVN(iso) {
+      if (!iso) return '';
+      try {
+        return new Intl.DateTimeFormat('vi-VN', {
+          timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit',
+          hour: '2-digit', minute: '2-digit', hour12: false
+        }).format(new Date(iso));
+      } catch (e) { return ''; }
+    }
+
+    function getCode() {
+      // /track/{code} ; fallback ?code=
+      var m = location.pathname.match(/\/track\/([^/?#]+)/);
+      if (m) return decodeURIComponent(m[1]);
+      var q = new URLSearchParams(location.search).get('code');
+      return q ? q.trim() : '';
+    }
+
+    function lastTimeFor(timeline, status) {
+      var t = '';
+      for (var i = 0; i < timeline.length; i++) if (timeline[i].status === status) t = timeline[i].at;
+      return t;
+    }
+
+    function renderSteps(data) {
+      var status = data.order_status;
+      // index bước hiện tại; completed coi như đã qua hết.
+      var idx = STEPS.map(function (s) { return s.key; }).indexOf(status);
+      if (status === 'completed') idx = STEPS.length - 1;
+      var items = STEPS.map(function (s, i) {
+        var cls = i < idx ? 'done' : (i === idx ? (status === 'completed' ? 'done' : 'current') : '');
+        var time = (i <= idx) ? fmtVN(lastTimeFor(data.timeline, s.key)) : '';
+        return '<li class="step ' + cls + '">' +
+          '<span class="dot">' + (i <= idx && (i < idx || status === 'completed') ? '✓' : (i === idx ? '•' : '')) + '</span>' +
+          '<span class="step-body"><div class="step-name">' + s.label + '</div>' +
+          (time ? '<div class="step-time">' + esc(time) + '</div>' : '') + '</span></li>';
+      }).join('');
+      return '<ul class="steps">' + items + '</ul>';
+    }
+
+    function render(data) {
+      var b = data.branch || {};
+      var parts = [];
+      parts.push('<div class="card">' +
+        '<div class="code-label">Mã đơn</div>' +
+        '<div class="code">' + esc(data.order_code) + '</div>' +
+        (data.pickup_at ? '<div class="pickup">Hẹn lấy: <b>' + esc(fmtVN(data.pickup_at)) + '</b></div>' : '') +
+        '</div>');
+
+      if (data.order_status === 'cancelled') {
+        parts.push('<div class="card"><div class="banner banner--cancel">Đơn đã hủy</div></div>');
+      } else {
+        var done = data.order_status === 'completed';
+        parts.push('<div class="card">' +
+          (done ? '<div class="banner banner--done" style="margin-bottom:14px">Đơn đã hoàn tất 🎉</div>' : '') +
+          renderSteps(data) + '</div>');
+      }
+
+      var contact = '<div class="card contact"><h3>Chi nhánh</h3>' +
+        '<div class="name">' + esc(b.name || '') + '</div>' +
+        (b.address ? '<div class="row">' + esc(b.address) + '</div>' : '') +
+        (b.phone ? '<div class="row">ĐT: <a href="tel:' + esc(b.phone) + '">' + esc(b.phone) + '</a></div>' : '') +
+        '</div>';
+      parts.push(contact);
+
+      document.getElementById('app').innerHTML = parts.join('');
+    }
+
+    function showState(emoji, title, msg) {
+      document.getElementById('app').innerHTML =
+        '<div class="card"><div class="state"><div class="big">' + emoji + '</div>' +
+        '<h2>' + esc(title) + '</h2><div>' + esc(msg) + '</div></div></div>';
+    }
+
+    function load() {
+      var code = getCode();
+      if (!code) { showState('🔎', 'Nhập mã đơn', 'Quét mã QR trên phiếu để tra cứu trạng thái đơn.'); return; }
+      fetch('/public/track/' + encodeURIComponent(code), { headers: { 'Accept': 'application/json' } })
+        .then(function (r) {
+          if (r.status === 404) { showState('❓', 'Không tìm thấy đơn', 'Mã “' + code + '” không tồn tại. Kiểm tra lại mã trên phiếu.'); return null; }
+          if (r.status === 429) { showState('⏳', 'Thử lại sau chút', 'Bạn tra cứu hơi nhanh. Vui lòng đợi một lát rồi thử lại.'); return null; }
+          if (!r.ok) { showState('⚠️', 'Có lỗi xảy ra', 'Không tải được trạng thái đơn. Thử lại sau.'); return null; }
+          return r.json();
+        })
+        .then(function (data) { if (data) render(data); })
+        .catch(function () { showState('⚠️', 'Mất kết nối', 'Kiểm tra mạng và thử lại.'); });
+    }
+
+    load();
+  </script>
+</body>
+</html>

@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
+from app.api.public import router as public_router
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.errors import register_error_handlers
@@ -27,6 +28,8 @@ app = FastAPI(
 
 register_error_handlers(app)
 app.include_router(api_router)
+# Router công khai (ngoài /api/v1): GET /public/track/{order_code}.
+app.include_router(public_router)
 
 
 @app.get("/")

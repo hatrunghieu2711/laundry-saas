@@ -86,9 +86,12 @@ Mục tiêu dài hạn: bán SaaS subscription cho 50–100 branch.
 3. Không sửa `total_amount` sau khi đơn đã có payment. Điều chỉnh giá =
    giao dịch adjustment trong payments.
 4. DELETE order = chuyển sang `cancelled` (soft). Không xóa cứng.
-5. `order_code`: prefix theo branch + sequence riêng per branch, dạng `B1-00001`.
-   Sinh bằng PostgreSQL sequence (một sequence mỗi branch, tạo khi tạo branch) —
-   KHÔNG dùng MAX()+1 (race condition).
+5. `order_code`: `{branch.order_prefix}-{số}` (Stage 5.1; trước đây prefix = branch
+   `code`). Sinh bằng PostgreSQL sequence (một sequence mỗi branch, keyed theo
+   `code` BẤT BIẾN — KHÔNG theo prefix; tạo khi tạo branch) — KHÔNG dùng MAX()+1
+   (race condition). Số tối thiểu 5 chữ số (`00001`), TỰ NỚI 6/7… chữ số khi vượt
+   99999/999999 (`:05d`) — KHÔNG reset, KHÔNG đụng trần. Owner đổi `order_prefix`
+   chỉ ảnh hưởng đơn MỚI; đơn cũ giữ mã đã in.
 
 ## DATABASE SCHEMA (baseline)
 
@@ -99,10 +102,16 @@ mọi bảng có created_at; bảng mutable có updated_at.
 - id UUID PK, name, slug (unique), status, created_at, updated_at
 
 ### branches
-- id UUID PK, tenant_id FK, name, address, phone, code (vd "B1", dùng cho order_code prefix),
-  status, created_at, updated_at
+- id UUID PK, tenant_id FK, name, address, phone, code (vd "B1", do hệ thống sinh —
+  dùng cho TÊN SEQUENCE order_code, BẤT BIẾN), order_prefix (Stage 5.1, migration
+  a1b2c3d4e5f6), status, created_at, updated_at
+- `order_prefix` String(16): tiền tố HIỂN THỊ của order_code (vd "CH1", "1", "B1"),
+  owner tùy chỉnh. Mặc định = `code` lúc tạo. Validate: chỉ chữ/số (`^[A-Za-z0-9]+$`),
+  ≤16 ký tự, không khoảng trắng/ký tự đặc biệt (sai → 422 INVALID_PREFIX). UNIQUE
+  `(tenant_id, order_prefix)` (gồm cả branch soft-delete — order_code không tái dùng;
+  trùng → 422 PREFIX_TAKEN). Đổi prefix CHỈ ảnh hưởng đơn MỚI.
 - Soft delete qua status — KHÔNG xóa cứng (có lịch sử payment).
-- Index: (tenant_id)
+- Index: (tenant_id), UNIQUE (tenant_id, order_prefix)
 
 ### users
 - id UUID PK, tenant_id FK, branch_id FK nullable, role, full_name, phone,
@@ -266,9 +275,17 @@ sms_logs, notifications, inventory, machines.
   { "success": false, "message": "...", "code": "ORDER_NOT_FOUND" }
 - Mọi endpoint danh sách (orders, payments, customers) PHẢI có pagination
   (limit/offset, default limit=50, max=200).
-- Endpoint công khai duy nhất: GET /public/track/{order_code} — không auth,
-  có rate limit theo IP (Redis), chỉ trả: order_code, status, timeline trạng thái,
-  branch name. KHÔNG lộ tiền, tên khách, số điện thoại.
+- Endpoint công khai duy nhất: GET /public/track/{order_code} (Stage 5.2; gắn
+  TRỰC TIẾP lên app, NGOÀI /api/v1) — không auth, rate limit theo IP (Redis,
+  fixed-window, fail-open nếu Redis lỗi; IP lấy từ X-Real-IP do nginx ghi đè).
+  Trả: order_code, order_status, pickup_at, timeline (order_tracking_logs:
+  status+at), branch {name, address, phone}. KHÔNG lộ: tiền (total/paid/amount),
+  payment_status, tên/SĐT KHÁCH, tenant_id/branch_id, notes. (SĐT/địa chỉ ở đây
+  là LIÊN HỆ CHI NHÁNH — thông tin kinh doanh công khai, KHÁC SĐT khách.)
+  Mã sai → 404 ORDER_NOT_FOUND. Frontend: trang tĩnh nhẹ `track-site/index.html`
+  (vanilla, không build) serve ở subdomain track.giatui2h.com (nginx
+  `scripts/nginx-track.conf` + certbot). QR trên bill trỏ về đây (Bill.jsx:
+  VITE_TRACK_BASE_URL, mặc định https://track.giatui2h.com).
 - /dashboard/* và /reports/* nhận filter branch_id, start_date, end_date.
 - DELETE branches/users = soft delete (đổi status), không xóa dòng.
 
@@ -420,9 +437,19 @@ sms_logs, notifications, inventory, machines.
   thời cùng tenant (rất hiếm: chỉ owner tạo, tần suất thấp) — chấp nhận ở MVP.
 - **Tên sequence order_code là lowercase**: branch code `B1` → sequence
   `order_code_seq_b1` (tránh phụ thuộc case-folding của Postgres). Stage 2 sinh
-  `order_code` PHẢI dùng đúng tên này.
-
-## ROADMAP HIỆN TẠI
+  `order_code` PHẢI dùng đúng tên này. LƯU Ý (Stage 5.1): sequence keyed theo
+  `code` (bất biến), KHÔNG theo `order_prefix` — đổi prefix KHÔNG đụng sequence.
+- **`order_prefix` mặc định = `code` có thể đụng prefix tùy biến của branch khác
+  (Stage 5.1).** Nếu owner đã đặt prefix tùy biến của branch cũ TRÙNG với `code`
+  sẽ-sinh của branch mới (vd đặt prefix "B4" rồi tạo branch thứ 4 → code "B4"),
+  `create_branch` chặn sớm với 409 PREFIX_TAKEN (thay vì 500 từ unique index) —
+  owner đổi prefix branch cũ trước. Hiếm (owner ít đặt prefix dạng "B"+số).
+- **Tracking công khai tra theo order_code KHÔNG unique toàn cục (Stage 5.2).**
+  `order_code` chỉ unique trong 1 tenant (uq (tenant_id, order_code)); 2 tenant có
+  thể trùng mã (vd cùng prefix + số). `get_public_tracking` lấy bản MỚI NHẤT theo
+  created_at. MVP 1 tenant nên đủ định danh. TRƯỚC KHI onboard tenant #2: thêm
+  tenant context vào URL tracking (subdomain/slug per tenant, hoặc mã đơn nhúng
+  tenant) — cùng nhóm việc với "login phone-only chưa có tenant context".
 
 - [x] Stage 1: skeleton + migration baseline + auth (login/refresh/logout/me) + CRUD tenants/branches/users
 - [x] Stage 2: shifts (open/close + reconciliation) + orders + payments + Telegram alert đóng ca
@@ -435,7 +462,9 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 4.1: custom bill template (receipt_config) + GET/PUT /settings/receipt + màn cấu hình phiếu (preview 80mm realtime)
 - [x] Stage 4.2: sổ quỹ thu-chi (cash_transactions IMMUTABLE) + tích hợp đóng ca (expected cộng thu/trừ chi tiền mặt) + màn "Sổ quỹ" POS + Telegram kèm dòng thu/chi
 - [x] Stage 4.3: danh mục dịch vụ thành thực thể riêng (categories: icon + thứ tự) + services.category_id + migration backfill (gom text trùng) + CRUD + màn "Danh mục" (icon picker, ↑/↓) + dropdown chọn danh mục ở bảng giá + tab danh mục icon riêng ở màn tạo đơn
+- [x] Stage 5.1: order_code prefix tùy biến per-branch (branches.order_prefix) + format `{prefix}-{số ≥5 chữ số, tự nới}` + CRUD validate (định dạng + unique trong tenant) + màn "Chi nhánh" (owner sửa tiền tố)
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
+- [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)
 - [ ] Stage 7+: Public API, subscriptions — chỉ khi có khách ngoài thật

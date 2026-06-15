@@ -168,10 +168,18 @@ async def _has_payment(db: AsyncSession, order_id: uuid.UUID) -> bool:
     return found is not None
 
 
+def _format_order_code(prefix: str, seq_val: int) -> str:
+    """Mã đơn = {prefix}-{số}. Số tối thiểu 5 chữ số (00001); :05d TỰ NỚI 6+ chữ
+    số khi vượt 99999 (100000) — KHÔNG reset, KHÔNG đụng trần."""
+    return f"{prefix}-{seq_val:05d}"
+
+
 async def _next_order_code(db: AsyncSession, branch) -> str:
+    # Sequence vẫn keyed theo CODE hệ thống (bất biến) — đổi prefix KHÔNG đụng sequence.
     seq = _sequence_name(branch.code)  # đã validate -> an toàn để nhúng
     val = await db.scalar(text(f"SELECT nextval('{seq}')"))
-    return f"{branch.code}-{int(val):05d}"
+    prefix = branch.order_prefix or branch.code
+    return _format_order_code(prefix, int(val))
 
 
 async def _get_order(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Order:

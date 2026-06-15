@@ -20,6 +20,10 @@ from app.schemas.branch import BranchCreate, BranchUpdate
 # code do hệ thống sinh: "B" + số. Validate trước khi nhúng vào tên sequence.
 _SEQ_RE = re.compile(r"^order_code_seq_b[0-9]+$")
 
+# order_prefix do owner đặt: chỉ chữ/số (không dấu, không khoảng trắng/ký tự đặc biệt).
+_PREFIX_RE = re.compile(r"^[A-Za-z0-9]+$")
+_PREFIX_MAX = 16
+
 
 def _sequence_name(code: str) -> str:
     """Tên sequence order_code cho branch, vd B1 -> order_code_seq_b1 (lowercase)."""
@@ -27,6 +31,36 @@ def _sequence_name(code: str) -> str:
     if not _SEQ_RE.match(name):
         raise APIError(500, "INVALID_BRANCH_CODE", "Mã chi nhánh không hợp lệ")
     return name
+
+
+def _normalize_prefix(raw: str | None) -> str:
+    """Chuẩn hóa + validate định dạng prefix. Sai → 422 INVALID_PREFIX."""
+    prefix = (raw or "").strip()
+    if not prefix or len(prefix) > _PREFIX_MAX or not _PREFIX_RE.match(prefix):
+        raise APIError(
+            422,
+            "INVALID_PREFIX",
+            "Tiền tố chỉ gồm chữ và số (không dấu, không khoảng trắng/ký tự đặc "
+            "biệt), tối đa 16 ký tự",
+        )
+    return prefix
+
+
+async def _prefix_taken(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    prefix: str,
+    *,
+    exclude_id: uuid.UUID | None = None,
+) -> bool:
+    """Prefix đã dùng cho branch KHÁC trong cùng tenant? (gồm cả branch soft-delete:
+    order_code không tái sử dụng nên prefix phải duy nhất toàn tenant)."""
+    stmt = select(Branch.id).where(
+        Branch.tenant_id == tenant_id, Branch.order_prefix == prefix
+    )
+    if exclude_id is not None:
+        stmt = stmt.where(Branch.id != exclude_id)
+    return (await db.scalar(stmt)) is not None
 
 
 async def list_branches(
@@ -69,12 +103,21 @@ async def create_branch(
         select(func.count()).select_from(Branch).where(Branch.tenant_id == tenant_id)
     )
     code = f"B{(count or 0) + 1}"
+    # Prefix mặc định = code. Hiếm khi owner đã đặt prefix tùy biến TRÙNG code mới
+    # này cho branch khác → chặn sớm (clean error) thay vì 500 từ unique index.
+    if await _prefix_taken(db, tenant_id, code):
+        raise APIError(
+            409,
+            "PREFIX_TAKEN",
+            f"Tiền tố mặc định '{code}' đã dùng cho chi nhánh khác; đổi tiền tố đó trước.",
+        )
     branch = Branch(
         tenant_id=tenant_id,
         name=data.name,
         address=data.address,
         phone=data.phone,
         code=code,
+        order_prefix=code,
         status="active",
     )
     db.add(branch)
@@ -90,7 +133,13 @@ async def update_branch(
     db: AsyncSession, tenant_id: uuid.UUID, branch_id: uuid.UUID, data: BranchUpdate
 ) -> Branch:
     branch = await get_branch(db, tenant_id, branch_id)
-    for field, value in data.model_dump(exclude_unset=True).items():
+    fields = data.model_dump(exclude_unset=True)
+    if "order_prefix" in fields:
+        prefix = _normalize_prefix(fields["order_prefix"])
+        if await _prefix_taken(db, tenant_id, prefix, exclude_id=branch_id):
+            raise APIError(422, "PREFIX_TAKEN", "Tiền tố đã được dùng cho chi nhánh khác")
+        fields["order_prefix"] = prefix  # đổi prefix CHỈ ảnh hưởng đơn MỚI
+    for field, value in fields.items():
         setattr(branch, field, value)
     await db.commit()
     await db.refresh(branch)

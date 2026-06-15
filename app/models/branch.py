@@ -22,8 +22,16 @@ class Branch(TimestampMixin, UpdatedAtMixin, Base):
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     address: Mapped[str | None] = mapped_column(String(500), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
-    # code: vd "B1", dùng làm prefix order_code.
+    # code: vd "B1", do hệ thống sinh — dùng cho TÊN SEQUENCE order_code (bất biến).
     code: Mapped[str] = mapped_column(String(16), nullable=False)
+    # order_prefix: tiền tố HIỂN THỊ của order_code (vd "CH1"), owner tùy chỉnh.
+    # Mặc định = code lúc tạo. Đổi prefix chỉ ảnh hưởng đơn MỚI (xem order_service).
+    order_prefix: Mapped[str] = mapped_column(String(16), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="active")
 
-    __table_args__ = (Index("ix_branches_tenant_id", "tenant_id"),)
+    __table_args__ = (
+        Index("ix_branches_tenant_id", "tenant_id"),
+        Index(
+            "uq_branches_tenant_order_prefix", "tenant_id", "order_prefix", unique=True
+        ),
+    )
