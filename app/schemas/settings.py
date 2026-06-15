@@ -6,6 +6,7 @@
 """
 import uuid
 from decimal import Decimal
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -33,10 +34,31 @@ class SettingsUpdate(BaseModel):
     telegram_owner_chat_id: str | None = None
 
 
-# ── Mẫu phiếu in (Stage 4.1 → song ngữ 2H Stage 5.3 → bỏ phụ thu display-only 5.4)
-# Layout phiếu CỐ ĐỊNH song ngữ Việt/Anh khớp mẫu 2H (nhãn cứng ở frontend). Owner
-# chỉ sửa NỘI DUNG (text + logo ảnh) và bật/tắt khối ghi chú. Phụ thu/giảm giờ là
-# TIỀN THẬT theo từng đơn (Stage 5.4) — KHÔNG còn cấu hình ở mẫu phiếu nữa.
+# ── Mẫu phiếu in: BILL BUILDER THEO KHỐI (Stage 5.6) ─────────────────────────
+# Bỏ layout cứng 2H (Stage 5.3). Owner tự thêm/bớt/sắp xếp các KHỐI, ghép 2 khối/
+# hàng, bật/tắt tiếng Anh toàn bill. Nhãn song ngữ vẫn cứng trong Bill.jsx; owner
+# sửa NỘI DUNG khối text (logo/note/footer/custom_text). Khối dữ liệu động (bảng
+# món, tổng, QR…) tự điền từ đơn — chỉ bật/tắt + sắp xếp.
+BlockType = Literal[
+    "logo", "customer_info", "receiving_time", "delivery_time", "items_table",
+    "totals", "payment_status", "surcharge_discount", "note", "qr_tracking",
+    "order_no", "footer_contact", "custom_text",
+]
+
+
+class ReceiptBlock(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    id: str = Field(min_length=1, max_length=40)
+    type: BlockType
+    enabled: bool = True
+    row: int = Field(default=0, ge=0)
+    # full = chiếm cả hàng; left/right = nửa hàng (2 khối hẹp/hàng).
+    col: Literal["full", "left", "right"] = "full"
+    # Nội dung khối text (vi/en, shop_name, hotline…). Khối động để rỗng.
+    content: dict[str, str] = Field(default_factory=dict)
+
+
 class ReceiptConfig(BaseModel):
     """Cấu hình mẫu phiếu in per-tenant. Đọc mọi role, sửa owner.
 
@@ -44,25 +66,11 @@ class ReceiptConfig(BaseModel):
     trỏ bậy) — field_validator dưới đây loại nó khỏi body PUT nếu có gửi kèm.
     """
 
-    model_config = ConfigDict(extra="ignore")  # bỏ qua field legacy (blocks/phone cũ)
+    model_config = ConfigDict(extra="ignore")  # bỏ qua field legacy 5.3/5.4
 
-    # Thương hiệu
-    shop_name: str = Field(default="", max_length=120)
-    logo_text: str = Field(default="", max_length=16)  # fallback khi chưa có logo ảnh
-    logo_url: str = Field(default="", max_length=255)   # set bởi POST /settings/receipt/logo
-
-    # Chân phiếu (giá trị tự do, NHÃN song ngữ cố định ở frontend)
-    hotline: str = Field(default="", max_length=60)
-    web: str = Field(default="", max_length=120)
-    address: str = Field(default="", max_length=200)         # Add / Địa chỉ
-    zalo_wa_kakao: str = Field(default="", max_length=120)   # Zalo / WhatsApp / KakaoTalk
-    open_hours: str = Field(default="", max_length=80)        # Giờ mở cửa / OPEN
-    footer_text: str = Field(default="", max_length=200)      # tagline / lời cảm ơn
-
-    # Khối ghi chú trách nhiệm (song ngữ, in nghiêng) — bật/tắt + sửa nội dung
-    note_enabled: bool = True
-    note_vi: str = Field(default="", max_length=600)
-    note_en: str = Field(default="", max_length=600)
+    bilingual: bool = True  # bật/tắt tiếng Anh toàn bill
+    logo_url: str = Field(default="", max_length=255)  # set bởi POST /settings/receipt/logo
+    blocks: list[ReceiptBlock] = Field(default_factory=list, max_length=40)
 
 
 class ReceiptUpdate(ReceiptConfig):

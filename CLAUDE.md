@@ -284,30 +284,34 @@ mọi bảng có created_at; bảng mutable có updated_at.
   KHÔNG lộ secret), GET /settings (owner/manager, đầy đủ), PUT /settings (owner).
   Row settings tạo LAZY khi đọc lần đầu (server_default lo giá trị mặc định).
 - default_turnaround_hours: POS gợi ý giờ hẹn giao = now(VN) + giá trị này.
-- receipt_config JSONB nullable (Stage 4.1, migration f3a4b5c6d7e8; KHÔNG cần
-  migration mới ở Stage 5.3 vì chỉ đổi shape JSONB): mẫu phiếu in per-tenant.
-  - **Stage 5.3 — layout phiếu SONG NGỮ Việt/Anh CỐ ĐỊNH khớp mẫu 2H** (bỏ hệ
-    thống `blocks` reorder cũ; nhãn song ngữ cứng trong Bill.jsx). Field text owner
-    sửa: shop_name, logo_text (fallback), logo_url (ảnh — set bởi endpoint upload,
-    KHÔNG nhận qua PUT), hotline, web, address, zalo_wa_kakao, open_hours,
-    footer_text, note_vi/note_en (ghi chú trách nhiệm song ngữ, in nghiêng),
-    surcharge_label_vi/en + surcharge_percent. Hai khối bật/tắt: `note_enabled`
-    (mặc định bật), `surcharge_enabled` (mặc định TẮT — chỉ dùng Tết; phụ thu =
-    % trên tổng món, làm Tổng cộng = Tổng tiền + phụ thu).
-  - NULL → service trả DEFAULT_RECEIPT; get_receipt merge `{**DEFAULT, **cfg}` để
-    cấu hình cũ thiếu field mới vẫn đủ. update_receipt GIỮ logo_url đang lưu (PUT
-    body không đổi được logo_url).
-  - Endpoints: GET /settings/receipt (mọi role — POS render bill), PUT
-    /settings/receipt (owner), **POST /settings/receipt/logo (owner)** — upload
-    ảnh PNG/JPG ~500KB, Pillow validate + resize (cạnh ≤480px) + optimize → lưu
-    {upload_dir}/logo/{tenant_id}.png, trả logo_url kèm cache-bust `?v=mtime`.
-  - Upload tĩnh: `app/services/logo_store.py`; thư mục `upload_dir=/code/uploads`
-    (volume ./:/code → host /opt/laundry-saas/uploads, gitignore). **nginx serve
-    `/uploads/`** trên pos.giatui2h.com (alias /opt/laundry-saas/uploads/, xem
-    scripts/nginx-pos.conf). Deps mới: `pillow`, `python-multipart`.
-  - Frontend: Receipt.jsx/Bill.jsx render layout cố định song ngữ; màn cấu hình
-    /settings/receipt (menu ☰) — upload logo, sửa text song ngữ, bật/tắt phụ
-    thu/ghi chú, preview 80mm realtime song ngữ.
+- receipt_config JSONB nullable (Stage 4.1, migration f3a4b5c6d7e8; chỉ đổi shape
+  JSONB qua các stage, KHÔNG cần migration mới): mẫu phiếu in per-tenant.
+  - **Stage 5.6 — BILL BUILDER THEO KHỐI (thay layout cứng 2H của 5.3).** Shape:
+    `{bilingual: bool, logo_url: str, blocks: [{id, type, enabled, row, col, content}]}`.
+    - `bilingual`: bật/tắt tiếng Anh TOÀN bill (nhãn "vi / en" → chỉ "vi").
+    - `row` (số hàng) + `col` (full | left | right): 2 khối HẸP/hàng (chia đôi 80mm).
+    - `type` ∈ logo, customer_info, receiving_time, delivery_time, items_table,
+      totals, payment_status, surcharge_discount, note, qr_tracking, order_no,
+      footer_contact, custom_text. Khối HẸP (ghép nửa hàng): receiving_time,
+      delivery_time, order_no, payment_status. Còn lại RỘNG (cả hàng).
+    - 2 NHÓM: **động** (items_table/totals/qr/customer_info… tự điền từ đơn — chỉ
+      bật/tắt + sắp xếp) và **text** (logo/note/footer_contact/custom_text — owner
+      sửa `content`, có field vi+en nếu bilingual). Nhãn song ngữ cứng ở Bill.jsx.
+    - `surcharge_discount` = khối nổi bật phụ thu/giảm (mặc định TẮT; `totals` đã
+      gồm breakdown). `custom_text` = owner thêm nhiều bản (id `custom_<ts>`).
+  - get_receipt: NULL → mặc định (bộ khối chuẩn, song ngữ bật). Cấu hình CŨ (5.3/
+    5.4: shop_name/note_vi… KHÔNG có `blocks`) → **migrate-on-read** sang shape khối
+    (giữ nội dung text owner đã nhập); lần PUT sau lưu shape mới. update_receipt GIỮ
+    logo_url đang lưu (PUT không đổi được logo_url).
+  - Endpoints: GET /settings/receipt (mọi role), PUT (owner), **POST
+    /settings/receipt/logo (owner)** — Pillow validate + resize ≤480px + optimize →
+    {upload_dir}/logo/{tenant_id}.png, trả logo_url cache-bust `?v=mtime`. nginx
+    serve `/uploads/` (scripts/nginx-pos.conf). Deps: `pillow`, `python-multipart`.
+  - Frontend: Bill.jsx render theo khối (gom enabled theo row, 1 khối=full / 2 khối=
+    left+right, song ngữ). Màn cấu hình /settings/receipt (menu ☰, owner): builder
+    kéo-thả + nút ↑/↓ sắp xếp, toggle bật/tắt, Ghép/Tách khối hẹp, ✎ sửa nội dung
+    khối text (popup vi+en), + khối văn bản tự do, toggle "Hiện tiếng Anh", preview
+    80mm realtime.
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -467,6 +471,11 @@ sms_logs, notifications, inventory, machines.
     như mẫu cũ — mẫu 2H tập trung tổng đơn cho khách.
   - **CẬP NHẬT Stage 5.4:** phụ thu display-only đã GỠ khỏi receipt_config. Phụ
     thu/giảm giờ là TIỀN THẬT theo từng đơn (xem quyết định 5.4 dưới).
+  - **ĐẢO HƯỚNG Stage 5.6:** BỎ layout cứng 2H. Quay lại hệ KHỐI linh hoạt (owner
+    tự thêm/bớt/sắp xếp/ghép 2 khối/hàng/bật-tắt tiếng Anh) nhưng GIÀU hơn bản
+    Stage 4.1: mỗi khối có row/col + content riêng + nhãn song ngữ cứng. Lý do:
+    chủ chuỗi cần tùy biến bố cục phiếu theo từng tiệm, không khóa cứng 1 mẫu. Cấu
+    hình 5.3/5.4 cũ được migrate-on-read sang shape khối (không mất nội dung).
 
 - **Phụ thu & giảm giá vào TIỀN THẬT, snapshot theo đơn; rule tự áp làm mặc định,
   nhân viên ghi đè được (chốt Stage 5.4).** `total_amount = subtotal +
@@ -548,6 +557,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
 - [x] Stage 5.4: phụ thu & giảm giá vào TIỀN THẬT — price_rules (tự áp theo ngày, owner CRUD) + orders.subtotal/surcharge_amount/discount_amount (snapshot, total=subtotal+surcharge−discount) + POST /orders nhận surcharge/discount (nhập tay ghi đè rule) + discount_logs + GET /reports/discounts (theo nhân viên/ngày) + màn xác nhận đơn (badge "tự áp" + breakdown Tạm tính→+Phụ thu→−Giảm→Tổng cộng) + màn quản lý quy tắc + bill hiện phụ thu/giảm. (Bỏ phụ thu display-only của 5.3.)
+- [x] Stage 5.6: bill builder THEO KHỐI (thay layout cứng 2H của 5.3) — receipt_config {bilingual, logo_url, blocks[{id,type,enabled,row,col,content}]} + migrate-on-read cấu hình cũ + Bill.jsx render theo khối (2 khối/hàng, song ngữ) + màn builder (kéo-thả + nút sắp xếp, bật/tắt, ghép/tách khối hẹp, sửa nội dung text, thêm văn bản tự do, toggle tiếng Anh, preview 80mm realtime)
 - [x] Stage 5.5: màn quản lý tài khoản nhân viên (phân quyền theo role + branch) — bổ sung POST /users/{id}/reset-password + PATCH /users/{id}/status (suspended/active, không tự khóa) + list kèm branch_name/in_open_shift + màn "Nhân viên" (owner+manager, ☰): danh sách badge role/trạng thái/đang-trong-ca, lọc theo CN, thêm/sửa/đặt-lại-MK/khóa-mở, hỗ trợ tài khoản theo ca (username). KHÔNG thêm role mới.
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)
