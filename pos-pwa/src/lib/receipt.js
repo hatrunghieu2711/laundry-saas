@@ -82,13 +82,16 @@ export function blockListLabel(blk) {
   return BLOCK_META[blk.type]?.label || blk.type
 }
 
+// MẪU GỐC NỀN TẢNG (Stage 5.10): cấu trúc/định dạng chuẩn + PLACEHOLDER (không lộ
+// thông tin tenant nào). Khối hệ thống `removable:false` → chỉ tắt, không xóa.
+// (Frontend mirror của backend _default_blocks — backend là nguồn chính qua GET.)
 function defaultBlocks() {
   const b = (id, type, extra = {}) => ({
-    id, type, enabled: true, row: 0, col: 'full', content: {}, ...extra,
+    id, type, enabled: true, row: 0, col: 'full', removable: false, content: {}, ...extra,
   })
   return [
     b('logo', 'logo', { row: 0 }), // chỉ ảnh
-    b('brand', 'custom_text', { row: 1, title: true, content: { vi: 'Giặt Ủi 2H' } }),
+    b('brand', 'custom_text', { row: 1, title: true, content: { vi: '[Tên tiệm]' } }),
     b('title', 'custom_text', { row: 2, bold: true, align: 'center', content: { vi: 'BIÊN NHẬN', en: 'RECEIPT' } }),
     b('customer_name', 'customer_name', { row: 3, col: 'left' }),
     b('customer_phone', 'customer_phone', { row: 3, col: 'right' }),
@@ -96,9 +99,14 @@ function defaultBlocks() {
     b('delivery_time', 'delivery_time', { row: 4, col: 'right' }),
     b('items_table', 'items_table', { row: 5 }),
     b('totals', 'totals', { row: 6 }),
-    b('qr_tracking', 'qr_tracking', { row: 7 }),
-    b('order_no', 'order_no', { row: 8 }),
-    b('footer_thanks', 'custom_text', { row: 9, content: { vi: 'Cảm ơn quý khách!', en: 'Thank you!' } }),
+    b('note', 'custom_text', { row: 7, italic: true, size: 'small', content: {
+      vi: 'Vui lòng giữ biên nhận và nhận đồ trong vòng 30 ngày kể từ ngày hẹn. Quá hạn, cơ sở không chịu trách nhiệm.',
+      en: 'Please keep this receipt and collect within 30 days of the due date. After that we hold no responsibility.',
+    } }),
+    b('qr_tracking', 'qr_tracking', { row: 8 }),
+    b('order_no', 'order_no', { row: 9 }),
+    b('contact', 'custom_text', { row: 10, size: 'small', content: { vi: '[Địa chỉ] · [Số điện thoại]' } }),
+    b('footer_thanks', 'custom_text', { row: 11, content: { vi: 'Cảm ơn quý khách!', en: 'Thank you!' } }),
   ]
 }
 

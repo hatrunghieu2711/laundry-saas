@@ -66,6 +66,8 @@ class ReceiptBlock(BaseModel):
     bold_value: bool | None = None
     italic: bool = False  # Stage 5.8: in nghiêng (khối text)
     title: bool = False   # Stage 5.8: custom_text làm TIÊU ĐỀ (cỡ lớn+1, đậm, giữa)
+    # Stage 5.10: khối owner THÊM hoặc do COPY → xóa được; khối GỐC hệ thống = chỉ tắt.
+    removable: bool = False
     align: Literal["left", "center", "right"] | None = None
     size: Literal["small", "normal", "large"] = "normal"
     # content: nhãn (key `<name>_vi`/`<name>_en`) + giá trị text owner nhập +
@@ -98,3 +100,9 @@ class ReceiptUpdate(ReceiptConfig):
     def _strip_logo_url(cls, v: str) -> str:
         # logo_url chỉ đổi qua endpoint upload; PUT bỏ qua giá trị client gửi.
         return ""
+
+
+class ReceiptDefaultStatus(BaseModel):
+    """Trạng thái mẫu mặc định per-tenant (Stage 5.10)."""
+
+    has_tenant_default: bool

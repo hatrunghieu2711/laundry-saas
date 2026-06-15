@@ -12,6 +12,7 @@ from app.api.deps import DbSession, require_role
 from app.models.user import User
 from app.schemas.settings import (
     ReceiptConfig,
+    ReceiptDefaultStatus,
     ReceiptUpdate,
     SettingsOut,
     SettingsPublic,
@@ -60,3 +61,24 @@ async def upload_logo(
     file tĩnh và set logo_url. Trả cấu hình phiếu mới."""
     raw = await file.read()
     return await settings_service.save_logo(db, actor.tenant_id, raw, file.content_type)
+
+
+# ── mẫu mặc định per-tenant (Stage 5.10) ────────────────────────────────────
+@router.get("/receipt/status", response_model=ReceiptDefaultStatus)
+async def receipt_status(actor: Manager, db: DbSession) -> ReceiptDefaultStatus:
+    return ReceiptDefaultStatus(
+        has_tenant_default=await settings_service.has_receipt_default(db, actor.tenant_id)
+    )
+
+
+@router.post("/receipt/save-default", response_model=ReceiptDefaultStatus)
+async def save_receipt_default(actor: Owner, db: DbSession) -> ReceiptDefaultStatus:
+    """Lưu cấu hình đang dùng làm mẫu mặc định của tenant."""
+    await settings_service.save_receipt_default(db, actor.tenant_id)
+    return ReceiptDefaultStatus(has_tenant_default=True)
+
+
+@router.post("/receipt/restore-default", response_model=ReceiptConfig)
+async def restore_receipt_default(actor: Owner, db: DbSession) -> ReceiptConfig:
+    """Khôi phục về mẫu mặc định tenant (hoặc mẫu gốc nền tảng nếu chưa lưu)."""
+    return await settings_service.restore_receipt_default(db, actor.tenant_id)

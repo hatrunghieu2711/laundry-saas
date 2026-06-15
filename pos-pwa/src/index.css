@@ -2802,3 +2802,11 @@ body {
 .rcp__valbold .rcp__val { font-weight: 800; }
 /* 2 toggle bold cạnh nhau trong popup khối field */
 .fmt-row--bold { justify-content: flex-start; gap: 20px; }
+
+/* Stage 5.10: nút lưu/khôi phục mẫu mặc định */
+.rcfg__default-btns {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}

@@ -76,9 +76,9 @@ async def test_receipt_default_blocks(client: AsyncClient, owner: dict):
         assert gone not in types
     logo = next(b for b in cfg["blocks"] if b["type"] == "logo")
     assert logo["content"] == {}  # logo chỉ còn ảnh, không chứa text
-    # tên tiệm là custom_text title.
+    # tên tiệm là custom_text title — mẫu gốc dùng PLACEHOLDER (Stage 5.10).
     brand = next(b for b in cfg["blocks"] if b["type"] == "custom_text" and b.get("title"))
-    assert brand["content"]["vi"] == "Giặt Ủi 2H"
+    assert brand["content"]["vi"] == "[Tên tiệm]"
     nm = next(b for b in cfg["blocks"] if b["type"] == "customer_name")
     ph = next(b for b in cfg["blocks"] if b["type"] == "customer_phone")
     assert nm["row"] == ph["row"] and {nm["col"], ph["col"]} == {"left", "right"}
@@ -195,6 +195,121 @@ async def test_receipt_legacy_config_migrates_drops_note_footer(client: AsyncCli
     brand = next(b for b in cfg["blocks"] if b["type"] == "custom_text" and b.get("title"))
     assert brand["content"]["vi"] == "Tiệm Cũ"
     assert cfg["logo_url"] == "/uploads/logo/x.png?v=9"
+
+
+async def test_receipt_default_has_placeholders_and_structure(client: AsyncClient, owner: dict):
+    """Mẫu gốc nền tảng: placeholder (KHÔNG lộ thông tin 2H) + giữ cấu trúc/định dạng."""
+    t = await login(client, owner["phone"], owner["password"])
+    cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    blob = str(cfg)
+    assert "[Tên tiệm]" in blob and "[Địa chỉ]" in blob and "[Số điện thoại]" in blob
+    assert "Giặt Ủi 2H" not in blob  # KHÔNG lộ thông tin tenant 2H
+    assert cfg["logo_url"] == "" and cfg["track_base_url"] == ""
+    types = [b["type"] for b in cfg["blocks"]]
+    for t_ in ("logo", "items_table", "totals", "qr_tracking"):
+        assert t_ in types
+    # cấu trúc/định dạng giữ: có tiêu đề (custom_text title) + ghi chú italic.
+    assert any(b["type"] == "custom_text" and b.get("title") for b in cfg["blocks"])
+    assert any(b["type"] == "custom_text" and b.get("italic") for b in cfg["blocks"])
+
+
+async def test_receipt_system_blocks_not_removable_owner_added_are(client: AsyncClient, owner: dict):
+    """Khối gốc hệ thống removable=false; khối owner thêm/COPY removable=true."""
+    t = await login(client, owner["phone"], owner["password"])
+    cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    # khối hệ thống mặc định → không xóa được.
+    assert all(b["removable"] is False for b in cfg["blocks"])
+    # lưu cấu hình có 1 khối owner thêm (removable=true) + 1 copy của items_table.
+    body = {
+        "bilingual": True,
+        "blocks": [
+            {"id": "items_table", "type": "items_table", "enabled": True, "row": 0, "col": "full"},
+            {"id": "items_table_copy", "type": "items_table", "enabled": True, "row": 1, "col": "full", "removable": True},
+            {"id": "custom_1", "type": "custom_text", "enabled": True, "row": 2, "col": "full", "removable": True, "content": {"vi": "x"}},
+        ],
+    }
+    upd = (await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))).json()
+    by = {b["id"]: b for b in upd["blocks"]}
+    assert by["items_table"]["removable"] is False     # gốc hệ thống
+    assert by["items_table_copy"]["removable"] is True  # bản COPY xóa được
+    assert by["custom_1"]["removable"] is True
+
+
+async def test_receipt_old_config_custom_text_becomes_removable(client: AsyncClient, owner: dict):
+    """Cấu hình cũ (chưa có `removable`): custom_text/divider/spacer → removable=true
+    (giữ khả năng xóa); khối hệ thống → false."""
+    async with SessionFactory() as db:
+        db.add(TenantSettings(tenant_id=owner["tenant_id"], receipt_config={
+            "bilingual": True, "logo_url": "", "blocks": [
+                {"id": "items_table", "type": "items_table", "enabled": True, "row": 0, "col": "full"},
+                {"id": "c1", "type": "custom_text", "enabled": True, "row": 1, "col": "full", "content": {"vi": "x"}},
+                {"id": "d1", "type": "divider", "enabled": True, "row": 2, "col": "full"},
+            ]},
+        ))
+        await db.commit()
+    t = await login(client, owner["phone"], owner["password"])
+    cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    by = {b["id"]: b for b in cfg["blocks"]}
+    assert by["items_table"]["removable"] is False
+    assert by["c1"]["removable"] is True and by["d1"]["removable"] is True
+
+
+async def test_receipt_save_and_restore_tenant_default(client: AsyncClient, owner: dict):
+    t = await login(client, owner["phone"], owner["password"])
+    # chưa lưu → has_tenant_default false.
+    st = (await client.get(f"{SETTINGS}/receipt/status", headers=auth_headers(t))).json()
+    assert st["has_tenant_default"] is False
+    # owner đặt cấu hình A rồi LƯU làm mẫu mặc định.
+    cfgA = {"bilingual": False, "blocks": [
+        {"id": "items_table", "type": "items_table", "enabled": True, "row": 0, "col": "full"},
+        {"id": "c", "type": "custom_text", "enabled": True, "row": 1, "col": "full", "removable": True, "content": {"vi": "MẪU A"}},
+    ]}
+    await client.put(f"{SETTINGS}/receipt", json=cfgA, headers=auth_headers(t))
+    sd = (await client.post(f"{SETTINGS}/receipt/save-default", headers=auth_headers(t))).json()
+    assert sd["has_tenant_default"] is True
+    st2 = (await client.get(f"{SETTINGS}/receipt/status", headers=auth_headers(t))).json()
+    assert st2["has_tenant_default"] is True
+    # đổi sang cấu hình B (khác A).
+    await client.put(f"{SETTINGS}/receipt", json={"bilingual": True, "blocks": [
+        {"id": "totals", "type": "totals", "enabled": True, "row": 0, "col": "full"}]},
+        headers=auth_headers(t))
+    # KHÔI PHỤC → về mẫu mặc định A.
+    restored = (await client.post(f"{SETTINGS}/receipt/restore-default", headers=auth_headers(t))).json()
+    assert restored["bilingual"] is False
+    assert any(b["content"].get("vi") == "MẪU A" for b in restored["blocks"] if b["type"] == "custom_text")
+
+
+async def test_receipt_restore_without_default_falls_back_to_system(client: AsyncClient, owner: dict):
+    """Chưa lưu mẫu mặc định → Khôi phục dùng MẪU GỐC NỀN TẢNG (placeholder)."""
+    t = await login(client, owner["phone"], owner["password"])
+    await client.put(f"{SETTINGS}/receipt", json={"bilingual": True, "blocks": [
+        {"id": "c", "type": "custom_text", "enabled": True, "row": 0, "col": "full", "removable": True, "content": {"vi": "RIÊNG"}}]},
+        headers=auth_headers(t))
+    restored = (await client.post(f"{SETTINGS}/receipt/restore-default", headers=auth_headers(t))).json()
+    assert "[Tên tiệm]" in str(restored["blocks"])  # về mẫu gốc
+
+
+async def test_receipt_default_tenant_isolation(client: AsyncClient, owner: dict, owner2: dict):
+    t1 = await login(client, owner["phone"], owner["password"])
+    await client.put(f"{SETTINGS}/receipt", json={"bilingual": True, "blocks": [
+        {"id": "c", "type": "custom_text", "enabled": True, "row": 0, "col": "full", "removable": True, "content": {"vi": "T1-DEFAULT"}}]},
+        headers=auth_headers(t1))
+    await client.post(f"{SETTINGS}/receipt/save-default", headers=auth_headers(t1))
+    # tenant 2 KHÔNG thấy mẫu mặc định của tenant 1.
+    t2 = await login(client, owner2["phone"], owner2["password"])
+    st2 = (await client.get(f"{SETTINGS}/receipt/status", headers=auth_headers(t2))).json()
+    assert st2["has_tenant_default"] is False
+    r2 = (await client.post(f"{SETTINGS}/receipt/restore-default", headers=auth_headers(t2))).json()
+    assert "T1-DEFAULT" not in str(r2["blocks"])  # không lẫn mẫu tenant 1
+
+
+async def test_receipt_default_owner_only(client: AsyncClient, owner: dict):
+    owner_token = await login(client, owner["phone"], owner["password"])
+    staff = await _staff_token(client, owner_token)
+    bad = await client.post(f"{SETTINGS}/receipt/save-default", headers=auth_headers(staff))
+    assert bad.status_code == 403
+    bad2 = await client.post(f"{SETTINGS}/receipt/restore-default", headers=auth_headers(staff))
+    assert bad2.status_code == 403
 
 
 async def test_receipt_staff_read_owner_write(client: AsyncClient, owner: dict):

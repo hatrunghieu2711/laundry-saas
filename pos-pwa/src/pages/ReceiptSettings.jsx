@@ -60,6 +60,7 @@ export default function ReceiptSettings() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [dragRi, setDragRi] = useState(null)
+  const [hasDefault, setHasDefault] = useState(false) // mẫu mặc định tenant đã lưu?
 
   const [editBlk, setEditBlk] = useState(null) // {ri, ci, type}
   const [editContent, setEditContent] = useState({})
@@ -67,16 +68,21 @@ export default function ReceiptSettings() {
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
 
+  const applyConfig = (c) => {
+    const n = normalizeReceipt(c)
+    setBilingual(n.bilingual)
+    setLogoUrl(n.logo_url)
+    setTrackBaseUrl(n.track_base_url)
+    setRows(blocksToRows(n.blocks))
+  }
+
   useEffect(() => {
     api.get('/settings/receipt')
-      .then((c) => {
-        const n = normalizeReceipt(c)
-        setBilingual(n.bilingual)
-        setLogoUrl(n.logo_url)
-        setTrackBaseUrl(n.track_base_url)
-        setRows(blocksToRows(n.blocks))
-      })
+      .then(applyConfig)
       .catch((e) => setError(e?.message || 'Không tải được cấu hình phiếu'))
+    api.get('/settings/receipt/status')
+      .then((s) => setHasDefault(!!s.has_tenant_default))
+      .catch(() => {})
   }, [])
 
   const dirty = () => setSaved(false)
@@ -100,7 +106,7 @@ export default function ReceiptSettings() {
     const src = rs[ri][ci]
     const clone = {
       ...src, id: `${src.type}_${Date.now()}`, col: 'full', enabled: true,
-      content: { ...(src.content || {}) },
+      removable: true, content: { ...(src.content || {}) },
     }
     rs.splice(ri + 1, 0, [clone])
     return rs
@@ -111,7 +117,7 @@ export default function ReceiptSettings() {
     const content = type === 'custom_text' ? { vi: 'Nội dung tự do…', en: 'Custom text…' }
       : type === 'divider' ? { style: 'dashed' }
         : type === 'spacer' ? { height: 'small' } : {}
-    rs.push([{ id, type, enabled: true, row: rs.length, col: 'full', bold: false, italic: false, title: false, align: null, size: 'normal', content }])
+    rs.push([{ id, type, enabled: true, row: rs.length, col: 'full', bold: false, italic: false, title: false, align: null, size: 'normal', removable: true, content }])
     return rs
   })
 
@@ -186,6 +192,34 @@ export default function ReceiptSettings() {
     } finally { setSaving(false) }
   }
 
+  // Lưu cấu hình ĐANG DÙNG làm mẫu mặc định của tenant (lưu active trước, rồi promote).
+  const saveAsDefault = async () => {
+    if (!window.confirm('Lưu cấu hình hiện tại làm MẪU MẶC ĐỊNH của tiệm? (dùng cho nút Khôi phục sau này)')) return
+    setSaving(true); setError('')
+    try {
+      await api.put('/settings/receipt', { bilingual, track_base_url: trackBaseUrl.trim(), blocks: rowsToBlocks(rows) })
+      await api.post('/settings/receipt/save-default')
+      clearReceiptCache(); setHasDefault(true); setSaved(true)
+    } catch (e) {
+      setError(e?.message || 'Không lưu được mẫu mặc định')
+    } finally { setSaving(false) }
+  }
+
+  // Khôi phục về mẫu mặc định tenant (hoặc mẫu gốc nền tảng nếu chưa lưu).
+  const restoreDefault = async () => {
+    const msg = hasDefault
+      ? 'Khôi phục về MẪU MẶC ĐỊNH của tiệm? Cấu hình đang chỉnh sẽ bị thay thế — KHÔNG hoàn tác.'
+      : 'Chưa lưu mẫu mặc định riêng. Khôi phục sẽ về MẪU GỐC NỀN TẢNG (có placeholder) — KHÔNG hoàn tác. Tiếp tục?'
+    if (!window.confirm(msg)) return
+    setSaving(true); setError('')
+    try {
+      const cfg = await api.post('/settings/receipt/restore-default')
+      applyConfig(cfg); clearReceiptCache(); setSaved(true)
+    } catch (e) {
+      setError(e?.message || 'Không khôi phục được')
+    } finally { setSaving(false) }
+  }
+
   const previewConfig = useMemo(
     () => (rows ? { bilingual, logo_url: logoUrl, track_base_url: trackBaseUrl, blocks: rowsToBlocks(rows) } : null),
     [rows, bilingual, logoUrl, trackBaseUrl],
@@ -250,7 +284,7 @@ export default function ReceiptSettings() {
                       <span className="bld-cell__acts">
                         <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => openEdit(ri, ci)}>✎</button>
                         <button className="icon-btn" disabled={!canEdit} title="Nhân bản khối" onClick={() => copyBlock(ri, ci)}>⧉</button>
-                        {['custom_text', 'divider', 'spacer'].includes(blk.type) && (
+                        {blk.removable && (
                           <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri)}>🗑</button>
                         )}
                       </span>
@@ -291,6 +325,26 @@ export default function ReceiptSettings() {
           <button className="btn btn--primary btn--xl btn--block" onClick={save} disabled={saving}>
             {saving ? 'Đang lưu…' : saved ? '✓ Đã lưu' : 'Lưu mẫu phiếu'}
           </button>
+        )}
+
+        {canEdit && (
+          <div className="card rcfg__default">
+            <h3 className="card__title">Mẫu mặc định của tiệm</h3>
+            <p className="rcfg__hint">
+              Trạng thái: <strong>Đang chỉnh sửa</strong> →
+              {hasDefault
+                ? ' có mẫu mặc định riêng đã lưu (Khôi phục sẽ về mẫu này).'
+                : ' chưa lưu mẫu riêng → Khôi phục dùng mẫu gốc nền tảng.'}
+            </p>
+            <div className="rcfg__default-btns">
+              <button className="btn btn--ghost btn--lg" onClick={saveAsDefault} disabled={saving}>
+                💾 Lưu làm mẫu mặc định của tôi
+              </button>
+              <button className="btn btn--ghost btn--lg" onClick={restoreDefault} disabled={saving}>
+                ↺ Khôi phục mẫu mặc định
+              </button>
+            </div>
+          </div>
         )}
       </div>
 

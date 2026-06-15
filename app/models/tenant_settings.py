@@ -32,6 +32,9 @@ class TenantSettings(TimestampMixin, UpdatedAtMixin, Base):
     default_turnaround_hours: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("4")
     )
-    # Cấu hình mẫu phiếu in (Stage 4.1): text + mảng blocks {key,enabled,order}.
-    # NULL = dùng mặc định (service tự trả DEFAULT_RECEIPT).
+    # Cấu hình mẫu phiếu in (bill builder theo khối). NULL = dùng mẫu gốc nền tảng
+    # (service tự trả DEFAULT_RECEIPT — đã có placeholder, không lộ thông tin tenant nào).
     receipt_config: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    # Mẫu phiếu MẶC ĐỊNH của tenant (Stage 5.10) — owner "Lưu làm mẫu mặc định";
+    # "Khôi phục" sẽ về cái này. NULL = chưa lưu → fallback mẫu gốc nền tảng.
+    receipt_default_config: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

@@ -276,6 +276,8 @@ mọi bảng có created_at; bảng mutable có updated_at.
 - tenant_id UUID PK + FK tenants (one-to-one), telegram_bot_token,
   telegram_owner_chat_id, cash_diff_threshold NUMERIC(14,0) default 50000,
   default_turnaround_hours INT default 4 (Stage 3.8, migration d1e2f3a4b5c6),
+  receipt_default_config JSONB nullable (Stage 5.10, migration d8e9f0a1b2c3 — mẫu
+  phiếu MẶC ĐỊNH per-tenant cho nút Khôi phục; NULL → fallback mẫu gốc nền tảng),
   created_at, updated_at.
 - Cấu hình per-tenant; chứa secret (bot token) nên tách khỏi bảng `tenants`.
 - Đóng ca xong gửi Telegram cho owner (httpx async, SAU commit); lỗi gửi KHÔNG
@@ -352,8 +354,7 @@ mọi bảng có created_at; bảng mutable có updated_at.
     - **Logo CHỈ ẢNH**: khối `logo` bỏ tên tiệm + tiêu đề "BIÊN NHẬN" — chỉ render
       `logo_url`. Tên tiệm / tiêu đề là `custom_text` (dùng checkbox Title). Migrate:
       logo cũ có shop_name/title_* → TÁCH thành custom_text (giữ nội dung), logo
-      content rỗng. Default: logo + custom_text "Giặt Ủi 2H" (title) + custom_text
-      "BIÊN NHẬN/RECEIPT".
+      content rỗng. (Stage 5.10: mẫu gốc dùng placeholder "[Tên tiệm]" thay tên thật.)
     - **Định dạng thêm**: `italic` (mọi khối text) + `title` (custom_text → cỡ lớn
       nhất `rcp__sz-title` + đậm + giữa, shortcut tiêu đề). Cỡ chữ tăng mỗi cấp +1
       (small 12 / normal 14 / large 18 / title 22 px) — vẫn vừa khổ 80mm.
@@ -374,6 +375,24 @@ mọi bảng có created_at; bảng mutable có updated_at.
       (`blockListLabel`); rỗng → "Văn bản tự do (trống)".
     - **Nút ⧉ nhân bản khối**: chèn bản sao ngay dưới (type+content+format), col=full,
       enabled=true — nhanh tạo nhiều custom_text/divider/spacer.
+  - **Stage 5.10 — mẫu gốc nền tảng + mẫu mặc định per-tenant + fix xóa khối copy:**
+    - **Fix bug xóa khối**: thêm field `removable` (bool) cho mỗi khối. Khối owner
+      THÊM (custom_text/divider/spacer) và khối do **COPY** (mọi loại) → `removable=
+      true` (hiện 🗑). Khối GỐC hệ thống → `removable=false` (chỉ tắt). Builder hiện
+      🗑 theo `blk.removable` (KHÔNG theo type nữa). Migrate cấu hình cũ (chưa có
+      `removable`): custom_text/divider/spacer → true, còn lại → false.
+    - **Mẫu gốc nền tảng** (`DEFAULT_RECEIPT`/`_default_blocks`): giống bố cục/định
+      dạng/nhãn bill 2H nhưng **PLACEHOLDER** — tên tiệm "[Tên tiệm]", chân phiếu
+      "[Địa chỉ] · [Số điện thoại]", logo trống, track_base_url trống, ghi chú trách
+      nhiệm mẫu. KHÔNG lộ thông tin 2H. Tenant MỚI dùng mẫu này (qua fallback
+      get_receipt khi chưa có config). **2H giữ NGUYÊN config hiện tại** (không ghi đè).
+    - **Mẫu mặc định per-tenant**: cột `tenant_settings.receipt_default_config` JSONB
+      (migration d8e9f0a1b2c3). Endpoints (owner): POST /settings/receipt/save-default
+      (lưu active làm mẫu mặc định), POST /settings/receipt/restore-default (active =
+      mẫu mặc định tenant; CHƯA lưu → fallback mẫu gốc nền tảng), GET
+      /settings/receipt/status → {has_tenant_default}. Frontend: 2 nút + xác nhận
+      (restore "không hoàn tác") + 3 trạng thái (đang dùng / mẫu tenant đã lưu /
+      fallback mẫu gốc). Tenant-scoped (mẫu tenant này không lẫn tenant khác).
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -619,6 +638,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
 - [x] Stage 5.4: phụ thu & giảm giá vào TIỀN THẬT — price_rules (tự áp theo ngày, owner CRUD) + orders.subtotal/surcharge_amount/discount_amount (snapshot, total=subtotal+surcharge−discount) + POST /orders nhận surcharge/discount (nhập tay ghi đè rule) + discount_logs + GET /reports/discounts (theo nhân viên/ngày) + màn xác nhận đơn (badge "tự áp" + breakdown Tạm tính→+Phụ thu→−Giảm→Tổng cộng) + màn quản lý quy tắc + bill hiện phụ thu/giảm. (Bỏ phụ thu display-only của 5.3.)
+- [x] Stage 5.10: mẫu gốc nền tảng (placeholder, cho tenant mới) + mẫu mặc định per-tenant (receipt_default_config + Lưu/Khôi phục + 3 trạng thái) + fix bug xóa khối copy (field `removable`: khối copy/owner xóa được, khối gốc chỉ tắt). 2H giữ nguyên config. Migration d8e9f0a1b2c3.
 - [x] Stage 5.9: bill builder sửa bug + UX — fix cỡ chữ bảng món (table nhận size); dòng tổng tiền bỏ ngoặc lý do + căn 2 đầu (nhãn trái/số phải); khối custom_text hiện nội dung rút gọn trong builder; nút ⧉ nhân bản khối (giữ nội dung+định dạng). Chỉ frontend/CSS.
 - [x] Stage 5.8: bill builder dọn dẹp + tùy biến sâu — tách Tên/ĐT 2 khối; logo CHỈ ẢNH (tên tiệm/tiêu đề → custom_text, migrate giữ nội dung); bỏ kẻ ngang tự động; bold tách nhãn/giá trị + italic + checkbox Title (custom_text) + tăng cỡ chữ mỗi cấp +1; bỏ note/footer_contact; gộp Tạm tính/Phụ thu/Giảm vào totals (chỉ hiện khi đơn có); trạng thái TT 2 text sửa được + border ôm chữ; QR bỏ caption + link tracking per-tenant (track_base_url); migrate-on-read giữ cấu hình owner
 - [x] Stage 5.7: bill builder nâng cao — sửa MỌI nhãn text (song ngữ, lưu content `<key>_vi/_en`, giá trị động giữ nguyên) + định dạng theo khối (bold/align/size) + khối divider (dashed/solid) & spacer (small/medium) + ghép TỰ DO 2 khối bất kỳ/hàng (kéo-thả + nút) + popup sửa khối (nhãn+nội dung+định dạng) + migrate cấu hình 5.6 giữ nguyên

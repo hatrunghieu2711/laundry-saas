@@ -31,12 +31,24 @@ _VALID_TYPES = {
 _DROP_TYPES = {"note", "footer_contact", "surcharge_discount"}
 
 
-# Bộ khối mặc định (Stage 5.8): logo CHỈ ẢNH; tên tiệm + "BIÊN NHẬN" là custom_text
-# (title) để owner sửa/xóa tùy ý. + custom_text chân phiếu.
+# Ghi chú trách nhiệm MẪU (song ngữ) — khối custom_text trong mẫu gốc.
+_SAMPLE_NOTE_VI = (
+    "Vui lòng giữ biên nhận và nhận đồ trong vòng 30 ngày kể từ ngày hẹn. "
+    "Quá hạn, cơ sở không chịu trách nhiệm."
+)
+_SAMPLE_NOTE_EN = (
+    "Please keep this receipt and collect within 30 days of the due date. "
+    "After that we hold no responsibility."
+)
+
+# MẪU GỐC NỀN TẢNG (Stage 5.10) — cấu trúc/định dạng/nhãn chuẩn (giống bill 2H đẹp)
+# nhưng tên tiệm/địa chỉ/SĐT là PLACEHOLDER (không lộ thông tin tenant nào), logo
+# trống, track_base_url trống. Tenant mới khởi tạo từ mẫu này (qua fallback get_receipt).
+# Khối hệ thống KHÔNG đặt `removable` → chỉ tắt, không xóa (chốt Stage 5.10).
 def _default_blocks() -> list[dict]:
     return [
         _block("logo", "logo", row=0),  # chỉ ảnh (logo_url top-level)
-        {**_block("brand", "custom_text", row=1, content={"vi": "Giặt Ủi 2H"}), "title": True},
+        {**_block("brand", "custom_text", row=1, content={"vi": "[Tên tiệm]"}), "title": True},
         {**_block("title", "custom_text", row=2, content={"vi": "BIÊN NHẬN", "en": "RECEIPT"}),
          "bold": True, "align": "center"},
         _block("customer_name", "customer_name", row=3, col="left"),
@@ -45,9 +57,14 @@ def _default_blocks() -> list[dict]:
         _block("delivery_time", "delivery_time", row=4, col="right"),
         _block("items_table", "items_table", row=5),
         _block("totals", "totals", row=6),
-        _block("qr_tracking", "qr_tracking", row=7),
-        _block("order_no", "order_no", row=8),
-        _block("footer_thanks", "custom_text", row=9,
+        {**_block("note", "custom_text", row=7,
+                  content={"vi": _SAMPLE_NOTE_VI, "en": _SAMPLE_NOTE_EN}),
+         "italic": True, "size": "small"},
+        _block("qr_tracking", "qr_tracking", row=8),
+        _block("order_no", "order_no", row=9),
+        {**_block("contact", "custom_text", row=10,
+                  content={"vi": "[Địa chỉ] · [Số điện thoại]"}), "size": "small"},
+        _block("footer_thanks", "custom_text", row=11,
                content={"vi": "Cảm ơn quý khách!", "en": "Thank you!"}),
     ]
 
@@ -77,12 +94,13 @@ def _logo_titles(b: dict) -> list[dict]:
     out: list[dict] = []
     brand = c.get("shop_name") or c.get("logo_text")
     if brand:
-        out.append({**_block("logo_brand", "custom_text", content={"vi": brand}), "title": True})
+        out.append({**_block("logo_brand", "custom_text", content={"vi": brand}),
+                    "title": True, "removable": True})
     if c.get("title_vi") or c.get("title_en"):
         out.append({**_block("logo_title", "custom_text",
                              content={"vi": c.get("title_vi", "BIÊN NHẬN"),
                                       "en": c.get("title_en", "RECEIPT")}),
-                    "bold": True, "align": "center"})
+                    "bold": True, "align": "center", "removable": True})
     return out
 
 
@@ -119,6 +137,12 @@ def _migrate_blocks(blocks: list[dict]) -> list[dict]:
         else:
             result.append({**row[0], "row": ri, "col": "left"})
             result.append({**row[1], "row": ri, "col": "right"})
+    # Stage 5.10: cấu hình CŨ (5.6–5.9) chưa có `removable` → suy theo loại
+    # (custom_text/divider/spacer của owner = xóa được; khối hệ thống = chỉ tắt).
+    # Cấu hình mới đã có `removable` → giữ nguyên.
+    for b in result:
+        if "removable" not in b:
+            b["removable"] = b.get("type") in ("custom_text", "divider", "spacer")
     return result
 
 
@@ -197,5 +221,29 @@ async def save_logo(
     cfg = copy.deepcopy(settings.receipt_config) if settings.receipt_config else _default_receipt()
     cfg["logo_url"] = logo_url
     settings.receipt_config = cfg
+    await db.commit()
+    return await get_receipt(db, tenant_id)
+
+
+# ── mẫu mặc định per-tenant (Stage 5.10) ─────────────────────────────────────
+async def has_receipt_default(db: AsyncSession, tenant_id: uuid.UUID) -> bool:
+    settings = await get_or_create(db, tenant_id)
+    return settings.receipt_default_config is not None
+
+
+async def save_receipt_default(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
+    """Lưu cấu hình ĐANG DÙNG thành mẫu mặc định của tenant (để Khôi phục)."""
+    active = await get_receipt(db, tenant_id)  # resolved (đầy đủ, hợp lệ)
+    settings = await get_or_create(db, tenant_id)
+    settings.receipt_default_config = active
+    await db.commit()
+    return active
+
+
+async def restore_receipt_default(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
+    """Khôi phục: cấu hình đang dùng = mẫu mặc định tenant (đã lưu) hoặc — nếu
+    CHƯA lưu — fallback MẪU GỐC NỀN TẢNG. KHÔNG hoàn tác."""
+    settings = await get_or_create(db, tenant_id)
+    settings.receipt_config = copy.deepcopy(settings.receipt_default_config) or _default_receipt()
     await db.commit()
     return await get_receipt(db, tenant_id)
