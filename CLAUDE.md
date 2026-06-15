@@ -117,8 +117,17 @@ mọi bảng có created_at; bảng mutable có updated_at.
 - id UUID PK, tenant_id FK, branch_id FK nullable, role, full_name, phone,
   email nullable, password_hash, status, created_at, updated_at
 - role: owner | manager | staff | shipper
-- Soft delete qua status.
-- Unique: (tenant_id, phone). Index: (tenant_id, branch_id)
+- status: active | suspended (khóa, Stage 5.5) | inactive (soft-delete). Login +
+  get_current_user CHỈ chấp nhận `active` → suspended/inactive đều bị từ chối.
+- **`phone` là ĐỊNH DANH ĐĂNG NHẬP (username)** — KHÔNG bắt buộc là số thật; tài
+  khoản theo CA hợp lệ (vd phone="nv_ca_sang", full_name="NV ca sáng - Trần Phú").
+- Soft delete qua status. Unique: (tenant_id, phone). Index: (tenant_id, branch_id)
+- Quản lý (Stage 5.5): GET /users (owner: cả tenant; manager: chỉ branch mình —
+  list kèm transient `branch_name` + `in_open_shift`=đang là người mở 1 ca open),
+  POST /users, PATCH /users/{id} (sửa role/branch/tên), POST /users/{id}/
+  reset-password, PATCH /users/{id}/status (active|suspended), DELETE=soft.
+  Phân quyền: owner mọi user; manager chỉ staff/shipper branch mình; KHÔNG ai sửa
+  role owner; KHÔNG tự khóa mình (409 CANNOT_SUSPEND_SELF) / tự xóa mình.
 
 ### refresh_tokens
 - id UUID PK, user_id FK, token_hash, expires_at, revoked_at nullable, created_at
@@ -539,6 +548,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
 - [x] Stage 5.4: phụ thu & giảm giá vào TIỀN THẬT — price_rules (tự áp theo ngày, owner CRUD) + orders.subtotal/surcharge_amount/discount_amount (snapshot, total=subtotal+surcharge−discount) + POST /orders nhận surcharge/discount (nhập tay ghi đè rule) + discount_logs + GET /reports/discounts (theo nhân viên/ngày) + màn xác nhận đơn (badge "tự áp" + breakdown Tạm tính→+Phụ thu→−Giảm→Tổng cộng) + màn quản lý quy tắc + bill hiện phụ thu/giảm. (Bỏ phụ thu display-only của 5.3.)
+- [x] Stage 5.5: màn quản lý tài khoản nhân viên (phân quyền theo role + branch) — bổ sung POST /users/{id}/reset-password + PATCH /users/{id}/status (suspended/active, không tự khóa) + list kèm branch_name/in_open_shift + màn "Nhân viên" (owner+manager, ☰): danh sách badge role/trạng thái/đang-trong-ca, lọc theo CN, thêm/sửa/đặt-lại-MK/khóa-mở, hỗ trợ tài khoản theo ca (username). KHÔNG thêm role mới.
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)
 - [ ] Stage 7+: Public API, subscriptions — chỉ khi có khách ngoài thật

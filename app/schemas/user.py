@@ -39,3 +39,14 @@ class UserOut(BaseModel):
     email: str | None
     status: str
     created_at: datetime
+    # Bổ sung cho màn quản lý (Stage 5.5) — set transient ở list_users.
+    branch_name: str | None = None
+    in_open_shift: bool = False
+
+
+class ResetPasswordIn(BaseModel):
+    password: str = Field(min_length=6, max_length=128)
+
+
+class UserStatusUpdate(BaseModel):
+    status: Literal["active", "suspended"]

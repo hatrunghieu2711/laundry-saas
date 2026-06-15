@@ -12,7 +12,13 @@ from fastapi import APIRouter, Depends, status
 from app.api.deps import DbSession, PageParams, require_role
 from app.models.user import User
 from app.schemas.common import Page
-from app.schemas.user import UserCreate, UserOut, UserUpdate
+from app.schemas.user import (
+    ResetPasswordIn,
+    UserCreate,
+    UserOut,
+    UserStatusUpdate,
+    UserUpdate,
+)
 from app.services import user_service
 
 router = APIRouter(prefix="/users", tags=["users"])
@@ -60,6 +66,27 @@ async def update_user(
     db: DbSession,
 ) -> UserOut:
     return await user_service.update_user(db, actor, user_id, payload)
+
+
+@router.post("/{user_id}/reset-password", response_model=UserOut)
+async def reset_password(
+    user_id: uuid.UUID,
+    payload: ResetPasswordIn,
+    actor: ManagerOrOwner,
+    db: DbSession,
+) -> UserOut:
+    return await user_service.reset_password(db, actor, user_id, payload.password)
+
+
+@router.patch("/{user_id}/status", response_model=UserOut)
+async def set_status(
+    user_id: uuid.UUID,
+    payload: UserStatusUpdate,
+    actor: ManagerOrOwner,
+    db: DbSession,
+) -> UserOut:
+    """Khóa (suspended) / mở (active) tài khoản. Không tự khóa mình."""
+    return await user_service.set_status(db, actor, user_id, payload.status)
 
 
 @router.delete("/{user_id}", response_model=UserOut)

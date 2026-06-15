@@ -15,6 +15,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import Pagination
 from app.core.errors import APIError
 from app.core.security import hash_password
+from app.models.branch import Branch
+from app.models.shift import Shift
 from app.models.user import User
 from app.schemas.user import UserCreate, UserUpdate
 
@@ -52,7 +54,10 @@ async def list_users(
     *,
     branch_id: uuid.UUID | None = None,
 ) -> tuple[list[User], int]:
-    """branch_id: giới hạn về 1 branch (manager chỉ thấy user branch mình)."""
+    """branch_id: giới hạn về 1 branch (manager chỉ thấy user branch mình).
+
+    Bổ sung transient cho màn quản lý: branch_name + in_open_shift (user đang là
+    người MỞ một ca đang open). Dùng 2 query gọn cho cả trang (tránh N+1)."""
     base = select(User).where(User.tenant_id == tenant_id)
     if branch_id is not None:
         base = base.where(User.branch_id == branch_id)
@@ -60,7 +65,28 @@ async def list_users(
     result = await db.execute(
         base.order_by(User.created_at).limit(page.limit).offset(page.offset)
     )
-    return list(result.scalars().all()), total
+    users = list(result.scalars().all())
+
+    # map branch_id → name (toàn tenant) + tập user_id đang mở ca.
+    branch_rows = (
+        await db.execute(
+            select(Branch.id, Branch.name).where(Branch.tenant_id == tenant_id)
+        )
+    ).all()
+    branch_name = {bid: name for bid, name in branch_rows}
+    open_openers = set(
+        (
+            await db.execute(
+                select(Shift.opened_by).where(
+                    Shift.tenant_id == tenant_id, Shift.status == "open"
+                )
+            )
+        ).scalars().all()
+    )
+    for u in users:
+        u.branch_name = branch_name.get(u.branch_id)
+        u.in_open_shift = u.id in open_openers
+    return users, total
 
 
 async def get_user(
@@ -143,6 +169,34 @@ async def soft_delete_user(
     if target.id == actor.id:
         raise APIError(409, "CANNOT_DELETE_SELF", "Không thể tự xóa chính mình")
     target.status = "inactive"
+    await db.commit()
+    await db.refresh(target)
+    return target
+
+
+async def reset_password(
+    db: AsyncSession, actor: User, user_id: uuid.UUID, new_password: str
+) -> User:
+    """Đặt lại mật khẩu (owner/manager theo phạm vi). Không cần là người thật —
+    tài khoản theo ca cũng đổi được."""
+    target = await get_user(db, actor.tenant_id, user_id)
+    _assert_can_manage(actor, target)
+    target.password_hash = hash_password(new_password)
+    await db.commit()
+    await db.refresh(target)
+    return target
+
+
+async def set_status(
+    db: AsyncSession, actor: User, user_id: uuid.UUID, new_status: str
+) -> User:
+    """Khóa (suspended) / mở (active). Khóa thì login bị từ chối (auth lọc active).
+    KHÔNG tự khóa chính mình."""
+    target = await get_user(db, actor.tenant_id, user_id)
+    _assert_can_manage(actor, target)
+    if target.id == actor.id:
+        raise APIError(409, "CANNOT_SUSPEND_SELF", "Không thể tự khóa chính mình")
+    target.status = new_status
     await db.commit()
     await db.refresh(target)
     return target

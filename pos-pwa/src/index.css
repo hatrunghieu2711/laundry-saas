@@ -2540,3 +2540,23 @@ body {
   background: #d9f2e3;
   color: #137333;
 }
+
+/* ══ Stage 5.5: Quản lý nhân viên — badge role + chỉ báo trong ca ════ */
+.role-badge {
+  flex: none;
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.role-badge--owner   { background: #efe0fb; color: #6b21a8; } /* tím */
+.role-badge--manager { background: #fde8d6; color: #9a4a00; } /* cam */
+.role-badge--staff   { background: #dbeafe; color: #1e40af; } /* xanh dương */
+.role-badge--shipper { background: #d9f2e3; color: #137333; } /* xanh lá */
+.user-inshift {
+  font-size: 12px;
+  font-weight: 700;
+  color: #137333;
+}

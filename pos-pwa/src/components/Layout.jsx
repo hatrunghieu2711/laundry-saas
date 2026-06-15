@@ -13,6 +13,7 @@ const MENU = [
   { to: '/cashbook', label: '💵 Sổ quỹ' },
   { to: '/services', label: '💰 Bảng giá', roles: ['owner', 'manager'] },
   { to: '/categories', label: '🗂️ Danh mục', roles: ['owner', 'manager'] },
+  { to: '/users', label: '👥 Nhân viên', roles: ['owner', 'manager'] },
   { to: '/price-rules', label: '🏷️ Phụ thu / Giảm giá', roles: ['owner'] },
   { to: '/settings/receipt', label: '🧾 Mẫu phiếu in', roles: ['owner', 'manager'] },
   { to: '/branches', label: '🏢 Chi nhánh', roles: ['owner'] },
