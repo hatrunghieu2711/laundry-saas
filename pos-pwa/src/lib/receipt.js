@@ -10,27 +10,78 @@ export const DEFAULT_NOTE_EN =
   'Please keep this receipt and collect your laundry within 30 days of the due ' +
   'date. After that we hold no responsibility. Please check your items before leaving.'
 
-// Metadata mỗi loại khối: nhãn quản lý, nhóm (text/dynamic), có ghép nửa hàng?
+// Metadata mỗi loại khối: nhãn quản lý + căn lề mặc định khi render.
+// (Stage 5.7: bỏ ràng buộc "narrow" — ghép TỰ DO 2 khối bất kỳ vào 1 hàng.)
 export const BLOCK_META = {
-  logo:               { label: 'Logo & tiêu đề', kind: 'text', narrow: false },
-  customer_info:      { label: 'Khách (Tên · ĐT)', kind: 'dynamic', narrow: false },
-  receiving_time:     { label: 'Giờ nhận', kind: 'dynamic', narrow: true },
-  delivery_time:      { label: 'Giờ giao', kind: 'dynamic', narrow: true },
-  items_table:        { label: 'Bảng món', kind: 'dynamic', narrow: false },
-  totals:             { label: 'Tổng tiền', kind: 'dynamic', narrow: false },
-  surcharge_discount: { label: 'Phụ thu / Giảm (nổi bật)', kind: 'dynamic', narrow: false },
-  payment_status:     { label: 'Trạng thái thanh toán', kind: 'dynamic', narrow: true },
-  note:               { label: 'Ghi chú trách nhiệm', kind: 'text', narrow: false },
-  qr_tracking:        { label: 'Mã QR tra cứu', kind: 'dynamic', narrow: false },
-  order_no:           { label: 'Số đơn', kind: 'dynamic', narrow: true },
-  footer_contact:     { label: 'Chân phiếu (liên hệ)', kind: 'text', narrow: false },
-  custom_text:        { label: 'Văn bản tự do', kind: 'text', narrow: false },
+  logo:               { label: 'Logo & tiêu đề', align: 'center' },
+  customer_info:      { label: 'Khách (Tên · ĐT)', align: 'left' },
+  receiving_time:     { label: 'Giờ nhận', align: 'left' },
+  delivery_time:      { label: 'Giờ giao', align: 'left' },
+  items_table:        { label: 'Bảng món', align: 'left' },
+  totals:             { label: 'Tổng tiền', align: 'left' },
+  surcharge_discount: { label: 'Phụ thu / Giảm (nổi bật)', align: 'left' },
+  payment_status:     { label: 'Trạng thái thanh toán', align: 'center' },
+  note:               { label: 'Ghi chú trách nhiệm', align: 'left' },
+  qr_tracking:        { label: 'Mã QR tra cứu', align: 'center' },
+  order_no:           { label: 'Số đơn', align: 'center' },
+  footer_contact:     { label: 'Chân phiếu (liên hệ)', align: 'center' },
+  custom_text:        { label: 'Văn bản tự do', align: 'center' },
+  divider:            { label: 'Đường kẻ phân cách', align: 'center' },
+  spacer:             { label: 'Khoảng trống', align: 'center' },
 }
-// Loại khối owner có thể THÊM nhiều bản (chỉ custom_text). Khối khác là duy nhất.
-export const ADDABLE_TYPES = ['custom_text']
 
-export const isNarrow = (type) => !!BLOCK_META[type]?.narrow
-export const isText = (type) => BLOCK_META[type]?.kind === 'text'
+// Nhãn TEXT cố định mỗi khối (sửa được, song ngữ). key → {vi, en} mặc định
+// = đúng text cứng hiện tại. Bill fallback về default khi owner chưa sửa.
+export const BLOCK_LABELS = {
+  logo: [{ key: 'title', vi: 'BIÊN NHẬN', en: 'RECEIPT' }],
+  customer_info: [{ key: 'name', vi: 'Tên', en: 'Name' }, { key: 'tel', vi: 'ĐT', en: 'Tel' }],
+  receiving_time: [{ key: 'label', vi: 'Giờ nhận', en: 'Receiving' }],
+  delivery_time: [{ key: 'label', vi: 'Giờ giao', en: 'Delivery' }],
+  items_table: [
+    { key: 'svc', vi: 'Dịch vụ', en: 'Service' }, { key: 'qty', vi: 'SL', en: 'Qty' },
+    { key: 'price', vi: 'Giá', en: 'Price' }, { key: 'total', vi: 'Tổng', en: 'Total' },
+  ],
+  totals: [
+    { key: 'subtotal', vi: 'Tạm tính', en: 'Subtotal' },
+    { key: 'surcharge', vi: 'Phụ thu', en: 'Surcharge' },
+    { key: 'discount', vi: 'Giảm', en: 'Discount' },
+    { key: 'total', vi: 'TỔNG CỘNG', en: 'TOTAL' },
+  ],
+  surcharge_discount: [
+    { key: 'sur', vi: 'Phụ thu', en: 'Surcharge' }, { key: 'dis', vi: 'Đã giảm', en: 'Discount' },
+  ],
+  note: [{ key: 'label', vi: 'Lưu ý', en: 'Important Note' }],
+  qr_tracking: [{ key: 'cap', vi: 'Quét mã QR', en: 'Scan QR to track' }],
+  order_no: [{ key: 'label', vi: 'Số', en: 'No' }],
+  footer_contact: [
+    { key: 'lbl_hotline', vi: 'Hotline', en: 'Hotline' },
+    { key: 'lbl_web', vi: 'Web', en: 'Web' },
+    { key: 'lbl_address', vi: 'Địa chỉ', en: 'Add' },
+    { key: 'lbl_zalo', vi: 'Zalo / WA / Kakao', en: 'Zalo / WA / Kakao' },
+    { key: 'lbl_open', vi: 'Giờ mở cửa', en: 'OPEN' },
+  ],
+}
+
+// Giá trị TEXT (không phải nhãn) owner nhập — field trong popup sửa.
+export const BLOCK_VALUES = {
+  logo: [{ key: 'shop_name', label: 'Tên tiệm' }, { key: 'logo_text', label: 'Logo chữ (khi chưa có ảnh)' }],
+  note: [{ key: 'vi', label: 'Nội dung (VI)', area: true }, { key: 'en', label: 'Nội dung (EN)', area: true, en: true }],
+  custom_text: [{ key: 'vi', label: 'Nội dung (VI)', area: true }, { key: 'en', label: 'Nội dung (EN)', area: true, en: true }],
+  footer_contact: [
+    { key: 'hotline', label: 'Hotline (giá trị)' }, { key: 'web', label: 'Web (giá trị)' },
+    { key: 'address', label: 'Địa chỉ (giá trị)' }, { key: 'zalo_wa_kakao', label: 'Zalo/WA/Kakao (giá trị)' },
+    { key: 'open_hours', label: 'Giờ mở cửa (giá trị)' }, { key: 'tagline', label: 'Dòng cảm ơn' },
+  ],
+}
+
+// Loại khối owner THÊM được (nhiều bản). custom_text/divider/spacer.
+export const ADDABLE = [
+  { type: 'custom_text', label: '＋ Văn bản tự do' },
+  { type: 'divider', label: '＋ Đường kẻ' },
+  { type: 'spacer', label: '＋ Khoảng trống' },
+]
+
+export const defaultAlign = (type) => BLOCK_META[type]?.align || 'left'
 
 function defaultBlocks() {
   const b = (id, type, extra = {}) => ({

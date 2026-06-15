@@ -111,6 +111,69 @@ async def test_receipt_update_blocks(client: AsyncClient, owner: dict):
     assert custom["content"]["vi"] == "Cảm ơn"
 
 
+async def test_receipt_custom_labels_format_divider_spacer(client: AsyncClient, owner: dict):
+    """Stage 5.7: lưu/đọc nhãn tùy biến + định dạng khối + khối divider/spacer."""
+    t = await login(client, owner["phone"], owner["password"])
+    body = {
+        "bilingual": True,
+        "blocks": [
+            {"id": "logo", "type": "logo", "enabled": True, "row": 0, "col": "full",
+             "bold": True, "align": "center", "size": "large",
+             "content": {"shop_name": "ABC", "title_vi": "PHIẾU", "title_en": "RECEIPT"}},
+            {"id": "items_table", "type": "items_table", "enabled": True, "row": 1, "col": "full",
+             "content": {"svc_vi": "Món", "svc_en": "Item", "total_vi": "Cộng", "total_en": "Sum"}},
+            {"id": "div1", "type": "divider", "enabled": True, "row": 2, "col": "full",
+             "content": {"style": "dashed"}},
+            {"id": "sp1", "type": "spacer", "enabled": True, "row": 3, "col": "full",
+             "content": {"height": "medium"}},
+            # ghép TỰ DO 2 khối bất kỳ (không cần khối hẹp) trên 1 hàng.
+            {"id": "note", "type": "note", "enabled": True, "row": 4, "col": "left",
+             "align": "right", "content": {"label_vi": "Chú ý", "vi": "Giữ phiếu"}},
+            {"id": "qr_tracking", "type": "qr_tracking", "enabled": True, "row": 4, "col": "right"},
+        ],
+    }
+    upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
+    assert upd.status_code == 200, upd.text
+    cfg = upd.json()
+    logo = next(b for b in cfg["blocks"] if b["type"] == "logo")
+    assert logo["bold"] is True and logo["align"] == "center" and logo["size"] == "large"
+    assert logo["content"]["title_vi"] == "PHIẾU"
+    items = next(b for b in cfg["blocks"] if b["type"] == "items_table")
+    assert items["content"]["svc_vi"] == "Món" and items["content"]["total_en"] == "Sum"
+    div = next(b for b in cfg["blocks"] if b["type"] == "divider")
+    assert div["content"]["style"] == "dashed"
+    sp = next(b for b in cfg["blocks"] if b["type"] == "spacer")
+    assert sp["content"]["height"] == "medium"
+    # ghép tự do: note(left) + qr(right) cùng row 4.
+    note = next(b for b in cfg["blocks"] if b["type"] == "note")
+    qr = next(b for b in cfg["blocks"] if b["type"] == "qr_tracking")
+    assert note["row"] == qr["row"] == 4 and {note["col"], qr["col"]} == {"left", "right"}
+    assert note["align"] == "right"
+    # đọc lại vẫn giữ.
+    again = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    assert next(b for b in again["blocks"] if b["type"] == "logo")["content"]["title_vi"] == "PHIẾU"
+
+
+async def test_receipt_56_config_gets_format_defaults(client: AsyncClient, owner: dict):
+    """Cấu hình 5.6 (blocks KHÔNG có bold/align/size) → GET thêm default an toàn."""
+    async with SessionFactory() as db:
+        db.add(TenantSettings(
+            tenant_id=owner["tenant_id"],
+            receipt_config={"bilingual": True, "logo_url": "", "blocks": [
+                {"id": "logo", "type": "logo", "enabled": True, "row": 0, "col": "full",
+                 "content": {"logo_text": "2H"}},
+                {"id": "items_table", "type": "items_table", "enabled": True, "row": 1, "col": "full"},
+            ]},
+        ))
+        await db.commit()
+    t = await login(client, owner["phone"], owner["password"])
+    cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    logo = next(b for b in cfg["blocks"] if b["type"] == "logo")
+    assert logo["bold"] is False and logo["size"] == "normal" and logo["align"] is None
+    # nội dung 5.6 cũ giữ nguyên (không mất).
+    assert logo["content"]["logo_text"] == "2H"
+
+
 async def test_receipt_legacy_config_migrates_to_blocks(client: AsyncClient, owner: dict):
     """Cấu hình cũ (5.3/5.4: không có blocks) → migrate-on-read sang khối, giữ text."""
     async with SessionFactory() as db:

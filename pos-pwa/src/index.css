@@ -2693,3 +2693,92 @@ body {
   opacity: 0.4;
   cursor: default;
 }
+
+/* ══ Stage 5.7: định dạng khối + divider/spacer + ghép tự do ═════════ */
+/* Định dạng theo khối (áp cho cả in + preview). */
+.rcp__al-left   { text-align: left; }
+.rcp__al-center { text-align: center; }
+.rcp__al-right  { text-align: right; }
+.rcp__bold, .rcp__bold * { font-weight: 800 !important; }
+.rcp__sz-small { font-size: 10px; }
+.rcp__sz-large { font-size: 15px; }
+/* Ép các phần tử con theo cỡ chữ của khối (override px mặc định). */
+.rcp__sz-small .rcp__field, .rcp__sz-small .rcp__row, .rcp__sz-small .rcp__no,
+.rcp__sz-small .rcp__note-vi, .rcp__sz-small .rcp__note-en, .rcp__sz-small .rcp__custom,
+.rcp__sz-small .rcp__foot-row, .rcp__sz-small .rcp__qr-cap, .rcp__sz-small .rcp__th,
+.rcp__sz-small .rcp__td, .rcp__sz-small .rcp__title, .rcp__sz-small .rcp__brand,
+.rcp__sz-small .rcp__paystatus { font-size: inherit; }
+.rcp__sz-large .rcp__field, .rcp__sz-large .rcp__row, .rcp__sz-large .rcp__no,
+.rcp__sz-large .rcp__note-vi, .rcp__sz-large .rcp__note-en, .rcp__sz-large .rcp__custom,
+.rcp__sz-large .rcp__foot-row, .rcp__sz-large .rcp__qr-cap, .rcp__sz-large .rcp__th,
+.rcp__sz-large .rcp__td, .rcp__sz-large .rcp__title, .rcp__sz-large .rcp__brand,
+.rcp__sz-large .rcp__paystatus { font-size: inherit; }
+
+/* Khối divider / spacer */
+.rcp__hr { margin: 5px 0; border: 0; border-top: 1px solid #000; }
+.rcp__hr--dashed { border-top-style: dashed; }
+.rcp__hr--solid { border-top-style: solid; }
+.rcp__spacer--small { height: 6px; }
+.rcp__spacer--medium { height: 16px; }
+
+/* Builder: ghép tự do (drop zone), nút thêm khối, popup định dạng */
+.bld-row--drag { opacity: 0.55; outline: 2px dashed var(--orange); }
+.bld-pairzone {
+  flex: none;
+  align-self: stretch;
+  min-width: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px dashed var(--orange);
+  border-radius: 8px;
+  color: var(--orange-dark);
+  font-weight: 700;
+  font-size: 12px;
+  background: var(--orange-soft);
+}
+.bld-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.modal--scroll {
+  max-height: 86vh;
+  overflow-y: auto;
+}
+.fmt-controls {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.fmt-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.fmt-row > span { font-weight: 600; color: var(--muted); }
+.seg--sm3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  min-width: 200px;
+}
+.seg--sm3 .seg__btn { min-height: 34px; font-size: 13px; padding: 2px 6px; }
+.lbl-edit {
+  border-top: 1px solid var(--line);
+  margin-top: 10px;
+  padding-top: 10px;
+}
+.lbl-edit__title { font-weight: 700; margin-bottom: 6px; }
+.lbl-edit__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.lbl-edit__row:has(input:only-child) { grid-template-columns: 1fr; }

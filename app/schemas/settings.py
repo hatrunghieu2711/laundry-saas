@@ -43,6 +43,7 @@ BlockType = Literal[
     "logo", "customer_info", "receiving_time", "delivery_time", "items_table",
     "totals", "payment_status", "surcharge_discount", "note", "qr_tracking",
     "order_no", "footer_contact", "custom_text",
+    "divider", "spacer",  # Stage 5.7 — khối trang trí
 ]
 
 
@@ -53,9 +54,14 @@ class ReceiptBlock(BaseModel):
     type: BlockType
     enabled: bool = True
     row: int = Field(default=0, ge=0)
-    # full = chiếm cả hàng; left/right = nửa hàng (2 khối hẹp/hàng).
+    # full = chiếm cả hàng; left/right = nửa hàng (Stage 5.7: ghép TỰ DO, mọi khối).
     col: Literal["full", "left", "right"] = "full"
-    # Nội dung khối text (vi/en, shop_name, hotline…). Khối động để rỗng.
+    # Định dạng theo khối (Stage 5.7). align=None → Bill dùng mặc định theo type.
+    bold: bool = False
+    align: Literal["left", "center", "right"] | None = None
+    size: Literal["small", "normal", "large"] = "normal"
+    # content: nhãn (key `<name>_vi`/`<name>_en`) + giá trị text owner nhập
+    # (shop_name, hotline, note vi/en…) + tùy chọn khối (divider.style, spacer.height).
     content: dict[str, str] = Field(default_factory=dict)
 
 
