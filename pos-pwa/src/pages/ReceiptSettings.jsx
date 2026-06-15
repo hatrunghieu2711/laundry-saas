@@ -9,6 +9,7 @@ import {
   BLOCK_VALUES,
   clearReceiptCache,
   defaultAlign,
+  isField,
   normalizeReceipt,
 } from '../lib/receipt'
 
@@ -118,7 +119,14 @@ export default function ReceiptSettings() {
     const b = rows[ri][ci]
     setEditBlk({ ri, ci, type: b.type })
     setEditContent({ ...(b.content || {}) })
-    setEditFmt({ bold: !!b.bold, align: b.align || defaultAlign(b.type), size: b.size || 'normal' })
+    // Khối field: bold tách nhãn/giá trị (None → fallback bold cũ). Khác: 1 cờ bold.
+    setEditFmt({
+      bold: !!b.bold,
+      bold_label: b.bold_label ?? !!b.bold,
+      bold_value: b.bold_value ?? !!b.bold,
+      align: b.align || defaultAlign(b.type),
+      size: b.size || 'normal',
+    })
     setError('')
   }
   const saveEdit = () => {
@@ -308,7 +316,7 @@ export default function ReceiptSettings() {
               </div>
             )}
 
-            {/* Giá trị text owner nhập (logo/note/custom/footer) */}
+            {/* Giá trị text owner nhập (logo / văn bản tự do) */}
             {(BLOCK_VALUES[editBlk.type] || []).filter((f) => !f.en || bilingual).map((f) => (
               <label className="field" key={f.key}>
                 <span>{f.label}</span>
@@ -337,7 +345,14 @@ export default function ReceiptSettings() {
             {/* Định dạng khối (trừ divider/spacer) */}
             {!['divider', 'spacer'].includes(editBlk.type) && (
               <div className="fmt-controls">
-                <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold} onChange={(e) => setF('bold', e.target.checked)} /><span>In đậm</span></label>
+                {isField(editBlk.type) ? (
+                  <div className="fmt-row fmt-row--bold">
+                    <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold_label} onChange={(e) => setF('bold_label', e.target.checked)} /><span>Đậm nhãn</span></label>
+                    <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold_value} onChange={(e) => setF('bold_value', e.target.checked)} /><span>Đậm giá trị</span></label>
+                  </div>
+                ) : (
+                  <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold} onChange={(e) => setF('bold', e.target.checked)} /><span>In đậm</span></label>
+                )}
                 <div className="fmt-row"><span>Căn lề</span>
                   <div className="seg seg--sm3">
                     {['left', 'center', 'right'].map((a) => (

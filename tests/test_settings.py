@@ -61,24 +61,23 @@ async def test_staff_can_read_pos_cannot_update(client: AsyncClient, owner: dict
 
 
 async def test_receipt_default_blocks(client: AsyncClient, owner: dict):
-    """Mặc định: bilingual bật + bộ khối chuẩn; giờ nhận/giao ghép 1 hàng."""
+    """Mặc định 5.8: Tên/ĐT tách 2 khối; KHÔNG còn customer_info/note/footer/surcharge."""
     t = await login(client, owner["phone"], owner["password"])
     r = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))
     assert r.status_code == 200, r.text
     cfg = r.json()
-    assert cfg["bilingual"] is True
-    assert cfg["logo_url"] == ""
-    blocks = cfg["blocks"]
-    assert isinstance(blocks, list) and len(blocks) > 5
-    types = [b["type"] for b in blocks]
-    for t_ in ("logo", "items_table", "totals", "qr_tracking", "footer_contact"):
+    assert cfg["bilingual"] is True and cfg["logo_url"] == ""
+    types = [b["type"] for b in cfg["blocks"]]
+    for t_ in ("logo", "customer_name", "customer_phone", "items_table", "totals", "qr_tracking", "order_no"):
         assert t_ in types
-    logo = next(b for b in blocks if b["type"] == "logo")
+    for gone in ("customer_info", "note", "footer_contact", "surcharge_discount"):
+        assert gone not in types
+    logo = next(b for b in cfg["blocks"] if b["type"] == "logo")
     assert logo["content"]["logo_text"] == "2H"
-    # giờ nhận + giờ giao cùng hàng, chia 2 cột.
-    rec = next(b for b in blocks if b["type"] == "receiving_time")
-    dlv = next(b for b in blocks if b["type"] == "delivery_time")
-    assert rec["row"] == dlv["row"] and {rec["col"], dlv["col"]} == {"left", "right"}
+    # Tên + ĐT ghép 1 hàng (2 cột).
+    nm = next(b for b in cfg["blocks"] if b["type"] == "customer_name")
+    ph = next(b for b in cfg["blocks"] if b["type"] == "customer_phone")
+    assert nm["row"] == ph["row"] and {nm["col"], ph["col"]} == {"left", "right"}
 
 
 async def test_receipt_update_blocks(client: AsyncClient, owner: dict):
@@ -111,8 +110,9 @@ async def test_receipt_update_blocks(client: AsyncClient, owner: dict):
     assert custom["content"]["vi"] == "Cảm ơn"
 
 
-async def test_receipt_custom_labels_format_divider_spacer(client: AsyncClient, owner: dict):
-    """Stage 5.7: lưu/đọc nhãn tùy biến + định dạng khối + khối divider/spacer."""
+async def test_receipt_labels_format_bold_split_divider_spacer(client: AsyncClient, owner: dict):
+    """Stage 5.8: nhãn tùy biến + định dạng + bold_label/bold_value RIÊNG + divider/
+    spacer + ghép TỰ DO (customer_name + order_no cùng hàng)."""
     t = await login(client, owner["phone"], owner["password"])
     body = {
         "bilingual": True,
@@ -121,15 +121,16 @@ async def test_receipt_custom_labels_format_divider_spacer(client: AsyncClient, 
              "bold": True, "align": "center", "size": "large",
              "content": {"shop_name": "ABC", "title_vi": "PHIẾU", "title_en": "RECEIPT"}},
             {"id": "items_table", "type": "items_table", "enabled": True, "row": 1, "col": "full",
-             "content": {"svc_vi": "Món", "svc_en": "Item", "total_vi": "Cộng", "total_en": "Sum"}},
+             "content": {"svc_vi": "Món", "total_en": "Sum"}},
             {"id": "div1", "type": "divider", "enabled": True, "row": 2, "col": "full",
-             "content": {"style": "dashed"}},
+             "content": {"style": "solid"}},
             {"id": "sp1", "type": "spacer", "enabled": True, "row": 3, "col": "full",
              "content": {"height": "medium"}},
-            # ghép TỰ DO 2 khối bất kỳ (không cần khối hẹp) trên 1 hàng.
-            {"id": "note", "type": "note", "enabled": True, "row": 4, "col": "left",
-             "align": "right", "content": {"label_vi": "Chú ý", "vi": "Giữ phiếu"}},
-            {"id": "qr_tracking", "type": "qr_tracking", "enabled": True, "row": 4, "col": "right"},
+            # ghép TỰ DO: customer_name(left) + order_no(right); bold nhãn/giá trị riêng.
+            {"id": "customer_name", "type": "customer_name", "enabled": True, "row": 4, "col": "left",
+             "bold_label": True, "bold_value": False, "content": {"label_vi": "Quý khách"}},
+            {"id": "order_no", "type": "order_no", "enabled": True, "row": 4, "col": "right",
+             "bold_label": False, "bold_value": True},
         ],
     }
     upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
@@ -138,20 +139,16 @@ async def test_receipt_custom_labels_format_divider_spacer(client: AsyncClient, 
     logo = next(b for b in cfg["blocks"] if b["type"] == "logo")
     assert logo["bold"] is True and logo["align"] == "center" and logo["size"] == "large"
     assert logo["content"]["title_vi"] == "PHIẾU"
-    items = next(b for b in cfg["blocks"] if b["type"] == "items_table")
-    assert items["content"]["svc_vi"] == "Món" and items["content"]["total_en"] == "Sum"
-    div = next(b for b in cfg["blocks"] if b["type"] == "divider")
-    assert div["content"]["style"] == "dashed"
-    sp = next(b for b in cfg["blocks"] if b["type"] == "spacer")
-    assert sp["content"]["height"] == "medium"
-    # ghép tự do: note(left) + qr(right) cùng row 4.
-    note = next(b for b in cfg["blocks"] if b["type"] == "note")
-    qr = next(b for b in cfg["blocks"] if b["type"] == "qr_tracking")
-    assert note["row"] == qr["row"] == 4 and {note["col"], qr["col"]} == {"left", "right"}
-    assert note["align"] == "right"
-    # đọc lại vẫn giữ.
+    assert next(b for b in cfg["blocks"] if b["type"] == "divider")["content"]["style"] == "solid"
+    assert next(b for b in cfg["blocks"] if b["type"] == "spacer")["content"]["height"] == "medium"
+    cn = next(b for b in cfg["blocks"] if b["type"] == "customer_name")
+    on = next(b for b in cfg["blocks"] if b["type"] == "order_no")
+    assert cn["bold_label"] is True and cn["bold_value"] is False
+    assert on["bold_value"] is True
+    assert cn["content"]["label_vi"] == "Quý khách"
+    assert cn["row"] == on["row"] == 4 and {cn["col"], on["col"]} == {"left", "right"}
     again = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
-    assert next(b for b in again["blocks"] if b["type"] == "logo")["content"]["title_vi"] == "PHIẾU"
+    assert next(b for b in again["blocks"] if b["type"] == "customer_name")["bold_label"] is True
 
 
 async def test_receipt_56_config_gets_format_defaults(client: AsyncClient, owner: dict):
@@ -170,29 +167,59 @@ async def test_receipt_56_config_gets_format_defaults(client: AsyncClient, owner
     cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
     logo = next(b for b in cfg["blocks"] if b["type"] == "logo")
     assert logo["bold"] is False and logo["size"] == "normal" and logo["align"] is None
-    # nội dung 5.6 cũ giữ nguyên (không mất).
-    assert logo["content"]["logo_text"] == "2H"
+    assert logo["content"]["logo_text"] == "2H"  # nội dung 5.6 cũ giữ nguyên
 
 
-async def test_receipt_legacy_config_migrates_to_blocks(client: AsyncClient, owner: dict):
-    """Cấu hình cũ (5.3/5.4: không có blocks) → migrate-on-read sang khối, giữ text."""
+async def test_receipt_migrate_splits_customer_drops_note_footer(client: AsyncClient, owner: dict):
+    """Cấu hình 5.6/5.7: customer_info → tách 2 khối (giữ enabled + nhãn);
+    note/footer_contact/surcharge_discount BỊ BỎ; khối động giữ nguyên."""
+    async with SessionFactory() as db:
+        db.add(TenantSettings(
+            tenant_id=owner["tenant_id"],
+            receipt_config={"bilingual": True, "logo_url": "", "blocks": [
+                {"id": "logo", "type": "logo", "enabled": True, "row": 0, "col": "full", "content": {"logo_text": "2H"}},
+                {"id": "customer_info", "type": "customer_info", "enabled": False, "row": 1, "col": "full",
+                 "content": {"name_vi": "Họ tên", "name_en": "Name", "tel_vi": "Điện thoại", "tel_en": "Tel"}},
+                {"id": "note", "type": "note", "enabled": True, "row": 2, "col": "full", "content": {"vi": "x"}},
+                {"id": "footer_contact", "type": "footer_contact", "enabled": True, "row": 3, "col": "full", "content": {"hotline": "0123"}},
+                {"id": "surcharge_discount", "type": "surcharge_discount", "enabled": True, "row": 4, "col": "full"},
+                {"id": "totals", "type": "totals", "enabled": True, "row": 5, "col": "full"},
+            ]},
+        ))
+        await db.commit()
+    t = await login(client, owner["phone"], owner["password"])
+    cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    types = [b["type"] for b in cfg["blocks"]]
+    assert "customer_name" in types and "customer_phone" in types and "customer_info" not in types
+    for gone in ("note", "footer_contact", "surcharge_discount"):
+        assert gone not in types
+    assert "totals" in types and "logo" in types  # khối động giữ nguyên
+    cn = next(b for b in cfg["blocks"] if b["type"] == "customer_name")
+    cp = next(b for b in cfg["blocks"] if b["type"] == "customer_phone")
+    assert cn["enabled"] is False and cp["enabled"] is False  # giữ trạng thái enabled
+    assert cn["content"]["label_vi"] == "Họ tên" and cp["content"]["label_vi"] == "Điện thoại"
+    assert cn["row"] == cp["row"] and {cn["col"], cp["col"]} == {"left", "right"}
+
+
+async def test_receipt_legacy_config_migrates_drops_note_footer(client: AsyncClient, owner: dict):
+    """Cấu hình 5.3/5.4 (không blocks) → bộ khối mặc định, giữ thương hiệu + logo_url;
+    note/footer KHÔNG chuyển (owner gõ lại)."""
     async with SessionFactory() as db:
         db.add(TenantSettings(
             tenant_id=owner["tenant_id"],
             receipt_config={
                 "shop_name": "Tiệm Cũ", "logo_text": "CU",
-                "note_vi": "Ghi chú cũ", "note_en": "Old note",
-                "hotline": "0123456789", "logo_url": "/uploads/logo/x.png?v=9",
+                "note_vi": "Ghi chú cũ", "hotline": "0123456789",
+                "logo_url": "/uploads/logo/x.png?v=9",
             },
         ))
         await db.commit()
     t = await login(client, owner["phone"], owner["password"])
     cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
-    assert "blocks" in cfg
-    note = next(b for b in cfg["blocks"] if b["type"] == "note")
-    assert note["content"]["vi"] == "Ghi chú cũ"
-    foot = next(b for b in cfg["blocks"] if b["type"] == "footer_contact")
-    assert foot["content"]["hotline"] == "0123456789"
+    types = [b["type"] for b in cfg["blocks"]]
+    assert "note" not in types and "footer_contact" not in types
+    logo = next(b for b in cfg["blocks"] if b["type"] == "logo")
+    assert logo["content"]["shop_name"] == "Tiệm Cũ"
     assert cfg["logo_url"] == "/uploads/logo/x.png?v=9"  # giữ logo đã upload
 
 

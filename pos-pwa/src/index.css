@@ -2782,3 +2782,11 @@ body {
   margin-bottom: 6px;
 }
 .lbl-edit__row:has(input:only-child) { grid-template-columns: 1fr; }
+
+/* ══ Stage 5.8: nhãn vs giá trị (bold riêng) ═════════════════════════ */
+.rcp__lbl { font-weight: 600; }
+.rcp__val { font-weight: 400; }
+.rcp__lblbold .rcp__lbl { font-weight: 800; }
+.rcp__valbold .rcp__val { font-weight: 800; }
+/* 2 toggle bold cạnh nhau trong popup khối field */
+.fmt-row--bold { justify-content: flex-start; gap: 20px; }
