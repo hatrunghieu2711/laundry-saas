@@ -20,10 +20,6 @@ export const DEFAULT_RECEIPT = {
   note_en:
     'Please keep this receipt and collect your laundry within 30 days of the due ' +
     'date. After that we hold no responsibility. Please check your items before leaving.',
-  surcharge_enabled: false,
-  surcharge_percent: 0,
-  surcharge_label_vi: 'Phụ thu Tết',
-  surcharge_label_en: 'Holiday surcharge',
 }
 
 // Bảo đảm cấu hình luôn đủ field (cấu hình cũ thiếu field mới → lấy mặc định).

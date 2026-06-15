@@ -33,9 +33,10 @@ class SettingsUpdate(BaseModel):
     telegram_owner_chat_id: str | None = None
 
 
-# ── Mẫu phiếu in (Stage 4.1 → nâng song ngữ 2H ở Stage 5.3) ─────────────────
-# Layout phiếu giờ CỐ ĐỊNH song ngữ Việt/Anh khớp mẫu 2H (nhãn cứng ở frontend).
-# Owner chỉ sửa NỘI DUNG (text + logo ảnh) và bật/tắt 2 khối: ghi chú + phụ thu.
+# ── Mẫu phiếu in (Stage 4.1 → song ngữ 2H Stage 5.3 → bỏ phụ thu display-only 5.4)
+# Layout phiếu CỐ ĐỊNH song ngữ Việt/Anh khớp mẫu 2H (nhãn cứng ở frontend). Owner
+# chỉ sửa NỘI DUNG (text + logo ảnh) và bật/tắt khối ghi chú. Phụ thu/giảm giờ là
+# TIỀN THẬT theo từng đơn (Stage 5.4) — KHÔNG còn cấu hình ở mẫu phiếu nữa.
 class ReceiptConfig(BaseModel):
     """Cấu hình mẫu phiếu in per-tenant. Đọc mọi role, sửa owner.
 
@@ -62,12 +63,6 @@ class ReceiptConfig(BaseModel):
     note_enabled: bool = True
     note_vi: str = Field(default="", max_length=600)
     note_en: str = Field(default="", max_length=600)
-
-    # Khối phụ thu (chỉ dùng Tết) — mặc định TẮT. Tính theo % trên tổng món.
-    surcharge_enabled: bool = False
-    surcharge_percent: Decimal = Field(default=Decimal(0), ge=0, le=100)
-    surcharge_label_vi: str = Field(default="Phụ thu Tết", max_length=60)
-    surcharge_label_en: str = Field(default="Holiday surcharge", max_length=60)
 
 
 class ReceiptUpdate(ReceiptConfig):

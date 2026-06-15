@@ -21,12 +21,13 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import Pagination
 from app.core.errors import APIError
 from app.models.customer import Customer
+from app.models.discount_log import DiscountLog
 from app.models.log import OrderTrackingLog
 from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.user import User
-from app.schemas.order import OrderCreate, OrderItemIn, OrderUpdate
-from app.services import branch_service, service_service
+from app.schemas.order import OrderAdjustmentIn, OrderCreate, OrderItemIn, OrderUpdate
+from app.services import branch_service, price_rule_service, service_service
 from app.services.pricing import price_line
 from app.services.scope import resolve_write_branch
 
@@ -93,8 +94,45 @@ async def _build_item(
     )
 
 
-def _total(order: Order) -> Decimal:
+def _items_subtotal(order: Order) -> Decimal:
     return sum((i.subtotal for i in order.items), Decimal(0))
+
+
+def _recompute_totals(order: Order) -> None:
+    """Đặt lại subtotal (tổng món) + total_amount giữ NGUYÊN snapshot phụ thu/giảm.
+    Dùng khi sửa hạng mục sau tạo đơn (phụ thu/giảm là số cố định, bất biến)."""
+    order.subtotal = _items_subtotal(order)
+    order.total_amount = (
+        order.subtotal
+        + (order.surcharge_amount or Decimal(0))
+        - (order.discount_amount or Decimal(0))
+    )
+
+
+def _compute_adjustment(value_type: str, value: Decimal, base: Decimal) -> Decimal:
+    """percent → % trên base (tổng món); fixed → số tiền. Làm tròn VND (số nguyên)."""
+    if value_type == "percent":
+        return (base * value / Decimal(100)).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    return value.quantize(Decimal(1), rounding=ROUND_HALF_UP)
+
+
+async def _resolve_adjustment(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    rule_type: str,
+    manual: OrderAdjustmentIn | None,
+    subtotal: Decimal,
+    on_date,
+) -> tuple[Decimal, str | None]:
+    """Quyết phụ thu/giảm cho đơn: NHẬP TAY ghi đè; nếu không có thì TỰ ÁP rule
+    theo ngày (reason = tên rule). Không có gì → (0, None)."""
+    if manual is not None:
+        amount = _compute_adjustment(manual.value_type, manual.value, subtotal)
+        return amount, (manual.reason.strip() if manual.reason and manual.reason.strip() else None)
+    rule = await price_rule_service.applicable_rule(db, tenant_id, rule_type, on_date)
+    if rule is not None:
+        return _compute_adjustment(rule.value_type, rule.value, subtotal), rule.name
+    return Decimal(0), None
 
 
 def _apply_search(stmt, q: str | None):
@@ -240,10 +278,41 @@ async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Orde
     )
     for it in data.items:
         order.items.append(await _build_item(db, actor.tenant_id, it))
-    order.total_amount = _total(order)
+
+    # Phụ thu/giảm (Stage 5.4) — SNAPSHOT vào tiền thật. % tính trên tổng món gốc.
+    subtotal = _items_subtotal(order)
+    on_date = price_rule_service.vn_today()
+    surcharge_amount, surcharge_reason = await _resolve_adjustment(
+        db, actor.tenant_id, "surcharge", data.surcharge, subtotal, on_date
+    )
+    discount_amount, discount_reason = await _resolve_adjustment(
+        db, actor.tenant_id, "discount", data.discount, subtotal, on_date
+    )
+    # Giảm không vượt (tổng món + phụ thu) → total_amount không âm.
+    max_discount = subtotal + surcharge_amount
+    if discount_amount > max_discount:
+        discount_amount = max_discount
+
+    order.subtotal = subtotal
+    order.surcharge_amount = surcharge_amount
+    order.discount_amount = discount_amount
+    order.surcharge_reason = surcharge_reason
+    order.discount_reason = discount_reason
+    order.total_amount = subtotal + surcharge_amount - discount_amount
+
     db.add(order)
-    await db.flush()  # cần order.id cho tracking log
+    await db.flush()  # cần order.id cho tracking log + discount log
     _add_tracking(db, order, "created", actor)
+    # Nhật ký giảm giá (cho báo cáo theo nhân viên) — chỉ khi thực sự có giảm.
+    if discount_amount > 0:
+        db.add(DiscountLog(
+            tenant_id=actor.tenant_id,
+            branch_id=branch_id,
+            order_id=order.id,
+            user_id=actor.id,
+            amount=discount_amount,
+            reason=discount_reason,
+        ))
     await db.commit()
     return await _get_order(db, actor, order.id)
 
@@ -308,7 +377,7 @@ async def add_item(
     order = await _get_order(db, actor, order_id)
     await _assert_items_editable(db, order)
     order.items.append(await _build_item(db, actor.tenant_id, item))
-    order.total_amount = _total(order)
+    _recompute_totals(order)
     await db.commit()
     return await _get_order(db, actor, order_id)
 
@@ -331,7 +400,7 @@ async def update_item(
     target.quantity = built.quantity
     target.unit_price = built.unit_price
     target.subtotal = built.subtotal
-    order.total_amount = _total(order)
+    _recompute_totals(order)
     await db.commit()
     return await _get_order(db, actor, order_id)
 
@@ -345,7 +414,7 @@ async def delete_item(
     if target is None:
         raise APIError(404, "ORDER_ITEM_NOT_FOUND", "Không tìm thấy hạng mục")
     order.items.remove(target)  # cascade delete-orphan -> xóa dòng
-    order.total_amount = _total(order)
+    _recompute_totals(order)
     await db.commit()
     return await _get_order(db, actor, order_id)
 

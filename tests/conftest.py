@@ -106,9 +106,9 @@ get_settings().cookie_secure = False
 
 # Các bảng test chạm tới — dọn giữa mỗi test (CASCADE lo FK).
 _CLEAN_TABLES = (
-    "cash_transactions, payments, order_items, orders, service_tiers, services, "
-    "categories, shifts, refresh_tokens, users, branches, customers, "
-    "tenant_settings, tenants"
+    "discount_logs, cash_transactions, payments, order_items, orders, price_rules, "
+    "service_tiers, services, categories, shifts, refresh_tokens, users, branches, "
+    "customers, tenant_settings, tenants"
 )
 
 

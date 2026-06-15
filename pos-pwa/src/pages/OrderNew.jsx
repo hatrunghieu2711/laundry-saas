@@ -48,8 +48,18 @@ export default function OrderNew() {
   const [payMode, setPayMode] = useState('prepay') // prepay | later
   const [payMethod, setPayMethod] = useState('cash')
   const [payAmount, setPayAmount] = useState('')
+  const [payTouched, setPayTouched] = useState(false)
   const [paidInfo, setPaidInfo] = useState({ amount: 0, method: null })
   const [payWarn, setPayWarn] = useState('')
+  // ── phụ thu / giảm giá (Stage 5.4) ──
+  const [surType, setSurType] = useState('percent')
+  const [surValue, setSurValue] = useState('')
+  const [surReason, setSurReason] = useState('')
+  const [surAuto, setSurAuto] = useState(false)
+  const [disType, setDisType] = useState('percent')
+  const [disValue, setDisValue] = useState('')
+  const [disReason, setDisReason] = useState('')
+  const [disAuto, setDisAuto] = useState(false)
 
   useEffect(() => {
     if (!isOwner) return
@@ -161,6 +171,16 @@ export default function OrderNew() {
   const lineTotal = (x) => (x.kind === 'flat' ? x.count * x.price : x.quantity * x.unit_price)
   const total = cart.reduce((s, x) => s + lineTotal(x), 0)
 
+  // ── breakdown phụ thu / giảm (Stage 5.4): % tính trên tổng món (total) ──
+  const _adj = (type, value) => {
+    const v = toNumber(value)
+    if (v <= 0) return 0
+    return type === 'percent' ? Math.round((total * v) / 100) : Math.round(v)
+  }
+  const surAmount = _adj(surType, surValue)
+  const disAmount = Math.min(_adj(disType, disValue), total + surAmount) // không âm
+  const grandTotal = total + surAmount - disAmount
+
   const buildItems = () => {
     const items = []
     for (const x of cart) {
@@ -220,14 +240,35 @@ export default function OrderNew() {
   const perUnitServices = shown.filter((s) => s.pricing_type === 'per_unit')
 
   // ── modal ──
-  const openConfirm = () => {
+  const openConfirm = async () => {
     if (cart.length === 0) return
     setPickup(defaultPickupVnWall(turnaround))
     setPayMode('prepay')
     setPayMethod('cash')
-    setPayAmount(total) // mặc định = tổng đơn
+    setPayTouched(false) // payAmount theo grandTotal đến khi nhân viên tự sửa
     setError('')
+    // reset phụ thu/giảm
+    setSurType('percent'); setSurValue(''); setSurReason(''); setSurAuto(false)
+    setDisType('percent'); setDisValue(''); setDisReason(''); setDisAuto(false)
     setShowConfirm(true)
+    // Lấy rule tự áp hôm nay → điền sẵn (badge "tự áp"), nhân viên sửa được.
+    try {
+      const appl = await api.get('/price-rules/applicable')
+      if (appl?.surcharge) {
+        setSurType(appl.surcharge.value_type)
+        setSurValue(String(toNumber(appl.surcharge.value)))
+        setSurReason(appl.surcharge.name || '')
+        setSurAuto(true)
+      }
+      if (appl?.discount) {
+        setDisType(appl.discount.value_type)
+        setDisValue(String(toNumber(appl.discount.value)))
+        setDisReason(appl.discount.name || '')
+        setDisAuto(true)
+      }
+    } catch {
+      /* không có rule / lỗi mạng → tạo đơn không phụ thu-giảm tự áp */
+    }
   }
 
   // Tra khách theo SĐT (debounce) khi modal mở.
@@ -259,6 +300,13 @@ export default function OrderNew() {
     }
   }, [phone, showConfirm])
 
+  // Số tiền thu mặc định = Tổng cộng (đã gồm phụ thu/giảm) cho tới khi NV tự sửa.
+  useEffect(() => {
+    if (showConfirm && payMode === 'prepay' && !payTouched) {
+      setPayAmount(grandTotal)
+    }
+  }, [showConfirm, payMode, payTouched, grandTotal])
+
   const submit = async () => {
     if (cart.length === 0) return
     if (isPastVnWall(pickup)) {
@@ -281,6 +329,12 @@ export default function OrderNew() {
       if (customerId) body.customer_id = customerId
       if (note.trim()) body.notes = note.trim()
       if (isOwner) body.branch_id = branchId
+      // Phụ thu/giảm: gửi giá trị ĐANG HIỂN THỊ (đã gồm rule điền sẵn + sửa tay)
+      // → backend dùng đúng số này (không tự áp lại). value 0 = không áp.
+      body.surcharge = { value_type: surType, value: toNumber(surValue) }
+      if (surReason.trim()) body.surcharge.reason = surReason.trim()
+      body.discount = { value_type: disType, value: toNumber(disValue) }
+      if (disReason.trim()) body.discount.reason = disReason.trim()
       const order = await api.post('/orders', body)
 
       // Thu tiền trước → ghi payment ngay (cần ca mở). Đơn đã tạo nên KHÔNG
@@ -626,6 +680,56 @@ export default function OrderNew() {
               </div>
             </div>
 
+            {/* Phụ thu / Giảm giá (Stage 5.4) — vào tiền thật */}
+            <div className="adj">
+              <div className="adj__inputs">
+                <div className="adj__block">
+                  <div className="adj__head">
+                    <span className="field-label">
+                      Phụ thu {surAuto && <span className="badge-auto">tự áp</span>}
+                    </span>
+                    <div className="seg seg--sm">
+                      <button type="button" className={`seg__btn ${surType === 'percent' ? 'seg__btn--active' : ''}`} onClick={() => setSurType('percent')}>%</button>
+                      <button type="button" className={`seg__btn ${surType === 'fixed' ? 'seg__btn--active' : ''}`} onClick={() => setSurType('fixed')}>đ</button>
+                    </div>
+                  </div>
+                  <input className="input" type="number" min="0" inputMode="decimal"
+                    placeholder={surType === 'percent' ? 'VD 10 (%)' : 'VD 20000 (đ)'}
+                    value={surValue} onChange={(e) => setSurValue(e.target.value)} />
+                  <input className="input adj__reason" type="text" placeholder="Lý do phụ thu (tùy chọn)"
+                    value={surReason} onChange={(e) => setSurReason(e.target.value)} />
+                </div>
+
+                <div className="adj__block">
+                  <div className="adj__head">
+                    <span className="field-label">
+                      Giảm giá {disAuto && <span className="badge-auto">tự áp</span>}
+                    </span>
+                    <div className="seg seg--sm">
+                      <button type="button" className={`seg__btn ${disType === 'percent' ? 'seg__btn--active' : ''}`} onClick={() => setDisType('percent')}>%</button>
+                      <button type="button" className={`seg__btn ${disType === 'fixed' ? 'seg__btn--active' : ''}`} onClick={() => setDisType('fixed')}>đ</button>
+                    </div>
+                  </div>
+                  <input className="input" type="number" min="0" inputMode="decimal"
+                    placeholder={disType === 'percent' ? 'VD 10 (%)' : 'VD 20000 (đ)'}
+                    value={disValue} onChange={(e) => setDisValue(e.target.value)} />
+                  <input className="input adj__reason" type="text" placeholder="Lý do giảm (tùy chọn)"
+                    value={disReason} onChange={(e) => setDisReason(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="adj__summary">
+                <div className="adj__row"><span>Tạm tính</span><span>{formatVND(total)}</span></div>
+                {surAmount > 0 && (
+                  <div className="adj__row"><span>+ Phụ thu</span><span>{formatVND(surAmount)}</span></div>
+                )}
+                {disAmount > 0 && (
+                  <div className="adj__row adj__row--minus"><span>− Giảm</span><span>−{formatVND(disAmount)}</span></div>
+                )}
+                <div className="adj__row adj__row--total"><span>Tổng cộng</span><span>{formatVND(grandTotal)}</span></div>
+              </div>
+            </div>
+
             {/* Bước thanh toán */}
             <div className="paystep">
               <span className="field-label">Thanh toán</span>
@@ -661,8 +765,14 @@ export default function OrderNew() {
                     ))}
                   </div>
                   <label className="field paystep__amount">
-                    <span>Số tiền thu (mặc định = tổng đơn {formatVND(total)})</span>
-                    <MoneyInput value={payAmount} onChange={setPayAmount} />
+                    <span>Số tiền thu (mặc định = tổng cộng {formatVND(grandTotal)})</span>
+                    <MoneyInput
+                      value={payAmount}
+                      onChange={(v) => {
+                        setPayAmount(v)
+                        setPayTouched(true)
+                      }}
+                    />
                   </label>
                 </div>
               )}
@@ -690,7 +800,7 @@ export default function OrderNew() {
                   ? 'Đang tạo…'
                   : payMode === 'prepay'
                     ? `Tạo & thu · ${formatVND(toNumber(payAmount))}`
-                    : `Tạo đơn · ${formatVND(total)}`}
+                    : `Tạo đơn · ${formatVND(grandTotal)}`}
               </button>
             </div>
           </div>

@@ -8,6 +8,8 @@ from app.api.v1.categories import router as categories_router
 from app.api.v1.customers import router as customers_router
 from app.api.v1.orders import router as orders_router
 from app.api.v1.payments import router as payments_router
+from app.api.v1.price_rules import router as price_rules_router
+from app.api.v1.reports import router as reports_router
 from app.api.v1.services import router as services_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.shifts import router as shifts_router
@@ -22,6 +24,8 @@ api_router.include_router(users_router)
 api_router.include_router(shifts_router)
 api_router.include_router(orders_router)
 api_router.include_router(payments_router)
+api_router.include_router(price_rules_router)
+api_router.include_router(reports_router)
 api_router.include_router(cash_transactions_router)
 api_router.include_router(customers_router)
 api_router.include_router(categories_router)

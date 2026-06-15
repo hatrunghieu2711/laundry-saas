@@ -2431,3 +2431,112 @@ body {
   display: flex;
   gap: 6px;
 }
+
+/* ══ Stage 5.4: Phụ thu / Giảm giá (vào tiền thật) ═══════════════════ */
+/* Khối nhập phụ thu/giảm trong modal xác nhận đơn + bảng breakdown. */
+.adj {
+  margin-top: 14px;
+  border-top: 1px dashed var(--line);
+  padding-top: 12px;
+}
+.adj__inputs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+@media (max-width: 560px) {
+  .adj__inputs {
+    grid-template-columns: 1fr;
+  }
+}
+.adj__block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.adj__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.adj__reason {
+  font-size: 13px;
+}
+.seg--sm {
+  display: inline-grid;
+  grid-template-columns: 40px 40px;
+  gap: 4px;
+}
+.seg--sm .seg__btn {
+  min-height: 34px;
+  font-size: 14px;
+  padding: 2px 6px;
+}
+.badge-auto {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+  font-size: 11px;
+  font-weight: 800;
+  vertical-align: middle;
+}
+.adj__summary {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--bg);
+}
+.adj__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 14px;
+}
+.adj__row--minus {
+  color: var(--green, #137333);
+}
+.adj__row--total {
+  font-weight: 900;
+  font-size: 17px;
+  border-top: 1px solid var(--line);
+  margin-top: 4px;
+  padding-top: 6px;
+}
+
+/* Màn quản lý quy tắc phụ thu/giảm */
+.rule-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rule-form__row {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+}
+.rule-form__row .field {
+  flex: 1;
+  min-width: 0;
+}
+.rule-badge {
+  flex: none;
+  align-self: flex-start;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.rule-badge--sur {
+  background: #fde8d6;
+  color: #9a4a00;
+}
+.rule-badge--dis {
+  background: #d9f2e3;
+  color: #137333;
+}

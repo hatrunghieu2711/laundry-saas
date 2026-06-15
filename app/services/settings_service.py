@@ -35,10 +35,6 @@ DEFAULT_RECEIPT = {
     "note_enabled": True,
     "note_vi": _DEFAULT_NOTE_VI,
     "note_en": _DEFAULT_NOTE_EN,
-    "surcharge_enabled": False,
-    "surcharge_percent": 0,
-    "surcharge_label_vi": "Phụ thu Tết",
-    "surcharge_label_en": "Holiday surcharge",
 }
 
 

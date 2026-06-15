@@ -59,7 +59,7 @@ async def test_staff_can_read_pos_cannot_update(client: AsyncClient, owner: dict
 
 
 async def test_receipt_default_bilingual(client: AsyncClient, owner: dict):
-    """Mẫu mặc định song ngữ 2H: logo text 2H, ghi chú bật, phụ thu tắt."""
+    """Mẫu mặc định song ngữ 2H: logo text 2H, ghi chú bật."""
     t = await login(client, owner["phone"], owner["password"])
     r = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))
     assert r.status_code == 200, r.text
@@ -68,8 +68,8 @@ async def test_receipt_default_bilingual(client: AsyncClient, owner: dict):
     assert cfg["logo_url"] == ""
     assert cfg["note_enabled"] is True
     assert cfg["note_vi"] and cfg["note_en"]  # có ghi chú song ngữ mặc định
-    assert cfg["surcharge_enabled"] is False  # phụ thu mặc định TẮT
     assert "blocks" not in cfg  # layout giờ cố định, không còn blocks
+    assert "surcharge_enabled" not in cfg  # phụ thu giờ là tiền thật theo đơn (5.4)
 
 
 async def test_receipt_update_by_owner(client: AsyncClient, owner: dict):
@@ -86,10 +86,6 @@ async def test_receipt_update_by_owner(client: AsyncClient, owner: dict):
         "note_enabled": True,
         "note_vi": "Giữ biên nhận khi nhận đồ.",
         "note_en": "Keep this receipt to collect.",
-        "surcharge_enabled": True,
-        "surcharge_percent": 20,
-        "surcharge_label_vi": "Phụ thu Tết",
-        "surcharge_label_en": "Tet surcharge",
         # client cố tình gửi logo_url bậy — server PHẢI bỏ qua (giữ "").
         "logo_url": "https://evil.example/x.png",
     }
@@ -98,8 +94,7 @@ async def test_receipt_update_by_owner(client: AsyncClient, owner: dict):
     cfg = upd.json()
     assert cfg["shop_name"] == "Tiệm Giặt ABC"
     assert cfg["hotline"] == "0258 123 456"
-    assert cfg["surcharge_enabled"] is True
-    assert int(float(cfg["surcharge_percent"])) == 20
+    assert cfg["note_vi"] == "Giữ biên nhận khi nhận đồ."
     assert cfg["logo_url"] == ""  # KHÔNG nhận logo_url từ body PUT
     # đọc lại vẫn giữ
     again = await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))

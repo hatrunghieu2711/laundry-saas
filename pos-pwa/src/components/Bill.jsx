@@ -8,11 +8,12 @@ import { formatPickupShort } from '../lib/datetime'
 export default function BillContent({ config, order }) {
   if (!order) return null
 
-  const subtotal = toNumber(order.total_amount)
-  const pct = toNumber(config.surcharge_percent)
-  const surchargeOn = !!config.surcharge_enabled && pct > 0
-  const surcharge = surchargeOn ? Math.round((subtotal * pct) / 100) : 0
-  const grandTotal = subtotal + surcharge
+  // Stage 5.4 — phụ thu/giảm là TIỀN THẬT, lấy snapshot từ đơn.
+  const grandTotal = toNumber(order.total_amount)
+  const surcharge = toNumber(order.surcharge_amount)
+  const discount = toNumber(order.discount_amount)
+  // subtotal: ưu tiên cột order.subtotal; fallback (đơn cũ chưa có) = total.
+  const subtotal = order.subtotal != null ? toNumber(order.subtotal) : grandTotal
 
   // QR trỏ về trang tracking công khai (subdomain riêng), KHÔNG phải origin POS.
   const trackBase = import.meta.env.VITE_TRACK_BASE_URL || 'https://track.giatui2h.com'
@@ -96,18 +97,28 @@ export default function BillContent({ config, order }) {
         </tbody>
       </table>
 
-      {/* ── Tổng tiền · (Phụ thu) · Tổng cộng ──────────────────────── */}
+      {/* ── Tạm tính · (+Phụ thu) · (−Giảm) · Tổng cộng ────────────── */}
       <div className="rcp__totals">
         <div className="rcp__row">
-          <span>Tổng tiền / Subtotal</span>
+          <span>Tạm tính / Subtotal</span>
           <span>{formatVND(subtotal)}</span>
         </div>
-        {surchargeOn && (
+        {surcharge > 0 && (
           <div className="rcp__row">
             <span>
-              {config.surcharge_label_vi} / {config.surcharge_label_en} ({pct}%)
+              + Phụ thu / Surcharge
+              {order.surcharge_reason ? ` (${order.surcharge_reason})` : ''}
             </span>
             <span>{formatVND(surcharge)}</span>
+          </div>
+        )}
+        {discount > 0 && (
+          <div className="rcp__row">
+            <span>
+              − Giảm / Discount
+              {order.discount_reason ? ` (${order.discount_reason})` : ''}
+            </span>
+            <span>−{formatVND(discount)}</span>
           </div>
         )}
         <div className="rcp__row rcp__row--total">

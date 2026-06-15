@@ -6,8 +6,10 @@ from app.models.cash_transaction import CashTransaction  # noqa: F401
 from app.models.category import Category  # noqa: F401
 from app.models.customer import Customer  # noqa: F401
 from app.models.delivery import Delivery  # noqa: F401
+from app.models.discount_log import DiscountLog  # noqa: F401
 from app.models.order import Order, OrderItem  # noqa: F401
 from app.models.payment import Payment  # noqa: F401
+from app.models.price_rule import PriceRule  # noqa: F401
 from app.models.refresh_token import RefreshToken  # noqa: F401
 from app.models.service import Service, ServiceTier  # noqa: F401
 from app.models.shift import Shift  # noqa: F401
@@ -22,11 +24,13 @@ __all__ = [
     "Category",
     "Customer",
     "Delivery",
+    "DiscountLog",
     "Order",
     "OrderItem",
     "OrderTrackingLog",
     "Payment",
     "Plan",
+    "PriceRule",
     "RefreshToken",
     "Service",
     "ServiceTier",

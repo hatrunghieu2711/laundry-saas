@@ -45,6 +45,15 @@ class OrderItemOut(BaseModel):
     subtotal: Decimal
 
 
+class OrderAdjustmentIn(BaseModel):
+    """Phụ thu/giảm nhập tay khi tạo đơn (Stage 5.4). value theo value_type:
+    percent (% trên tổng món) hoặc fixed (số tiền VND). Có thì GHI ĐÈ rule tự áp."""
+
+    value_type: Literal["percent", "fixed"]
+    value: Decimal = Field(ge=0)
+    reason: str | None = Field(default=None, max_length=200)
+
+
 class OrderCreate(BaseModel):
     items: list[OrderItemIn] = Field(min_length=1)
     customer_id: uuid.UUID | None = None
@@ -53,6 +62,9 @@ class OrderCreate(BaseModel):
     pickup_at: datetime
     # owner BẮT BUỘC truyền branch_id; staff/manager lấy từ token.
     branch_id: uuid.UUID | None = None
+    # Phụ thu/giảm (Stage 5.4). None → tự áp price_rules theo ngày (nếu có).
+    surcharge: OrderAdjustmentIn | None = None
+    discount: OrderAdjustmentIn | None = None
 
 
 class OrderUpdate(BaseModel):
@@ -79,6 +91,12 @@ class OrderOut(BaseModel):
     customer_name: str | None
     customer_phone: str | None
     order_code: str
+    # Stage 5.4 — breakdown phụ thu/giảm (snapshot). total = subtotal + surcharge − discount.
+    subtotal: Decimal
+    surcharge_amount: Decimal
+    discount_amount: Decimal
+    surcharge_reason: str | None
+    discount_reason: str | None
     total_amount: Decimal
     payment_status: str
     order_status: str

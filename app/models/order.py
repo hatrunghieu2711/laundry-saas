@@ -37,6 +37,14 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
         UUID(as_uuid=True), ForeignKey("customers.id"), nullable=True
     )
     order_code: Mapped[str] = mapped_column(String(32), nullable=False)
+    # Stage 5.4 — phụ thu/giảm vào TIỀN THẬT. Snapshot lúc tạo đơn (bất biến).
+    #   total_amount = subtotal + surcharge_amount − discount_amount.
+    # total_amount VẪN là số tiền thật (vào payment, doanh thu, đối soát ca).
+    subtotal: Mapped[Decimal] = mapped_column(Money, nullable=False, server_default="0")
+    surcharge_amount: Mapped[Decimal] = mapped_column(Money, nullable=False, server_default="0")
+    discount_amount: Mapped[Decimal] = mapped_column(Money, nullable=False, server_default="0")
+    surcharge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    discount_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_amount: Mapped[Decimal] = mapped_column(Money, nullable=False, server_default="0")
     payment_status: Mapped[str] = mapped_column(
         String(16), nullable=False, server_default="unpaid"

@@ -152,6 +152,11 @@ mọi bảng có created_at; bảng mutable có updated_at.
   total_amount NUMERIC(14,0), payment_status, order_status,
   pickup_at timestamptz NOT NULL (giờ hẹn giao, Stage 3.7A, migration c3a1f9d2b7e4),
   notes, created_by FK users, created_at, updated_at
+- **subtotal, surcharge_amount, discount_amount NUMERIC(14,0) + surcharge_reason,
+  discount_reason TEXT (Stage 5.4, migration c7d8e9f0a1b2):** phụ thu/giảm vào TIỀN
+  THẬT. `total_amount = subtotal + surcharge_amount − discount_amount`. SNAPSHOT lúc
+  tạo đơn (bất biến như giá món). total_amount VẪN là tiền thật (vào payment, doanh
+  thu, đối soát ca — KHÔNG display-only). Đơn cũ backfill subtotal = total_amount.
 - pickup_at: BẮT BUỘC khi tạo đơn, service validate phải > now (422
   PICKUP_AT_IN_PAST). PUT sửa được khi đơn chưa completed/cancelled (409
   ORDER_CLOSED nếu đã đóng). Đơn cũ migration backfill = created_at + 4h.
@@ -159,6 +164,23 @@ mọi bảng có created_at; bảng mutable có updated_at.
 - order_status: created | washing | drying | ready | delivered | completed | cancelled
 - Unique: (tenant_id, order_code)
 - Index: (tenant_id, branch_id, created_at), (tenant_id, order_status), (customer_id)
+
+### price_rules (Stage 5.4, migration c7d8e9f0a1b2) — quy tắc phụ thu/giảm tự áp
+- id UUID PK, tenant_id FK, type (surcharge|discount), value_type (percent|fixed),
+  value NUMERIC(14,2), name String(120), start_date DATE, end_date DATE,
+  is_active bool, created_at, updated_at. Soft delete qua is_active. Tenant-scoped.
+- Owner CRUD (POST/PUT/DELETE /price-rules). validate end>=start (422
+  INVALID_DATE_RANGE), percent<=100 (422 PERCENT_TOO_HIGH) ở SERVICE (để có `code`).
+- Tự áp khi tạo đơn: rule ACTIVE phủ NGÀY VN (UTC+7) hiện tại; nhiều rule cùng loại
+  → lấy mới nhất (start_date, created_at desc). GET /price-rules/applicable (mọi role
+  — POS điền sẵn badge "tự áp"). Index: (tenant_id, is_active), (tenant_id, type, dates).
+
+### discount_logs (Stage 5.4, migration c7d8e9f0a1b2) — nhật ký giảm giá (append-only)
+- id UUID PK, tenant_id, branch_id, order_id FK, user_id FK nullable (ai giảm),
+  amount NUMERIC(14,0), reason TEXT nullable, created_at.
+- Ghi khi tạo đơn có discount_amount > 0. Nguồn cho GET /reports/discounts (owner):
+  tổng giảm + theo nhân viên, lọc start_date/end_date/branch_id.
+- Index: (tenant_id, created_at), (tenant_id, user_id), (order_id)
 
 ### order_items
 - id UUID PK, order_id FK, service_id FK nullable (→ services), service_name,
@@ -432,10 +454,28 @@ sms_logs, notifications, inventory, machines.
   - **Cách áp dụng:** logo_url chỉ đổi qua POST /settings/receipt/logo (Pillow
     validate type/size + resize ≤480px + optimize PNG; cache-bust `?v=mtime`);
     PUT /settings/receipt KHÔNG nhận logo_url (ReceiptUpdate strip về "", service
-    giữ giá trị cũ). **Phụ thu (Tết) là DISPLAY-ONLY**: Tổng cộng trên phiếu =
-    Tổng tiền × (1+%); KHÔNG đụng order.total_amount/payments (tiền thật vẫn theo
-    đơn). Mặc định tắt. Bill không còn hiển thị trạng thái thanh toán/đã thu/còn
-    lại như mẫu cũ — mẫu 2H tập trung tổng đơn cho khách.
+    giữ giá trị cũ). Bill không còn hiển thị trạng thái thanh toán/đã thu/còn lại
+    như mẫu cũ — mẫu 2H tập trung tổng đơn cho khách.
+  - **CẬP NHẬT Stage 5.4:** phụ thu display-only đã GỠ khỏi receipt_config. Phụ
+    thu/giảm giờ là TIỀN THẬT theo từng đơn (xem quyết định 5.4 dưới).
+
+- **Phụ thu & giảm giá vào TIỀN THẬT, snapshot theo đơn; rule tự áp làm mặc định,
+  nhân viên ghi đè được (chốt Stage 5.4).** `total_amount = subtotal +
+  surcharge_amount − discount_amount`, total_amount là tiền thật (vào payment,
+  doanh thu, đối soát ca). price_rules tự áp theo NGÀY VN; nhập tay khi tạo đơn
+  GHI ĐÈ rule (không cộng dồn).
+  - **Lý do:** phụ thu Tết / giảm khách quen phải phản ánh đúng số tiền thu thật
+    (khác hẳn display-only của 5.3). Snapshot lúc tạo (bất biến như giá món) để
+    đổi/xóa rule KHÔNG ảnh hưởng đơn cũ. Reconciliation tự đúng vì payment thu
+    theo total thật — KHÔNG cần sửa shift_service (đã verify bằng test).
+  - **Cách áp dụng:** POST /orders nhận `surcharge`/`discount`
+    {value_type: percent|fixed, value, reason}. percent tính trên `subtotal`
+    (tổng món gốc). discount bị CLAMP ≤ subtotal+surcharge (total không âm). POS
+    LUÔN gửi giá trị đang hiển thị (đã gồm rule điền sẵn + sửa tay) → backend dùng
+    đúng số đó, KHÔNG tự áp lại; client khác không gửi gì thì backend tự áp rule
+    (fallback). Mỗi đơn có discount>0 ghi `discount_logs` (ai/đơn/số tiền/lý do)
+    cho GET /reports/discounts. Ví dụ: subtotal 200k + phụ thu 10% (20k) − giảm
+    cố định 15k = total 205k.
 
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
@@ -498,6 +538,7 @@ sms_logs, notifications, inventory, machines.
 - [ ] Stage 4: pilot 1 branch Giặt Ủi 2H (chạy song song sổ tay 2 tuần)
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
+- [x] Stage 5.4: phụ thu & giảm giá vào TIỀN THẬT — price_rules (tự áp theo ngày, owner CRUD) + orders.subtotal/surcharge_amount/discount_amount (snapshot, total=subtotal+surcharge−discount) + POST /orders nhận surcharge/discount (nhập tay ghi đè rule) + discount_logs + GET /reports/discounts (theo nhân viên/ngày) + màn xác nhận đơn (badge "tự áp" + breakdown Tạm tính→+Phụ thu→−Giảm→Tổng cộng) + màn quản lý quy tắc + bill hiện phụ thu/giảm. (Bỏ phụ thu display-only của 5.3.)
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)
 - [ ] Stage 7+: Public API, subscriptions — chỉ khi có khách ngoài thật

@@ -7,7 +7,12 @@ import { clearReceiptCache, normalizeReceipt } from '../lib/receipt'
 // Dữ liệu mẫu để preview song ngữ (đúng khổ 80mm, không gọi backend).
 const SAMPLE_ORDER = {
   order_code: 'B1-00042',
-  total_amount: 185000,
+  subtotal: 185000,
+  surcharge_amount: 18500, // 10% phụ thu (minh hoạ)
+  discount_amount: 15000,
+  surcharge_reason: 'Phụ thu Tết',
+  discount_reason: 'Khách quen',
+  total_amount: 188500, // 185000 + 18500 − 15000
   pickup_at: '2026-06-14T03:30:00Z', // 10:30 14/06 (giờ VN)
   created_at: '2026-06-13T09:15:00Z', // 16:15 13/06 (giờ VN)
   customer_name: 'Chị Lan',
@@ -189,33 +194,8 @@ export default function ReceiptSettings() {
           </label>
         </div>
 
-        {/* ── Phụ thu (Tết) — mặc định tắt ───────────────────────── */}
-        <div className="card">
-          <div className="rcfg__card-head">
-            <h3 className="card__title">Phụ thu (chỉ dùng Tết)</h3>
-            <label className="rcfg__switch">
-              <input type="checkbox" checked={!!cfg.surcharge_enabled} disabled={!canEdit}
-                onChange={(e) => set('surcharge_enabled', e.target.checked)} />
-              <span>{cfg.surcharge_enabled ? 'Bật' : 'Tắt'}</span>
-            </label>
-          </div>
-          <label className="field">
-            <span>Phụ thu (% trên tổng món)</span>
-            <input className="input" type="number" min={0} max={100} step={1}
-              value={cfg.surcharge_percent ?? 0} disabled={!canEdit || !cfg.surcharge_enabled}
-              onChange={(e) => set('surcharge_percent', Number(e.target.value) || 0)} />
-          </label>
-          <label className="field">
-            <span>Nhãn (Tiếng Việt)</span>
-            <input className="input" type="text" value={cfg.surcharge_label_vi || ''} disabled={!canEdit || !cfg.surcharge_enabled}
-              onChange={(e) => set('surcharge_label_vi', e.target.value)} />
-          </label>
-          <label className="field">
-            <span>Nhãn (English)</span>
-            <input className="input" type="text" value={cfg.surcharge_label_en || ''} disabled={!canEdit || !cfg.surcharge_enabled}
-              onChange={(e) => set('surcharge_label_en', e.target.value)} />
-          </label>
-        </div>
+        {/* Phụ thu/giảm giờ là TIỀN THẬT theo từng đơn (Stage 5.4): cấu hình ở
+            menu "Phụ thu / Giảm giá", nhập lúc tạo đơn — KHÔNG còn ở mẫu phiếu. */}
 
         {error && <div className="alert alert--error">{error}</div>}
         {canEdit && (
