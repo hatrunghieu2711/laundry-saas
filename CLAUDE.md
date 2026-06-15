@@ -393,6 +393,12 @@ mọi bảng có created_at; bảng mutable có updated_at.
       /settings/receipt/status → {has_tenant_default}. Frontend: 2 nút + xác nhận
       (restore "không hoàn tác") + 3 trạng thái (đang dùng / mẫu tenant đã lưu /
       fallback mẫu gốc). Tenant-scoped (mẫu tenant này không lẫn tenant khác).
+  - **Stage 5.10.1 — fix bug xóa khối trong hàng ghép (chỉ frontend):** trước đây
+    `removeBlock(ri)` splice CẢ HÀNG (xóa cả 2 khối left/right). Sửa: xóa theo (ri,ci)
+    → đúng 1 khối; hàng còn 1 khối → `col='full'`; hàng rỗng → bỏ hàng. Tách pure
+    helpers `blocksToRows`/`rowsToBlocks`/`removeCellFromRows` ra `lib/receipt.js`
+    (dùng chung + test được). Mọi thao tác builder theo (ri,ci) — toggle/✎/⧉(id mới)/
+    ⊟ — không nhầm sang khối cùng row.
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -638,6 +644,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
 - [x] Stage 5.4: phụ thu & giảm giá vào TIỀN THẬT — price_rules (tự áp theo ngày, owner CRUD) + orders.subtotal/surcharge_amount/discount_amount (snapshot, total=subtotal+surcharge−discount) + POST /orders nhận surcharge/discount (nhập tay ghi đè rule) + discount_logs + GET /reports/discounts (theo nhân viên/ngày) + màn xác nhận đơn (badge "tự áp" + breakdown Tạm tính→+Phụ thu→−Giảm→Tổng cộng) + màn quản lý quy tắc + bill hiện phụ thu/giảm. (Bỏ phụ thu display-only của 5.3.)
+- [x] Stage 5.10.1: fix bug xóa khối trong hàng ghép — xóa theo (ri,ci) đúng 1 khối (trước đây splice cả hàng → mất cả 2); khối còn lại về col=full; tách pure helpers ra lib + test. Chỉ frontend.
 - [x] Stage 5.10: mẫu gốc nền tảng (placeholder, cho tenant mới) + mẫu mặc định per-tenant (receipt_default_config + Lưu/Khôi phục + 3 trạng thái) + fix bug xóa khối copy (field `removable`: khối copy/owner xóa được, khối gốc chỉ tắt). 2H giữ nguyên config. Migration d8e9f0a1b2c3.
 - [x] Stage 5.9: bill builder sửa bug + UX — fix cỡ chữ bảng món (table nhận size); dòng tổng tiền bỏ ngoặc lý do + căn 2 đầu (nhãn trái/số phải); khối custom_text hiện nội dung rút gọn trong builder; nút ⧉ nhân bản khối (giữ nội dung+định dạng). Chỉ frontend/CSS.
 - [x] Stage 5.8: bill builder dọn dẹp + tùy biến sâu — tách Tên/ĐT 2 khối; logo CHỈ ẢNH (tên tiệm/tiêu đề → custom_text, migrate giữ nội dung); bỏ kẻ ngang tự động; bold tách nhãn/giá trị + italic + checkbox Title (custom_text) + tăng cỡ chữ mỗi cấp +1; bỏ note/footer_contact; gộp Tạm tính/Phụ thu/Giảm vào totals (chỉ hiện khi đơn có); trạng thái TT 2 text sửa được + border ôm chữ; QR bỏ caption + link tracking per-tenant (track_base_url); migrate-on-read giữ cấu hình owner

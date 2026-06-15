@@ -8,11 +8,14 @@ import {
   BLOCK_META,
   BLOCK_VALUES,
   blockListLabel,
+  blocksToRows,
   canItalic,
   clearReceiptCache,
   defaultAlign,
   isField,
   normalizeReceipt,
+  removeCellFromRows,
+  rowsToBlocks,
 } from '../lib/receipt'
 
 const SAMPLE_ORDER = {
@@ -27,25 +30,6 @@ const SAMPLE_ORDER = {
     { id: 2, service_name: 'Áo Vest', quantity: 2, unit_price: 60000, subtotal: 120000 },
     { id: 3, service_name: 'Giặt thường', quantity: 1, unit_price: 5000, subtotal: 5000 },
   ],
-}
-
-const blocksToRows = (blocks) => {
-  const map = new Map()
-  blocks.forEach((b) => {
-    const r = b.row ?? 0
-    if (!map.has(r)) map.set(r, [])
-    map.get(r).push(b)
-  })
-  return [...map.keys()].sort((a, b) => a - b)
-    .map((k) => map.get(k).slice().sort((a, b) => (a.col === 'right' ? 1 : 0) - (b.col === 'right' ? 1 : 0)))
-}
-const rowsToBlocks = (rows) => {
-  const out = []
-  rows.forEach((row, ri) => {
-    if (row.length === 1) out.push({ ...row[0], row: ri, col: 'full' })
-    else row.forEach((b, ci) => out.push({ ...b, row: ri, col: ci === 0 ? 'left' : 'right' }))
-  })
-  return out
 }
 
 export default function ReceiptSettings() {
@@ -98,7 +82,8 @@ export default function ReceiptSettings() {
   const canPairDown = (ri) => rows[ri].length === 1 && rows[ri + 1]?.length === 1
   const pairDown = (ri) => mutate((rs) => { rs[ri] = [rs[ri][0], rs[ri + 1][0]]; rs.splice(ri + 1, 1); return rs })
   const splitRow = (ri) => mutate((rs) => { const [a, b] = rs[ri]; rs.splice(ri, 1, [a], [b]); return rs })
-  const removeBlock = (ri) => mutate((rs) => { rs.splice(ri, 1); return rs })
+  // Xóa ĐÚNG khối (ri,ci) — không đụng khối khác cùng hàng; hàng còn 1 → full.
+  const removeBlock = (ri, ci) => { dirty(); setRows((rs) => removeCellFromRows(rs, ri, ci)) }
 
   // Nhân bản khối: chèn khối mới ngay dưới (giữ type + nội dung + định dạng),
   // đặt full hàng + enabled (Stage 5.9).
@@ -285,7 +270,7 @@ export default function ReceiptSettings() {
                         <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => openEdit(ri, ci)}>✎</button>
                         <button className="icon-btn" disabled={!canEdit} title="Nhân bản khối" onClick={() => copyBlock(ri, ci)}>⧉</button>
                         {blk.removable && (
-                          <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri)}>🗑</button>
+                          <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri, ci)}>🗑</button>
                         )}
                       </span>
                     </div>

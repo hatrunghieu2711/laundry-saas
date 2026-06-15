@@ -71,6 +71,40 @@ export const ADDABLE = [
 
 export const defaultAlign = (type) => BLOCK_META[type]?.align || 'left'
 
+// ── Builder: chuyển đổi blocks[] ↔ rows (mảng hàng, mỗi hàng 1-2 khối) ──
+// Tách ra lib để dùng chung + test được (Stage 5.10.1).
+export function blocksToRows(blocks) {
+  const map = new Map()
+  blocks.forEach((b) => {
+    const r = b.row ?? 0
+    if (!map.has(r)) map.set(r, [])
+    map.get(r).push(b)
+  })
+  return [...map.keys()].sort((a, b) => a - b)
+    .map((k) => map.get(k).slice().sort((a, b) => (a.col === 'right' ? 1 : 0) - (b.col === 'right' ? 1 : 0)))
+}
+
+export function rowsToBlocks(rows) {
+  const out = []
+  rows.forEach((row, ri) => {
+    if (row.length === 1) out.push({ ...row[0], row: ri, col: 'full' })
+    else row.forEach((b, ci) => out.push({ ...b, row: ri, col: ci === 0 ? 'left' : 'right' }))
+  })
+  return out
+}
+
+// XÓA đúng 1 khối theo vị trí (ri,ci) — KHÔNG xóa khối khác cùng hàng (Stage 5.10.1).
+// Hàng còn 1 khối → khối đó về col='full' (chiếm trọn hàng); hàng rỗng → bỏ hàng.
+export function removeCellFromRows(rows, ri, ci) {
+  const rs = rows.map((r) => r.slice())
+  const row = rs[ri]
+  if (!row) return rs
+  row.splice(ci, 1)
+  if (row.length === 0) rs.splice(ri, 1)
+  else if (row.length === 1) row[0] = { ...row[0], col: 'full' }
+  return rs
+}
+
 // Nhãn khối hiển thị trong danh sách builder. custom_text → nội dung rút gọn
 // (~28 ký tự) để phân biệt nhiều khối; rỗng → "Văn bản tự do (trống)".
 export function blockListLabel(blk) {
