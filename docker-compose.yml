@@ -16,7 +16,7 @@ services:
     # --proxy-headers + forwarded-allow-ips="*": tin X-Forwarded-Proto/-For từ
     # nginx (port publish loopback nên chỉ host-nginx tới được) → app biết HTTPS
     # (cookie Secure) và lấy đúng IP client cho rate-limit theo IP.
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips="*" --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 1 --proxy-headers --forwarded-allow-ips="*"
 
   postgres:
     image: postgres:16
