@@ -46,7 +46,7 @@ export const BLOCK_LABELS = {
   totals: [
     { key: 'subtotal', vi: 'Tạm tính', en: 'Subtotal' },
     { key: 'surcharge', vi: 'Phụ thu', en: 'Surcharge' },
-    { key: 'discount', vi: 'Giảm', en: 'Discount' },
+    { key: 'discount', vi: 'Giảm giá', en: 'Discount' },
     { key: 'total', vi: 'TỔNG CỘNG', en: 'TOTAL' },
   ],
   order_no: [{ key: 'label', vi: 'Số', en: 'No' }],
@@ -70,6 +70,17 @@ export const ADDABLE = [
 ]
 
 export const defaultAlign = (type) => BLOCK_META[type]?.align || 'left'
+
+// Nhãn khối hiển thị trong danh sách builder. custom_text → nội dung rút gọn
+// (~28 ký tự) để phân biệt nhiều khối; rỗng → "Văn bản tự do (trống)".
+export function blockListLabel(blk) {
+  if (blk.type === 'custom_text') {
+    const txt = (blk.content?.vi || blk.content?.en || '').trim()
+    if (!txt) return 'Văn bản tự do (trống)'
+    return txt.length > 28 ? `${txt.slice(0, 28)}…` : txt
+  }
+  return BLOCK_META[blk.type]?.label || blk.type
+}
 
 function defaultBlocks() {
   const b = (id, type, extra = {}) => ({

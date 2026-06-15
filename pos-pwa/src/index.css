@@ -1149,7 +1149,7 @@ body {
 }
 .rcp__th-en {
   display: block;
-  font-size: 8px;
+  font-size: 0.7em; /* tương đối → co giãn theo cỡ chữ khối (Stage 5.9) */
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.3px;
@@ -1186,6 +1186,17 @@ body {
   gap: 8px;
   padding: 1px 0;
   font-size: 12px;
+}
+/* Nhãn trái (co được), số phải (không wrap, có khoảng cách) — Stage 5.9. */
+.rcp__row-lbl {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+.rcp__row-amt {
+  flex: none;
+  white-space: nowrap;
+  padding-left: 12px;
 }
 .rcp__row--total {
   font-weight: 900;
@@ -2707,9 +2718,10 @@ body {
 .rcp__sz-normal { font-size: 14px; }
 .rcp__sz-large  { font-size: 18px; }
 .rcp__sz-title  { font-size: 22px; }
-/* Ép phần tử con theo cỡ chữ của khối (override px mặc định). */
+/* Ép phần tử con theo cỡ chữ của khối (override px mặc định). Stage 5.9: thêm
+   .rcp__table để BẢNG MÓN (header + nội dung) nhận cỡ chữ — trước bị 11px ghi đè. */
 .rcp__fmt .rcp__field, .rcp__fmt .rcp__row, .rcp__fmt .rcp__no, .rcp__fmt .rcp__custom,
-.rcp__fmt .rcp__custom-en, .rcp__fmt .rcp__th, .rcp__fmt .rcp__td,
+.rcp__fmt .rcp__custom-en, .rcp__fmt .rcp__table, .rcp__fmt .rcp__th, .rcp__fmt .rcp__td,
 .rcp__fmt .rcp__paystatus { font-size: inherit; }
 /* In nghiêng (Stage 5.8) */
 .rcp__italic, .rcp__italic * { font-style: italic; }

@@ -13,7 +13,7 @@ const LDEF = {
   receiving_time: { label: ['Giờ nhận', 'Receiving'] },
   delivery_time: { label: ['Giờ giao', 'Delivery'] },
   items_table: { svc: ['Dịch vụ', 'Service'], qty: ['SL', 'Qty'], price: ['Giá', 'Price'], total: ['Tổng', 'Total'] },
-  totals: { subtotal: ['Tạm tính', 'Subtotal'], surcharge: ['Phụ thu', 'Surcharge'], discount: ['Giảm', 'Discount'], total: ['TỔNG CỘNG', 'TOTAL'] },
+  totals: { subtotal: ['Tạm tính', 'Subtotal'], surcharge: ['Phụ thu', 'Surcharge'], discount: ['Giảm giá', 'Discount'], total: ['TỔNG CỘNG', 'TOTAL'] },
   order_no: { label: ['Số', 'No'] },
   payment_status: { paid: ['ĐÃ THANH TOÁN', 'PAID'], unpaid: ['CHƯA THANH TOÁN', 'UNPAID'] },
 }
@@ -98,20 +98,24 @@ export default function BillContent({ config, order }) {
             </tbody>
           </table>
         )
-      case 'totals':
-        // Tạm tính / Phụ thu / Giảm CHỈ hiện khi đơn thật sự có phụ thu/giảm.
-        return (
-          <div className="rcp__totals">
-            {hasAdj && <div className="rcp__row"><span>{lbl('totals', c, 'subtotal')}</span><span>{formatVND(subtotal)}</span></div>}
-            {surcharge > 0 && (
-              <div className="rcp__row"><span>{lbl('totals', c, 'surcharge')}{order.surcharge_reason ? ` (${order.surcharge_reason})` : ''}</span><span>+{formatVND(surcharge)}</span></div>
-            )}
-            {discount > 0 && (
-              <div className="rcp__row"><span>{lbl('totals', c, 'discount')}{order.discount_reason ? ` (${order.discount_reason})` : ''}</span><span>−{formatVND(discount)}</span></div>
-            )}
-            <div className="rcp__row rcp__row--total"><span>{lbl('totals', c, 'total')}</span><span>{formatVND(grandTotal)}</span></div>
+      case 'totals': {
+        // Mọi dòng căn 2 đầu: nhãn trái, số phải. Tạm tính/Phụ thu/Giảm CHỈ hiện
+        // khi đơn thật sự có (lý do KHÔNG hiển thị — Stage 5.9).
+        const trow = (key, amount, cls = '') => (
+          <div className={`rcp__row ${cls}`}>
+            <span className="rcp__row-lbl">{lbl('totals', c, key)}</span>
+            <span className="rcp__row-amt">{amount}</span>
           </div>
         )
+        return (
+          <div className="rcp__totals">
+            {hasAdj && trow('subtotal', formatVND(subtotal))}
+            {surcharge > 0 && trow('surcharge', `+${formatVND(surcharge)}`)}
+            {discount > 0 && trow('discount', `−${formatVND(discount)}`)}
+            {trow('total', formatVND(grandTotal), 'rcp__row--total')}
+          </div>
+        )
+      }
       case 'payment_status': {
         // 2 text owner sửa: ĐÃ thanh toán / CHƯA thanh toán. Border ôm vừa chữ.
         const text = lbl('payment_status', c, order.payment_status === 'paid' ? 'paid' : 'unpaid')

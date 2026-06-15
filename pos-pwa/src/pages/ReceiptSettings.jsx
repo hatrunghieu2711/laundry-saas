@@ -7,6 +7,7 @@ import {
   BLOCK_LABELS,
   BLOCK_META,
   BLOCK_VALUES,
+  blockListLabel,
   canItalic,
   clearReceiptCache,
   defaultAlign,
@@ -92,6 +93,18 @@ export default function ReceiptSettings() {
   const pairDown = (ri) => mutate((rs) => { rs[ri] = [rs[ri][0], rs[ri + 1][0]]; rs.splice(ri + 1, 1); return rs })
   const splitRow = (ri) => mutate((rs) => { const [a, b] = rs[ri]; rs.splice(ri, 1, [a], [b]); return rs })
   const removeBlock = (ri) => mutate((rs) => { rs.splice(ri, 1); return rs })
+
+  // Nhân bản khối: chèn khối mới ngay dưới (giữ type + nội dung + định dạng),
+  // đặt full hàng + enabled (Stage 5.9).
+  const copyBlock = (ri, ci) => mutate((rs) => {
+    const src = rs[ri][ci]
+    const clone = {
+      ...src, id: `${src.type}_${Date.now()}`, col: 'full', enabled: true,
+      content: { ...(src.content || {}) },
+    }
+    rs.splice(ri + 1, 0, [clone])
+    return rs
+  })
 
   const addBlock = (type) => mutate((rs) => {
     const id = `${type}_${Date.now()}`
@@ -225,26 +238,24 @@ export default function ReceiptSettings() {
               >
                 <span className="bld-row__grip" title="Kéo để sắp xếp / ghép">⠿</span>
                 <div className="bld-row__cells">
-                  {row.map((blk, ci) => {
-                    const meta = BLOCK_META[blk.type] || { label: blk.type }
-                    return (
-                      <div className={`bld-cell ${blk.enabled ? '' : 'bld-cell--off'}`} key={blk.id}>
-                        <label className="bld-cell__toggle">
-                          <input type="checkbox" checked={blk.enabled} disabled={!canEdit} onChange={() => toggle(ri, ci)} />
-                        </label>
-                        <span className="bld-cell__label">
-                          {meta.label}
-                          {row.length === 2 && <span className="bld-cell__half">½</span>}
-                        </span>
-                        <span className="bld-cell__acts">
-                          <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => openEdit(ri, ci)}>✎</button>
-                          {['custom_text', 'divider', 'spacer'].includes(blk.type) && (
-                            <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri)}>🗑</button>
-                          )}
-                        </span>
-                      </div>
-                    )
-                  })}
+                  {row.map((blk, ci) => (
+                    <div className={`bld-cell ${blk.enabled ? '' : 'bld-cell--off'}`} key={blk.id}>
+                      <label className="bld-cell__toggle">
+                        <input type="checkbox" checked={blk.enabled} disabled={!canEdit} onChange={() => toggle(ri, ci)} />
+                      </label>
+                      <span className="bld-cell__label" title={blockListLabel(blk)}>
+                        {blockListLabel(blk)}
+                        {row.length === 2 && <span className="bld-cell__half">½</span>}
+                      </span>
+                      <span className="bld-cell__acts">
+                        <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => openEdit(ri, ci)}>✎</button>
+                        <button className="icon-btn" disabled={!canEdit} title="Nhân bản khối" onClick={() => copyBlock(ri, ci)}>⧉</button>
+                        {['custom_text', 'divider', 'spacer'].includes(blk.type) && (
+                          <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri)}>🗑</button>
+                        )}
+                      </span>
+                    </div>
+                  ))}
                   {/* Ô đích ghép: hiện khi đang kéo 1 khối đơn khác. */}
                   {canEdit && draggedSingle && dragRi !== ri && row.length === 1 && (
                     <div className="bld-pairzone" onDragOver={(e) => e.preventDefault()}
