@@ -11,7 +11,7 @@ export const isField = (type) => FIELD_TYPES.includes(type)
 
 // Metadata mỗi loại khối: nhãn quản lý + căn lề mặc định khi render.
 export const BLOCK_META = {
-  logo:           { label: 'Logo & tiêu đề', align: 'center' },
+  logo:           { label: 'Logo (ảnh)', align: 'center' },
   customer_name:  { label: 'Tên khách', align: 'left' },
   customer_phone: { label: 'ĐT khách', align: 'left' },
   receiving_time: { label: 'Giờ nhận', align: 'left' },
@@ -26,10 +26,15 @@ export const BLOCK_META = {
   spacer:         { label: 'Khoảng trống', align: 'center' },
 }
 
+// Khối text có toggle IN NGHIÊNG (italic). Logo là ảnh → không.
+export const ITALIC_TYPES = ['customer_name', 'customer_phone', 'receiving_time',
+  'delivery_time', 'items_table', 'totals', 'payment_status', 'order_no', 'custom_text']
+export const canItalic = (type) => ITALIC_TYPES.includes(type)
+
 // Nhãn TEXT cố định mỗi khối (sửa được, song ngữ). key → {vi,en} mặc định.
 // Bill fallback về default khi owner chưa sửa. Giá trị động KHÔNG ở đây.
+// Stage 5.8: logo bỏ tiêu đề; qr bỏ caption; payment_status có 2 text trả/nợ.
 export const BLOCK_LABELS = {
-  logo: [{ key: 'title', vi: 'BIÊN NHẬN', en: 'RECEIPT' }],
   customer_name: [{ key: 'label', vi: 'Tên', en: 'Name' }],
   customer_phone: [{ key: 'label', vi: 'ĐT', en: 'Tel' }],
   receiving_time: [{ key: 'label', vi: 'Giờ nhận', en: 'Receiving' }],
@@ -44,13 +49,16 @@ export const BLOCK_LABELS = {
     { key: 'discount', vi: 'Giảm', en: 'Discount' },
     { key: 'total', vi: 'TỔNG CỘNG', en: 'TOTAL' },
   ],
-  qr_tracking: [{ key: 'cap', vi: 'Quét mã QR', en: 'Scan QR to track' }],
   order_no: [{ key: 'label', vi: 'Số', en: 'No' }],
+  // payment_status: 2 text owner sửa (đã trả / chưa trả).
+  payment_status: [
+    { key: 'paid', vi: 'ĐÃ THANH TOÁN', en: 'PAID' },
+    { key: 'unpaid', vi: 'CHƯA THANH TOÁN', en: 'UNPAID' },
+  ],
 }
 
 // Giá trị TEXT (không phải nhãn) owner nhập — field trong popup sửa.
 export const BLOCK_VALUES = {
-  logo: [{ key: 'shop_name', label: 'Tên tiệm' }, { key: 'logo_text', label: 'Logo chữ (khi chưa có ảnh)' }],
   custom_text: [{ key: 'vi', label: 'Nội dung (VI)', area: true }, { key: 'en', label: 'Nội dung (EN)', area: true, en: true }],
 }
 
@@ -68,27 +76,29 @@ function defaultBlocks() {
     id, type, enabled: true, row: 0, col: 'full', content: {}, ...extra,
   })
   return [
-    b('logo', 'logo', { row: 0, content: { shop_name: 'Giặt Ủi 2H', logo_text: '2H' } }),
-    b('customer_name', 'customer_name', { row: 1, col: 'left' }),
-    b('customer_phone', 'customer_phone', { row: 1, col: 'right' }),
-    b('receiving_time', 'receiving_time', { row: 2, col: 'left' }),
-    b('delivery_time', 'delivery_time', { row: 2, col: 'right' }),
-    b('items_table', 'items_table', { row: 3 }),
-    b('totals', 'totals', { row: 4 }),
-    b('qr_tracking', 'qr_tracking', { row: 5 }),
-    b('order_no', 'order_no', { row: 6 }),
-    b('footer_thanks', 'custom_text', { row: 7, content: { vi: 'Cảm ơn quý khách!', en: 'Thank you!' } }),
+    b('logo', 'logo', { row: 0 }), // chỉ ảnh
+    b('brand', 'custom_text', { row: 1, title: true, content: { vi: 'Giặt Ủi 2H' } }),
+    b('title', 'custom_text', { row: 2, bold: true, align: 'center', content: { vi: 'BIÊN NHẬN', en: 'RECEIPT' } }),
+    b('customer_name', 'customer_name', { row: 3, col: 'left' }),
+    b('customer_phone', 'customer_phone', { row: 3, col: 'right' }),
+    b('receiving_time', 'receiving_time', { row: 4, col: 'left' }),
+    b('delivery_time', 'delivery_time', { row: 4, col: 'right' }),
+    b('items_table', 'items_table', { row: 5 }),
+    b('totals', 'totals', { row: 6 }),
+    b('qr_tracking', 'qr_tracking', { row: 7 }),
+    b('order_no', 'order_no', { row: 8 }),
+    b('footer_thanks', 'custom_text', { row: 9, content: { vi: 'Cảm ơn quý khách!', en: 'Thank you!' } }),
   ]
 }
 
-export const DEFAULT_RECEIPT = { bilingual: true, logo_url: '', blocks: defaultBlocks() }
+export const DEFAULT_RECEIPT = { bilingual: true, logo_url: '', track_base_url: '', blocks: defaultBlocks() }
 
 // Bảo đảm cấu hình đủ field (rỗng/thiếu → mặc định). Backend đã migrate cấu hình
 // cũ sang shape khối 5.8, nên client thường nhận sẵn blocks[] hợp lệ.
 export function normalizeReceipt(cfg) {
   const c = cfg || {}
   const blocks = Array.isArray(c.blocks) && c.blocks.length ? c.blocks : defaultBlocks()
-  return { bilingual: c.bilingual !== false, logo_url: c.logo_url || '', blocks }
+  return { bilingual: c.bilingual !== false, logo_url: c.logo_url || '', track_base_url: c.track_base_url || '', blocks }
 }
 
 let _cache = null

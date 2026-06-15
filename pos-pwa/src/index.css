@@ -2586,13 +2586,14 @@ body {
 .rcp__promo .rcp__row {
   font-size: 12px;
 }
+/* Stage 5.8: border ÔM VỪA chữ (inline-block), không full chiều ngang. */
 .rcp__paystatus {
-  text-align: center;
+  display: inline-block;
   font-weight: 900;
   font-size: 13px;
   border: 1.5px solid #000;
   border-radius: 6px;
-  padding: 3px 0;
+  padding: 3px 10px;
   letter-spacing: 0.5px;
 }
 .rcp__custom {
@@ -2700,19 +2701,18 @@ body {
 .rcp__al-center { text-align: center; }
 .rcp__al-right  { text-align: right; }
 .rcp__bold, .rcp__bold * { font-weight: 800 !important; }
-.rcp__sz-small { font-size: 10px; }
-.rcp__sz-large { font-size: 15px; }
-/* Ép các phần tử con theo cỡ chữ của khối (override px mặc định). */
-.rcp__sz-small .rcp__field, .rcp__sz-small .rcp__row, .rcp__sz-small .rcp__no,
-.rcp__sz-small .rcp__note-vi, .rcp__sz-small .rcp__note-en, .rcp__sz-small .rcp__custom,
-.rcp__sz-small .rcp__foot-row, .rcp__sz-small .rcp__qr-cap, .rcp__sz-small .rcp__th,
-.rcp__sz-small .rcp__td, .rcp__sz-small .rcp__title, .rcp__sz-small .rcp__brand,
-.rcp__sz-small .rcp__paystatus { font-size: inherit; }
-.rcp__sz-large .rcp__field, .rcp__sz-large .rcp__row, .rcp__sz-large .rcp__no,
-.rcp__sz-large .rcp__note-vi, .rcp__sz-large .rcp__note-en, .rcp__sz-large .rcp__custom,
-.rcp__sz-large .rcp__foot-row, .rcp__sz-large .rcp__qr-cap, .rcp__sz-large .rcp__th,
-.rcp__sz-large .rcp__td, .rcp__sz-large .rcp__title, .rcp__sz-large .rcp__brand,
-.rcp__sz-large .rcp__paystatus { font-size: inherit; }
+/* Stage 5.8: tăng mỗi cấp +1 bậc. Title = lớn+1 (cho custom_text tiêu đề).
+   Cỡ lớn nhất (title 22px) vẫn vừa khổ 80mm (chữ ngắn). */
+.rcp__sz-small  { font-size: 12px; }
+.rcp__sz-normal { font-size: 14px; }
+.rcp__sz-large  { font-size: 18px; }
+.rcp__sz-title  { font-size: 22px; }
+/* Ép phần tử con theo cỡ chữ của khối (override px mặc định). */
+.rcp__fmt .rcp__field, .rcp__fmt .rcp__row, .rcp__fmt .rcp__no, .rcp__fmt .rcp__custom,
+.rcp__fmt .rcp__custom-en, .rcp__fmt .rcp__th, .rcp__fmt .rcp__td,
+.rcp__fmt .rcp__paystatus { font-size: inherit; }
+/* In nghiêng (Stage 5.8) */
+.rcp__italic, .rcp__italic * { font-style: italic; }
 
 /* Khối divider / spacer */
 .rcp__hr { margin: 5px 0; border: 0; border-top: 1px solid #000; }

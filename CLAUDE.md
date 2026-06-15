@@ -349,6 +349,19 @@ mọi bảng có created_at; bảng mutable có updated_at.
     - Migrate-on-read (`_migrate_blocks`): tách customer_info, bỏ note/footer/
       surcharge_discount + khối lạ; gom theo row, chunk ≤2 khối/hàng, đánh lại
       row/col. GIỮ cấu hình owner còn lại.
+    - **Logo CHỈ ẢNH**: khối `logo` bỏ tên tiệm + tiêu đề "BIÊN NHẬN" — chỉ render
+      `logo_url`. Tên tiệm / tiêu đề là `custom_text` (dùng checkbox Title). Migrate:
+      logo cũ có shop_name/title_* → TÁCH thành custom_text (giữ nội dung), logo
+      content rỗng. Default: logo + custom_text "Giặt Ủi 2H" (title) + custom_text
+      "BIÊN NHẬN/RECEIPT".
+    - **Định dạng thêm**: `italic` (mọi khối text) + `title` (custom_text → cỡ lớn
+      nhất `rcp__sz-title` + đậm + giữa, shortcut tiêu đề). Cỡ chữ tăng mỗi cấp +1
+      (small 12 / normal 14 / large 18 / title 22 px) — vẫn vừa khổ 80mm.
+    - **Trạng thái thanh toán**: 2 text owner sửa (`paid_*`/`unpaid_*`, vd "ĐÃ TRẢ"/
+      "CÒN NỢ") — `paid` ↔ còn lại. Border ÔM VỪA chữ (inline-block), không full ngang.
+    - **QR**: bỏ caption mặc định (muốn chữ → custom_text). **Link tracking per-tenant**
+      `track_base_url` (top-level receipt_config, owner sửa); QR = `track_base_url` +
+      order_code. Rỗng → mặc định `https://track.giatui2h.com/track/` (2H không gãy).
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -594,7 +607,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
 - [x] Stage 5.4: phụ thu & giảm giá vào TIỀN THẬT — price_rules (tự áp theo ngày, owner CRUD) + orders.subtotal/surcharge_amount/discount_amount (snapshot, total=subtotal+surcharge−discount) + POST /orders nhận surcharge/discount (nhập tay ghi đè rule) + discount_logs + GET /reports/discounts (theo nhân viên/ngày) + màn xác nhận đơn (badge "tự áp" + breakdown Tạm tính→+Phụ thu→−Giảm→Tổng cộng) + màn quản lý quy tắc + bill hiện phụ thu/giảm. (Bỏ phụ thu display-only của 5.3.)
-- [x] Stage 5.8: bill builder dọn dẹp — tách Tên/ĐT thành 2 khối; bỏ kẻ ngang tự động (chỉ divider owner chèn); bold tách nhãn/giá trị (bold_label/bold_value) cho khối field; bỏ khối note/footer_contact (dùng Văn bản tự do); gộp Tạm tính/Phụ thu/Giảm vào totals & chỉ hiện khi đơn có; migrate-on-read tách customer_info + bỏ khối thừa, giữ cấu hình owner
+- [x] Stage 5.8: bill builder dọn dẹp + tùy biến sâu — tách Tên/ĐT 2 khối; logo CHỈ ẢNH (tên tiệm/tiêu đề → custom_text, migrate giữ nội dung); bỏ kẻ ngang tự động; bold tách nhãn/giá trị + italic + checkbox Title (custom_text) + tăng cỡ chữ mỗi cấp +1; bỏ note/footer_contact; gộp Tạm tính/Phụ thu/Giảm vào totals (chỉ hiện khi đơn có); trạng thái TT 2 text sửa được + border ôm chữ; QR bỏ caption + link tracking per-tenant (track_base_url); migrate-on-read giữ cấu hình owner
 - [x] Stage 5.7: bill builder nâng cao — sửa MỌI nhãn text (song ngữ, lưu content `<key>_vi/_en`, giá trị động giữ nguyên) + định dạng theo khối (bold/align/size) + khối divider (dashed/solid) & spacer (small/medium) + ghép TỰ DO 2 khối bất kỳ/hàng (kéo-thả + nút) + popup sửa khối (nhãn+nội dung+định dạng) + migrate cấu hình 5.6 giữ nguyên
 - [x] Stage 5.6: bill builder THEO KHỐI (thay layout cứng 2H của 5.3) — receipt_config {bilingual, logo_url, blocks[{id,type,enabled,row,col,content}]} + migrate-on-read cấu hình cũ + Bill.jsx render theo khối (2 khối/hàng, song ngữ) + màn builder (kéo-thả + nút sắp xếp, bật/tắt, ghép/tách khối hẹp, sửa nội dung text, thêm văn bản tự do, toggle tiếng Anh, preview 80mm realtime)
 - [x] Stage 5.5: màn quản lý tài khoản nhân viên (phân quyền theo role + branch) — bổ sung POST /users/{id}/reset-password + PATCH /users/{id}/status (suspended/active, không tự khóa) + list kèm branch_name/in_open_shift + màn "Nhân viên" (owner+manager, ☰): danh sách badge role/trạng thái/đang-trong-ca, lọc theo CN, thêm/sửa/đặt-lại-MK/khóa-mở, hỗ trợ tài khoản theo ca (username). KHÔNG thêm role mới.

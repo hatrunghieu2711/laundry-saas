@@ -7,23 +7,18 @@ import { formatPickupShort } from '../lib/datetime'
 // 5.8: Tên/ĐT là 2 khối; KHÔNG kẻ ngang tự động; bold tách nhãn vs giá trị (khối
 // field); dòng Tạm tính/Phụ thu/Giảm CHỈ hiện khi đơn có phụ thu/giảm.
 const FIELD_TYPES = new Set(['customer_name', 'customer_phone', 'receiving_time', 'delivery_time', 'order_no'])
-const PAY_STATUS = {
-  paid: ['ĐÃ THANH TOÁN', 'PAID'], partial: ['THANH TOÁN MỘT PHẦN', 'PARTIALLY PAID'],
-  unpaid: ['CHƯA THANH TOÁN', 'UNPAID'], debt: ['GHI NỢ', 'ON CREDIT'],
-  refunded: ['ĐÃ HOÀN TIỀN', 'REFUNDED'],
-}
 const LDEF = {
-  logo: { title: ['BIÊN NHẬN', 'RECEIPT'] },
   customer_name: { label: ['Tên', 'Name'] },
   customer_phone: { label: ['ĐT', 'Tel'] },
   receiving_time: { label: ['Giờ nhận', 'Receiving'] },
   delivery_time: { label: ['Giờ giao', 'Delivery'] },
   items_table: { svc: ['Dịch vụ', 'Service'], qty: ['SL', 'Qty'], price: ['Giá', 'Price'], total: ['Tổng', 'Total'] },
   totals: { subtotal: ['Tạm tính', 'Subtotal'], surcharge: ['Phụ thu', 'Surcharge'], discount: ['Giảm', 'Discount'], total: ['TỔNG CỘNG', 'TOTAL'] },
-  qr_tracking: { cap: ['Quét mã QR', 'Scan QR to track'] },
   order_no: { label: ['Số', 'No'] },
+  payment_status: { paid: ['ĐÃ THANH TOÁN', 'PAID'], unpaid: ['CHƯA THANH TOÁN', 'UNPAID'] },
 }
-const DEF_ALIGN = { logo: 'center', qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center' }
+const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center' }
+const DEFAULT_TRACK_BASE = 'https://track.giatui2h.com/track/'
 
 export default function BillContent({ config, order }) {
   if (!order) return null
@@ -35,8 +30,9 @@ export default function BillContent({ config, order }) {
   const discount = toNumber(order.discount_amount)
   const subtotal = order.subtotal != null ? toNumber(order.subtotal) : grandTotal
   const hasAdj = surcharge > 0 || discount > 0
-  const trackBase = import.meta.env.VITE_TRACK_BASE_URL || 'https://track.giatui2h.com'
-  const trackUrl = `${trackBase}/track/${order.order_code}`
+  // QR = track_base_url (cấu hình per-tenant) + order_code. Rỗng → mặc định 2H.
+  const trackBase = (config?.track_base_url && config.track_base_url.trim()) || DEFAULT_TRACK_BASE
+  const trackUrl = `${trackBase}${order.order_code}`
 
   const lbl = (type, c, key) => {
     const d = LDEF[type]?.[key] || ['', '']
@@ -61,21 +57,14 @@ export default function BillContent({ config, order }) {
   const renderBlock = (blk) => {
     const c = blk.content || {}
     switch (blk.type) {
-      case 'logo': {
-        const dv = c.title_vi ?? 'BIÊN NHẬN'
-        const de = c.title_en ?? 'RECEIPT'
+      case 'logo':
+        // Stage 5.8: logo CHỈ ẢNH. Tên tiệm / "BIÊN NHẬN" là khối Văn bản tự do.
+        if (!config.logo_url) return null
         return (
           <div className="rcp__header">
-            {config.logo_url ? (
-              <img className="rcp__logo-img" src={config.logo_url} alt={c.shop_name || 'logo'} />
-            ) : (
-              c.logo_text && <div className="rcp__logo">{c.logo_text}</div>
-            )}
-            {c.shop_name && <div className="rcp__brand">{c.shop_name}</div>}
-            {(dv || de) && <div className="rcp__title">{bilingual && de ? `${de} — ${dv}` : dv}</div>}
+            <img className="rcp__logo-img" src={config.logo_url} alt="logo" />
           </div>
         )
-      }
       case 'customer_name':
         return field('customer_name', c, order.customer_name)
       case 'customer_phone':
@@ -124,14 +113,15 @@ export default function BillContent({ config, order }) {
           </div>
         )
       case 'payment_status': {
-        const [vi, en] = PAY_STATUS[order.payment_status] || PAY_STATUS.unpaid
-        return <div className="rcp__paystatus">{bilingual ? `${vi} / ${en}` : vi}</div>
+        // 2 text owner sửa: ĐÃ thanh toán / CHƯA thanh toán. Border ôm vừa chữ.
+        const text = lbl('payment_status', c, order.payment_status === 'paid' ? 'paid' : 'unpaid')
+        return <div className="rcp__paystatus-wrap"><span className="rcp__paystatus">{text}</span></div>
       }
       case 'qr_tracking':
+        // Stage 5.8: KHÔNG còn caption mặc định (muốn chữ → dùng Văn bản tự do).
         return (
           <div className="rcp__qr">
             <QRCodeSVG value={trackUrl} size={132} level="M" />
-            <div className="rcp__qr-cap">{lbl('qr_tracking', c, 'cap')}</div>
           </div>
         )
       case 'custom_text':
@@ -151,15 +141,18 @@ export default function BillContent({ config, order }) {
     }
   }
 
-  // class định dạng theo khối. Khối field: bold tách nhãn/giá trị (None→fallback bold).
+  // class định dạng theo khối. custom_text title → cỡ title + đậm + giữa. Khối
+  // field: bold tách nhãn/giá trị (None→fallback bold). italic cho khối text.
   const fmtClass = (blk) => {
-    const align = blk.align || DEF_ALIGN[blk.type] || 'left'
-    const size = blk.size || 'normal'
+    const isTitle = blk.type === 'custom_text' && blk.title
+    const align = isTitle ? 'center' : (blk.align || DEF_ALIGN[blk.type] || 'left')
+    const size = isTitle ? 'title' : (blk.size || 'normal')
     let cls = `rcp__fmt rcp__al-${align} rcp__sz-${size}`
+    if (blk.italic) cls += ' rcp__italic'
     if (FIELD_TYPES.has(blk.type)) {
       if (blk.bold_label ?? blk.bold) cls += ' rcp__lblbold'
       if (blk.bold_value ?? blk.bold) cls += ' rcp__valbold'
-    } else if (blk.bold) {
+    } else if (isTitle || blk.bold) {
       cls += ' rcp__bold'
     }
     return cls

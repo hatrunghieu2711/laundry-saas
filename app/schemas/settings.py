@@ -64,6 +64,8 @@ class ReceiptBlock(BaseModel):
     bold: bool = False
     bold_label: bool | None = None
     bold_value: bool | None = None
+    italic: bool = False  # Stage 5.8: in nghiêng (khối text)
+    title: bool = False   # Stage 5.8: custom_text làm TIÊU ĐỀ (cỡ lớn+1, đậm, giữa)
     align: Literal["left", "center", "right"] | None = None
     size: Literal["small", "normal", "large"] = "normal"
     # content: nhãn (key `<name>_vi`/`<name>_en`) + giá trị text owner nhập +
@@ -82,6 +84,9 @@ class ReceiptConfig(BaseModel):
 
     bilingual: bool = True  # bật/tắt tiếng Anh toàn bill
     logo_url: str = Field(default="", max_length=255)  # set bởi POST /settings/receipt/logo
+    # Stage 5.8: base URL tracking per-tenant cho QR (QR = track_base_url + order_code).
+    # Rỗng → Bill dùng mặc định track.giatui2h.com (để 2H không gãy).
+    track_base_url: str = Field(default="", max_length=255)
     blocks: list[ReceiptBlock] = Field(default_factory=list, max_length=40)
 
 

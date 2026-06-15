@@ -31,32 +31,36 @@ _VALID_TYPES = {
 _DROP_TYPES = {"note", "footer_contact", "surcharge_discount"}
 
 
-# Bộ khối mặc định (Stage 5.8): khối dữ liệu động + 1 custom_text làm chân phiếu.
+# Bộ khối mặc định (Stage 5.8): logo CHỈ ẢNH; tên tiệm + "BIÊN NHẬN" là custom_text
+# (title) để owner sửa/xóa tùy ý. + custom_text chân phiếu.
 def _default_blocks() -> list[dict]:
     return [
-        _block("logo", "logo", row=0, content={"shop_name": "Giặt Ủi 2H", "logo_text": "2H"}),
-        _block("customer_name", "customer_name", row=1, col="left"),
-        _block("customer_phone", "customer_phone", row=1, col="right"),
-        _block("receiving_time", "receiving_time", row=2, col="left"),
-        _block("delivery_time", "delivery_time", row=2, col="right"),
-        _block("items_table", "items_table", row=3),
-        _block("totals", "totals", row=4),
-        _block("qr_tracking", "qr_tracking", row=5),
-        _block("order_no", "order_no", row=6),
-        _block("footer_thanks", "custom_text", row=7,
+        _block("logo", "logo", row=0),  # chỉ ảnh (logo_url top-level)
+        {**_block("brand", "custom_text", row=1, content={"vi": "Giặt Ủi 2H"}), "title": True},
+        {**_block("title", "custom_text", row=2, content={"vi": "BIÊN NHẬN", "en": "RECEIPT"}),
+         "bold": True, "align": "center"},
+        _block("customer_name", "customer_name", row=3, col="left"),
+        _block("customer_phone", "customer_phone", row=3, col="right"),
+        _block("receiving_time", "receiving_time", row=4, col="left"),
+        _block("delivery_time", "delivery_time", row=4, col="right"),
+        _block("items_table", "items_table", row=5),
+        _block("totals", "totals", row=6),
+        _block("qr_tracking", "qr_tracking", row=7),
+        _block("order_no", "order_no", row=8),
+        _block("footer_thanks", "custom_text", row=9,
                content={"vi": "Cảm ơn quý khách!", "en": "Thank you!"}),
     ]
 
 
 def _default_receipt() -> dict:
-    return {"bilingual": True, "logo_url": "", "blocks": _default_blocks()}
+    return {"bilingual": True, "logo_url": "", "track_base_url": "", "blocks": _default_blocks()}
 
 
 def _split_customer(b: dict) -> list[dict]:
     """customer_info (5.6/5.7) → customer_name + customer_phone, giữ enabled +
     định dạng + nhãn (name_*→label_*, tel_*→label_*)."""
     c = b.get("content") or {}
-    common = {k: b[k] for k in ("enabled", "bold", "align", "size") if k in b}
+    common = {k: b[k] for k in ("enabled", "bold", "italic", "align", "size") if k in b}
     name = _block("customer_name", "customer_name", content={
         k2: c[k1] for k1, k2 in (("name_vi", "label_vi"), ("name_en", "label_en")) if k1 in c})
     phone = _block("customer_phone", "customer_phone", content={
@@ -66,26 +70,48 @@ def _split_customer(b: dict) -> list[dict]:
     return [name, phone]
 
 
+def _logo_titles(b: dict) -> list[dict]:
+    """Stage 5.8: logo cũ có tên tiệm / tiêu đề → TÁCH thành custom_text (giữ nội
+    dung). Trả các khối custom_text (mỗi khối 1 hàng riêng, đứng sau logo ảnh)."""
+    c = b.get("content") or {}
+    out: list[dict] = []
+    brand = c.get("shop_name") or c.get("logo_text")
+    if brand:
+        out.append({**_block("logo_brand", "custom_text", content={"vi": brand}), "title": True})
+    if c.get("title_vi") or c.get("title_en"):
+        out.append({**_block("logo_title", "custom_text",
+                             content={"vi": c.get("title_vi", "BIÊN NHẬN"),
+                                      "en": c.get("title_en", "RECEIPT")}),
+                    "bold": True, "align": "center"})
+    return out
+
+
 def _migrate_blocks(blocks: list[dict]) -> list[dict]:
-    """Chuẩn hoá blocks về shape 5.8: tách customer_info, BỎ note/footer/surcharge,
-    loại khối lạ. Giữ ghép hàng (gom theo row), chunk ≤2 khối/hàng, đánh lại row/col."""
+    """Chuẩn hoá blocks về shape 5.8: tách customer_info; logo → CHỈ ẢNH (tên tiệm/
+    tiêu đề → custom_text); BỎ note/footer/surcharge + khối lạ. Giữ ghép hàng,
+    chunk ≤2 khối/hàng, đánh lại row/col."""
     grouped: dict[int, list[dict]] = {}
     for b in blocks:
         grouped.setdefault(b.get("row", 0), []).append(b)
     out_rows: list[list[dict]] = []
     for r in sorted(grouped):
         cells: list[dict] = []
+        extra_rows: list[list[dict]] = []  # khối spawn full-width (tiêu đề từ logo)
         for b in sorted(grouped[r], key=lambda x: 1 if x.get("col") == "right" else 0):
             t = b.get("type")
             if t in _DROP_TYPES:
                 continue
             if t == "customer_info":
                 cells.extend(_split_customer(b))
+            elif t == "logo":
+                cells.append({**b, "content": {}})  # logo chỉ còn ảnh
+                extra_rows.extend([tb] for tb in _logo_titles(b))
             elif t in _VALID_TYPES:
                 cells.append(b)
             # khối lạ → bỏ
         for i in range(0, len(cells), 2):
             out_rows.append(cells[i:i + 2])
+        out_rows.extend(extra_rows)  # tiêu đề tách từ logo đứng ngay sau
     result: list[dict] = []
     for ri, row in enumerate(out_rows):
         if len(row) == 1:
@@ -98,13 +124,13 @@ def _migrate_blocks(blocks: list[dict]) -> list[dict]:
 
 def _migrate_legacy(cfg: dict) -> dict:
     """Cấu hình cũ (5.3/5.4, không có blocks) → bộ khối mặc định, giữ thương hiệu
-    (shop_name/logo_text/logo_url). note/footer KHÔNG chuyển — owner gõ lại (Stage 5.8)."""
+    (tên tiệm → custom_text title) + logo_url. note/footer KHÔNG chuyển (Stage 5.8)."""
     blocks = _default_blocks()
-    blocks[0]["content"] = {
-        "shop_name": cfg.get("shop_name", "Giặt Ủi 2H"),
-        "logo_text": cfg.get("logo_text", "2H"),
-    }
-    return {"bilingual": True, "logo_url": cfg.get("logo_url", ""), "blocks": blocks}
+    brand = cfg.get("shop_name") or cfg.get("logo_text") or "Giặt Ủi 2H"
+    # blocks[1] là custom_text 'brand' (title).
+    blocks[1]["content"] = {"vi": brand}
+    return {"bilingual": True, "logo_url": cfg.get("logo_url", ""),
+            "track_base_url": "", "blocks": blocks}
 
 
 async def get_or_create(db: AsyncSession, tenant_id: uuid.UUID) -> TenantSettings:
@@ -136,11 +162,12 @@ async def get_receipt(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
     if not cfg:
         return _default_receipt()
     if "blocks" in cfg:
-        # Stage 5.8: chuẩn hoá khối (tách customer_info, bỏ note/footer/surcharge,
-        # loại khối lạ) để cấu hình 5.6/5.7 cũ đọc ra shape hợp lệ.
+        # Stage 5.8: chuẩn hoá khối (tách customer_info, logo→ảnh, bỏ note/footer/
+        # surcharge, loại khối lạ) để cấu hình 5.6/5.7 cũ đọc ra shape hợp lệ.
         return {
             "bilingual": cfg.get("bilingual", True),
             "logo_url": cfg.get("logo_url", ""),
+            "track_base_url": cfg.get("track_base_url", ""),
             "blocks": _migrate_blocks(cfg["blocks"]),
         }
     return _migrate_legacy(cfg)  # cấu hình 5.3/5.4 cũ

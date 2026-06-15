@@ -7,6 +7,7 @@ import {
   BLOCK_LABELS,
   BLOCK_META,
   BLOCK_VALUES,
+  canItalic,
   clearReceiptCache,
   defaultAlign,
   isField,
@@ -52,6 +53,7 @@ export default function ReceiptSettings() {
 
   const [bilingual, setBilingual] = useState(true)
   const [logoUrl, setLogoUrl] = useState('')
+  const [trackBaseUrl, setTrackBaseUrl] = useState('')
   const [rows, setRows] = useState(null)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -70,6 +72,7 @@ export default function ReceiptSettings() {
         const n = normalizeReceipt(c)
         setBilingual(n.bilingual)
         setLogoUrl(n.logo_url)
+        setTrackBaseUrl(n.track_base_url)
         setRows(blocksToRows(n.blocks))
       })
       .catch((e) => setError(e?.message || 'Không tải được cấu hình phiếu'))
@@ -95,7 +98,7 @@ export default function ReceiptSettings() {
     const content = type === 'custom_text' ? { vi: 'Nội dung tự do…', en: 'Custom text…' }
       : type === 'divider' ? { style: 'dashed' }
         : type === 'spacer' ? { height: 'small' } : {}
-    rs.push([{ id, type, enabled: true, row: rs.length, col: 'full', bold: false, align: null, size: 'normal', content }])
+    rs.push([{ id, type, enabled: true, row: rs.length, col: 'full', bold: false, italic: false, title: false, align: null, size: 'normal', content }])
     return rs
   })
 
@@ -124,6 +127,8 @@ export default function ReceiptSettings() {
       bold: !!b.bold,
       bold_label: b.bold_label ?? !!b.bold,
       bold_value: b.bold_value ?? !!b.bold,
+      italic: !!b.italic,
+      title: !!b.title,
       align: b.align || defaultAlign(b.type),
       size: b.size || 'normal',
     })
@@ -161,7 +166,7 @@ export default function ReceiptSettings() {
   const save = async () => {
     setSaving(true); setError('')
     try {
-      await api.put('/settings/receipt', { bilingual, blocks: rowsToBlocks(rows) })
+      await api.put('/settings/receipt', { bilingual, track_base_url: trackBaseUrl.trim(), blocks: rowsToBlocks(rows) })
       clearReceiptCache(); setSaved(true)
     } catch (e) {
       setError(e instanceof ApiError && e.status === 403 ? 'Chỉ owner mới lưu được mẫu phiếu.' : e?.message || 'Không lưu được cấu hình')
@@ -169,8 +174,8 @@ export default function ReceiptSettings() {
   }
 
   const previewConfig = useMemo(
-    () => (rows ? { bilingual, logo_url: logoUrl, blocks: rowsToBlocks(rows) } : null),
-    [rows, bilingual, logoUrl],
+    () => (rows ? { bilingual, logo_url: logoUrl, track_base_url: trackBaseUrl, blocks: rowsToBlocks(rows) } : null),
+    [rows, bilingual, logoUrl, trackBaseUrl],
   )
 
   if (!rows) return <p className="shift__hint">{error || 'Đang tải cấu hình phiếu…'}</p>
@@ -194,8 +199,15 @@ export default function ReceiptSettings() {
           <p className="rcfg__hint">
             Kéo-thả (hoặc ↑/↓) để sắp xếp. Kéo 1 khối thả vào ô <strong>＋ghép</strong> của khối khác,
             hoặc nút <strong>Ghép/Tách</strong>, để xếp 2 khối/hàng (tự do, không giới hạn).
-            Bấm ✎ để sửa nhãn, nội dung &amp; định dạng (đậm · căn lề · cỡ chữ).
+            Bấm ✎ để sửa nhãn, nội dung &amp; định dạng (đậm · nghiêng · căn lề · cỡ chữ).
           </p>
+          <label className="field">
+            <span>Link tra cứu cho QR (base URL + mã đơn)</span>
+            <input className="input" type="text" value={trackBaseUrl} disabled={!canEdit}
+              placeholder="https://track.giatui2h.com/track/"
+              onChange={(e) => { dirty(); setTrackBaseUrl(e.target.value) }} />
+          </label>
+          <p className="rcfg__hint">Để trống = dùng mặc định track.giatui2h.com. QR = link này + mã đơn.</p>
         </div>
 
         <div className="card">
@@ -345,14 +357,22 @@ export default function ReceiptSettings() {
             {/* Định dạng khối (trừ divider/spacer) */}
             {!['divider', 'spacer'].includes(editBlk.type) && (
               <div className="fmt-controls">
-                {isField(editBlk.type) ? (
-                  <div className="fmt-row fmt-row--bold">
-                    <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold_label} onChange={(e) => setF('bold_label', e.target.checked)} /><span>Đậm nhãn</span></label>
-                    <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold_value} onChange={(e) => setF('bold_value', e.target.checked)} /><span>Đậm giá trị</span></label>
-                  </div>
-                ) : (
-                  <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold} onChange={(e) => setF('bold', e.target.checked)} /><span>In đậm</span></label>
+                {editBlk.type === 'custom_text' && (
+                  <label className="rcfg__switch"><input type="checkbox" checked={editFmt.title} onChange={(e) => setF('title', e.target.checked)} /><span>Tiêu đề (cỡ lớn nhất · đậm · căn giữa)</span></label>
                 )}
+                <div className="fmt-row fmt-row--bold">
+                  {isField(editBlk.type) ? (
+                    <>
+                      <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold_label} onChange={(e) => setF('bold_label', e.target.checked)} /><span>Đậm nhãn</span></label>
+                      <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold_value} onChange={(e) => setF('bold_value', e.target.checked)} /><span>Đậm giá trị</span></label>
+                    </>
+                  ) : (
+                    <label className="rcfg__switch"><input type="checkbox" checked={editFmt.bold} onChange={(e) => setF('bold', e.target.checked)} /><span>In đậm</span></label>
+                  )}
+                  {canItalic(editBlk.type) && (
+                    <label className="rcfg__switch"><input type="checkbox" checked={editFmt.italic} onChange={(e) => setF('italic', e.target.checked)} /><span>In nghiêng</span></label>
+                  )}
+                </div>
                 <div className="fmt-row"><span>Căn lề</span>
                   <div className="seg seg--sm3">
                     {['left', 'center', 'right'].map((a) => (
