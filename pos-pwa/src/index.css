@@ -503,26 +503,30 @@ body {
 .svc-grid {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   margin: 2px -5px 0;
 }
-/* Card CỐ ĐỊNH ~190px, KHÔNG giãn (flex-grow 0) → ít card thì để trống bên phải,
-   không kéo dài card. Xếp wrap căn trái (Stage 6.6.1). */
+/* Card CỐ ĐỊNH 188px, KHÔNG giãn (flex-grow 0) → ít card thì để trống bên phải.
+   Xếp wrap căn trái, align-content flex-start (Stage 6.6.1/6.6.2). */
 .svc-grid > * {
-  flex: 0 0 190px;
+  flex: 0 0 188px;
   margin: 5px;
   box-sizing: border-box;
 }
-/* Card dịch vụ GỌN (Stage 6.6): tên 1–2 dòng trên, đơn vị + GIÁ cùng 1 hàng dưới. */
+/* Card dịch vụ: CHIỀU CAO CỐ ĐỊNH 64px (mọi card bằng nhau, không lệch hàng),
+   tên trên + đơn vị/giá dưới (space-between), overflow ẩn. Radius nhỏ 4px (6.6.2). */
 .svc-card {
-  min-height: 76px;
-  border: 1.5px solid var(--line);
+  height: 64px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
   background: var(--surface);
-  border-radius: var(--radius);
+  border-radius: 4px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   justify-content: space-between;
-  padding: 9px 11px;
+  padding: 7px 9px;
+  overflow: hidden;
   text-align: left;
   cursor: pointer;
 }
@@ -533,7 +537,7 @@ body {
   background: var(--orange-soft);
 }
 .svc-card__name {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--ink);
   line-height: 1.2;
@@ -632,11 +636,12 @@ body {
 .cart__item {
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  padding: 7px 9px;
-  margin-bottom: 6px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 8px 2px;
+  margin-bottom: 0;
 }
 .cart__item > * + * {
   margin-top: 4px;
@@ -2269,30 +2274,46 @@ body {
 .zones__tabs::-webkit-scrollbar {
   display: none;
 }
+/* Item danh mục: phân cách bằng đường kẻ ngang, KHÔNG bo tròn (6.6.2). */
 .cat-tab {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
   min-width: 72px;
-  padding: 6px 4px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: var(--surface);
+  padding: 8px 4px;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: none;
   color: var(--muted);
   font-weight: 700;
   cursor: pointer;
 }
 .cat-tab > * + * {
-  margin-top: 2px;
+  margin-top: 3px;
 }
 .cat-tab--active {
-  border-color: var(--orange);
   color: var(--orange-dark);
   background: var(--orange-soft);
 }
+/* Icon = chữ cái đầu danh mục (monogram) — ổn định mọi trình duyệt, KHÔNG dùng
+   emoji (Chrome cũ Sunmi hiện □). Badge nhỏ bo 4px. */
 .cat-tab__icon {
-  font-size: 18px;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  line-height: 26px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--muted);
+}
+.cat-tab--active .cat-tab__icon {
+  background: #fff;
+  color: var(--orange-dark);
 }
 /* Nhãn danh mục: KHÔNG tràn cột 84px — chữ nhỏ, căn giữa, wrap tối đa 2 dòng. */
 .cat-tab__label {
@@ -2335,9 +2356,7 @@ body {
   bottom: 0;
   z-index: 6;
   background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  border-top: 1px solid var(--line);
   display: flex;
   flex-direction: column;
   max-height: 42vh;
@@ -2397,17 +2416,19 @@ body {
     display: flex;
     flex-direction: row;
   }
+  /* Phân vùng bằng ĐƯỜNG KẺ THẲNG (border), không khe hở lớn (6.6.2). */
   .zones > * + * {
     margin-top: 0;
-    margin-left: 14px;
+    margin-left: 0;
   }
   .zones__tabs {
-    flex: 0 0 84px;
+    flex: 0 0 78px;
     flex-direction: column;
     overflow-x: hidden;
     overflow-y: auto;
     position: static;
     padding-bottom: 0;
+    border-right: 1px solid var(--line);
   }
   .cat-tab {
     width: 100%;
@@ -2420,6 +2441,7 @@ body {
     flex: 1 1 0;
     min-width: 0;
     min-height: 0;
+    padding: 0 12px;
   }
   .zones__grid {
     flex: 1;
@@ -2432,6 +2454,8 @@ body {
     max-height: none;
     height: 100%;
     margin-bottom: 0;
+    border-top: none;
+    border-left: 1px solid var(--line);
   }
 }
 

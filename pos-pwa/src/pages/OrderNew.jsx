@@ -532,7 +532,10 @@ export default function OrderNew() {
                 setActiveTab(t.key)
               }}
             >
-              <span className="cat-tab__icon">{t.icon}</span>
+              {/* Monogram chữ cái đầu — ổn định trên Chrome cũ Sunmi (emoji hiện □). */}
+              <span className="cat-tab__icon" aria-hidden="true">
+                {(t.label || '?').trim().charAt(0).toUpperCase()}
+              </span>
               <span className="cat-tab__label">{t.label}</span>
             </button>
           ))}
