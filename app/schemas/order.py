@@ -65,6 +65,10 @@ class OrderCreate(BaseModel):
     # Phụ thu/giảm (Stage 5.4). None → tự áp price_rules theo ngày (nếu có).
     surcharge: OrderAdjustmentIn | None = None
     discount: OrderAdjustmentIn | None = None
+    # Thu trước (Stage 6.6.4): True → server GHI THANH TOÁN ĐỦ = total_amount ngay
+    # khi tạo (2H KHÔNG có thu một phần). Client KHÔNG gửi số tiền — server tự tính.
+    prepay: bool = False
+    payment_method: Literal["cash", "transfer", "qr"] = "cash"
 
 
 class OrderUpdate(BaseModel):

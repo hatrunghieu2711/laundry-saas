@@ -25,6 +25,7 @@ from app.models.discount_log import DiscountLog
 from app.models.log import OrderTrackingLog
 from app.models.order import Order, OrderItem
 from app.models.payment import Payment
+from app.models.shift import Shift
 from app.models.user import User
 from app.schemas.order import OrderAdjustmentIn, OrderCreate, OrderItemIn, OrderUpdate
 from app.services import branch_service, price_rule_service, service_service
@@ -265,6 +266,19 @@ async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Orde
     if data.customer_id is not None:
         await _ensure_customer(db, actor.tenant_id, data.customer_id)
 
+    # Thu trước cần ca mở để ghi tiền → kiểm TRƯỚC khi tạo đơn (tránh đơn mồ côi
+    # nếu thu lỗi). Stage 6.6.4.
+    if data.prepay:
+        open_shift = await db.scalar(
+            select(Shift).where(
+                Shift.tenant_id == actor.tenant_id,
+                Shift.branch_id == branch_id,
+                Shift.status == "open",
+            )
+        )
+        if open_shift is None:
+            raise APIError(409, "NO_OPEN_SHIFT", "Chi nhánh chưa có ca mở để thu tiền")
+
     order = Order(
         tenant_id=actor.tenant_id,
         branch_id=branch_id,
@@ -314,6 +328,22 @@ async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Orde
             reason=discount_reason,
         ))
     await db.commit()
+
+    # Thu trước → GHI THANH TOÁN ĐỦ = total_amount, server tự tính (KHÔNG nhận số
+    # tiền từ client → không thể thu một phần / sai sổ). Stage 6.6.4.
+    if data.prepay and order.total_amount > 0:
+        from app.services import payment_service  # lazy: tránh vòng import
+
+        await payment_service.create_payment(
+            db,
+            actor,
+            order_id=order.id,
+            amount=order.total_amount,
+            payment_method=data.payment_method,
+            transaction_type="payment",
+            reason=None,
+            reference_payment_id=None,
+        )
     return await _get_order(db, actor, order.id)
 
 

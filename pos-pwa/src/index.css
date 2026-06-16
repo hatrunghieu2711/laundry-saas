@@ -2526,6 +2526,220 @@ body {
   margin-top: 8px;
 }
 
+/* ── Modal Xác nhận đơn — 2 cột màn POS ngang, đường kẻ thẳng (Stage 6.6.3) ── */
+.cfm {
+  max-width: 720px;
+  max-height: 92vh;
+  overflow: hidden;
+  border-radius: 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* Tiêu đề + thanh nút luôn HIỆN (flex none); chỉ phần cột cuộn nếu tràn. */
+.cfm__title {
+  flex: none;
+  margin: 0;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  border-bottom: 1px solid var(--line);
+}
+.cfm__cols {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+.cfm__col {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 12px 14px;
+}
+.cfm__col > * + * {
+  margin-top: 9px;
+}
+.cfm__col + .cfm__col {
+  border-top: 1px solid var(--line);
+}
+/* Nhóm phân cách bằng ĐƯỜNG KẺ NGANG; nhóm đầu không kẻ. */
+.cfm__sec {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+  padding-top: 9px;
+}
+.cfm__sec > * + * {
+  margin-top: 7px;
+}
+.cfm__sec--first {
+  border-top: none;
+  padding-top: 0;
+}
+/* Input/label GỌN toàn modal: cao 34, font 13, nhãn 11. */
+.cfm .input {
+  min-height: 34px;
+  font-size: 13px;
+}
+.cfm .field > span {
+  font-size: 11px;
+  margin-bottom: 1px;
+}
+.cfm .field-label {
+  font-size: 11px;
+}
+/* Radius nhỏ 4px toàn modal — không bo tròn pill (6.6.3). */
+.cfm .input,
+.cfm .chip,
+.cfm .seg__btn,
+.cfm .method-btn {
+  border-radius: 4px;
+}
+
+/* Phụ thu / Giảm giá gộp 2 TAB (chỉ hiện 1) */
+.cfm__tabs {
+  display: flex;
+  border-bottom: 1px solid var(--line);
+}
+.cfm__tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  padding: 5px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.cfm__tab--active {
+  color: var(--orange-dark);
+  border-bottom-color: var(--orange);
+}
+.cfm__adj-row {
+  display: flex;
+  align-items: center;
+}
+.cfm__adj-row > .input {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.cfm__adj-row > * + * {
+  margin-left: 6px;
+}
+
+/* Giờ hẹn giao: dropdown ngày/giờ/phút (thay wheel — gọn, hợp Chrome cũ). */
+.cfm__daybtns {
+  display: flex;
+}
+.cfm__daybtns > * + * {
+  margin-left: 6px;
+}
+.cfm__daybtns > .chip {
+  flex: 1 1 0;
+  justify-content: center;
+  min-height: 30px;
+  font-size: 12px;
+  padding: 0 8px;
+}
+.cfm__timesel {
+  display: flex;
+  align-items: center;
+}
+.cfm__timesel > * + * {
+  margin-left: 6px;
+}
+.cfm__timesel > :first-child {
+  flex: 2 1 0;
+  min-width: 0;
+}
+.cfm__timesel > select {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.cfm__colon {
+  flex: none;
+  font-weight: 800;
+}
+.cfm__when-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+.cfm__when-note--bad {
+  color: var(--danger);
+  font-weight: 700;
+}
+
+/* Nút thanh toán MẢNH (cao ~30, font 12). */
+.cfm .seg__btn {
+  min-height: 30px;
+  font-size: 12px;
+}
+.cfm .method-btn {
+  min-height: 30px;
+  font-size: 12px;
+}
+.cfm .paystep__note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+/* Tổng tiền: bỏ khung, chỉ dòng; cỡ vừa phải. */
+.cfm .adj__summary {
+  margin-top: 0;
+  border: none;
+  background: none;
+  border-radius: 0;
+  padding: 0;
+}
+.cfm .adj__row {
+  font-size: 12px;
+}
+.cfm .adj__row--total {
+  font-size: 15px;
+  font-weight: 600;
+}
+.cfm__error {
+  flex: none;
+  margin: 0 14px;
+}
+.cfm__actions {
+  flex: none;
+  display: flex;
+  border-top: 1px solid var(--line);
+  padding: 8px 14px;
+}
+.cfm__actions > * + * {
+  margin-left: 8px;
+}
+.cfm__actions .btn {
+  min-height: 38px;
+  font-size: 13px;
+}
+.cfm__actions .btn--ghost {
+  flex: 0 0 auto;
+  padding: 0 18px;
+}
+.cfm__submit {
+  flex: 1 1 auto;
+}
+/* Màn ngang (≥720): 2 cột cạnh nhau, ngăn bằng đường kẻ DỌC. */
+@media (min-width: 720px) {
+  .cfm__cols {
+    flex-direction: row;
+    align-items: stretch;
+  }
+  .cfm__col {
+    flex: 1 1 0;
+  }
+  .cfm__col + .cfm__col {
+    border-top: none;
+    border-left: 1px solid var(--line);
+  }
+}
+
 /* Bước thanh toán trong modal */
 .paystep {
   display: flex;
