@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
+import ShiftSlip from '../components/ShiftSlip'
 import { useAuth } from '../context/AuthContext'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
@@ -67,8 +68,12 @@ export default function Shift() {
   const [refreshing, setRefreshing] = useState(false)
   const [view, setView] = useState('main') // main | open | close | result
   const [opening, setOpening] = useState('')
+  const [openSuggestion, setOpenSuggestion] = useState(0) // gợi ý đầu ca (Stage 6.2)
   const [actual, setActual] = useState('')
+  const [handover, setHandover] = useState('') // rút nộp chủ (Stage 6.2)
   const [closed, setClosed] = useState(null)
+  const [handoverBoard, setHandoverBoard] = useState(null) // tình hình bàn giao cho phiếu
+  const [printSlip, setPrintSlip] = useState(null) // 'handover' | 'report'
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -118,6 +123,31 @@ export default function Shift() {
     loadCurrent()
   }, [loadCurrent])
 
+  // Mở form mở ca: lấy gợi ý đầu ca = tiền để lại ca trước (đếm lại rồi xác nhận).
+  const startOpen = async () => {
+    setError('')
+    try {
+      const q = isOwner ? `?branch_id=${branchId}` : ''
+      const s = await api.get(`/shifts/opening-suggestion${q}`)
+      const sug = toNumber(s.suggested_opening_cash)
+      setOpenSuggestion(sug)
+      setOpening(sug > 0 ? String(sug) : '')
+    } catch {
+      setOpenSuggestion(0)
+    }
+    setView('open')
+  }
+
+  // In phiếu: render slip vào portal rồi window.print().
+  useEffect(() => {
+    if (!printSlip) return undefined
+    const t = setTimeout(() => {
+      window.print()
+      setPrintSlip(null)
+    }, 150)
+    return () => clearTimeout(t)
+  }, [printSlip])
+
   const submitOpen = async (e) => {
     e.preventDefault()
     setBusy(true)
@@ -143,18 +173,44 @@ export default function Shift() {
 
   const submitClose = async (e) => {
     e.preventDefault()
+    const handoverNum = toNumber(handover)
+    if (handoverNum > toNumber(actual)) {
+      setError('Tiền nộp chủ không được vượt quá tiền thực đếm.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
       const res = await api.post(`/shifts/${shift.id}/close`, {
         closing_cash_actual: toNumber(actual),
+        handover_to_owner: handoverNum,
       })
+      // Tình hình bàn giao (cho biên bản): đơn đang xử lý / trễ hẹn / còn nợ.
+      let board = null
+      try {
+        const q = isOwner ? `?branch_id=${branchId}` : ''
+        const b = await api.get(`/orders/board${q}`)
+        const cols = b.columns || {}
+        const processing = ['created', 'washing', 'drying', 'ready']
+          .reduce((s, k) => s + (cols[k]?.length || 0), 0)
+        board = {
+          processing,
+          overdue: b.summary?.overdue || 0,
+          owing: (b.summary?.unpaid || 0) + (b.summary?.debt || 0),
+        }
+      } catch {
+        board = null
+      }
+      setHandoverBoard(board)
       setClosed(res)
       setActual('')
+      setHandover('')
       setView('result')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'SHIFT_CLOSED') {
         setError('Ca này đã được đóng.')
+      } else if (err instanceof ApiError && err.code === 'HANDOVER_EXCEEDS_CASH') {
+        setError('Tiền nộp chủ không được vượt quá tiền thực đếm.')
       } else {
         setError(err?.message || 'Không đóng được ca, thử lại.')
       }
@@ -196,6 +252,12 @@ export default function Shift() {
   const actualNum = toNumber(actual)
   const liveDiff = actualNum - expected
   const level = actual === '' ? null : diffLevel(liveDiff)
+  const handoverNum = toNumber(handover)
+  const cashLeft = actualNum - handoverNum
+  const handoverInvalid = handoverNum > actualNum
+  const branchName = isOwner
+    ? branches.find((b) => b.id === branchId)?.name || ''
+    : user?.branch_name || ''
 
   // ── Owner: bộ chọn chi nhánh ───────────────────────────────────────
   const branchPicker = isOwner && (
@@ -229,8 +291,16 @@ export default function Shift() {
 
       {/* ── KẾT QUẢ ĐÓNG CA ── */}
       {view === 'result' && closed && (
-        <ResultCard closed={closed} onBack={backToMain} />
+        <ResultCard
+          closed={closed}
+          onBack={backToMain}
+          onPrintHandover={() => setPrintSlip('handover')}
+          onPrintReport={() => setPrintSlip('report')}
+        />
       )}
+
+      {/* Portal in phiếu giao ca (ẩn trên màn, hiện khi @media print). */}
+      <ShiftSlip kind={printSlip} shift={closed} branchName={branchName} board={handoverBoard} />
 
       {/* ── ĐANG TẢI ── */}
       {view === 'main' && shift === undefined && branchId && (
@@ -242,7 +312,7 @@ export default function Shift() {
         <div className="shift__empty">
           <div className="shift__empty-icon">🕒</div>
           <p>Chưa có ca nào đang mở.</p>
-          <button className="btn btn--primary btn--xl btn--block" onClick={() => setView('open')}>
+          <button className="btn btn--primary btn--xl btn--block" onClick={startOpen}>
             MỞ CA
           </button>
         </div>
@@ -252,6 +322,11 @@ export default function Shift() {
       {view === 'open' && (
         <form className="card" onSubmit={submitOpen}>
           <h2 className="card__title">Mở ca</h2>
+          {openSuggestion > 0 && (
+            <p className="shift__hint">
+              Gợi ý: ca trước để lại <strong>{formatVND(openSuggestion)}</strong> — đếm lại trong két rồi xác nhận/sửa.
+            </p>
+          )}
           <label className="field">
             <span>Tiền mặt đầu ca trong két</span>
             <MoneyInput value={opening} onChange={setOpening} autoFocus required />
@@ -394,11 +469,28 @@ export default function Shift() {
             )}
           </div>
 
+          {/* Rút tiền nộp chủ (Stage 6.2) — lấy ra khỏi két SAU đối soát. */}
+          <label className="field">
+            <span>Rút nộp chủ (tiền lấy ra khỏi két)</span>
+            <MoneyInput value={handover} onChange={setHandover} />
+          </label>
+          <div className={`cashleft ${handoverInvalid ? 'cashleft--bad' : ''}`}>
+            <span>Tiền để lại ca sau</span>
+            <strong>
+              {actual === ''
+                ? '—'
+                : `${formatVND(actualNum)} − ${formatVND(handoverNum)} = ${formatVND(cashLeft)}`}
+            </strong>
+          </div>
+          {handoverInvalid && (
+            <p className="diff__note">⚠️ Tiền nộp chủ vượt quá tiền thực đếm.</p>
+          )}
+
           <div className="row-actions">
             <button type="button" className="btn btn--ghost" onClick={() => setView('main')}>
               Quay lại
             </button>
-            <button type="submit" className="btn btn--primary btn--lg" disabled={busy || actual === ''}>
+            <button type="submit" className="btn btn--primary btn--lg" disabled={busy || actual === '' || handoverInvalid}>
               {busy ? 'Đang đóng…' : 'Xác nhận đóng ca'}
             </button>
           </div>
@@ -409,9 +501,10 @@ export default function Shift() {
 }
 
 // Màn kết quả sau khi đóng ca.
-function ResultCard({ closed, onBack }) {
+function ResultCard({ closed, onBack, onPrintHandover, onPrintReport }) {
   const diff = toNumber(closed.cash_difference)
   const level = diffLevel(diff)
+  const handover = toNumber(closed.handover_to_owner)
   return (
     <div className="card">
       <h2 className="card__title">Đã đóng ca ✅</h2>
@@ -453,7 +546,21 @@ function ResultCard({ closed, onBack }) {
           <strong>{`${diff > 0 ? '+' : ''}${formatVND(diff)}`}</strong>
         </div>
       </div>
-      <button className="btn btn--primary btn--xl btn--block" onClick={onBack}>
+
+      {/* Rút nộp chủ + tiền để lại ca sau (Stage 6.2) */}
+      <div className="summary">
+        <div className="summary__row"><span>Rút nộp chủ</span><span>{formatVND(closed.handover_to_owner)}</span></div>
+        <div className="summary__row summary__row--head"><span>Tiền để lại ca sau</span><span>{formatVND(closed.cash_left_for_next)}</span></div>
+      </div>
+
+      <div className="row-actions" style={{ marginTop: 12 }}>
+        {handover > 0 && (
+          <button className="btn btn--ghost btn--lg" onClick={onPrintHandover}>🧾 In biên nhận nộp chủ</button>
+        )}
+        <button className="btn btn--ghost btn--lg" onClick={onPrintReport}>🧾 In biên bản giao ca</button>
+      </div>
+
+      <button className="btn btn--primary btn--xl btn--block" style={{ marginTop: 10 }} onClick={onBack}>
         Về trang ca
       </button>
     </div>

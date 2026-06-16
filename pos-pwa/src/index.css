@@ -2858,3 +2858,36 @@ body {
 }
 .metric--hero .metric__label { color: var(--orange-dark); font-weight: 800; }
 .metric--hero .metric__value { color: var(--orange-dark); font-size: 22px; }
+
+/* ══ Stage 6.2: đóng ca rút nộp chủ + phiếu giao ca ══════════════════ */
+.cashleft {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  border: 1.5px solid var(--orange);
+  background: var(--orange-soft);
+  border-radius: var(--radius);
+  font-weight: 700;
+  color: var(--orange-dark);
+}
+.cashleft--bad {
+  border-color: #c0392b;
+  background: #fdecea;
+  color: #c0392b;
+}
+
+/* Phiếu giao ca in nhiệt — bổ sung trên primitives .rcp (chỉ hiện @media print) */
+.rcp .sslip__sub { text-align: center; font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+.rcp .sslip__h { font-weight: 800; margin: 2px 0; text-transform: uppercase; font-size: 11px; }
+.rcp .sslip__note { font-size: 10px; font-style: italic; text-align: right; }
+.rcp .sslip__signs {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 11px;
+}

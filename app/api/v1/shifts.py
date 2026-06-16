@@ -12,7 +12,13 @@ from fastapi import APIRouter, Depends, Query, status
 from app.api.deps import DbSession, PageParams, require_role
 from app.models.user import User
 from app.schemas.common import Page
-from app.schemas.shift import ShiftClose, ShiftOpen, ShiftOut, ShiftSummary
+from app.schemas.shift import (
+    OpeningSuggestion,
+    ShiftClose,
+    ShiftOpen,
+    ShiftOut,
+    ShiftSummary,
+)
 from app.services import shift_service
 
 router = APIRouter(prefix="/shifts", tags=["shifts"])
@@ -33,6 +39,17 @@ async def current_shift(
     branch_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> ShiftOut:
     return await shift_service.get_current_shift(db, actor, branch_id)
+
+
+@router.get("/opening-suggestion", response_model=OpeningSuggestion)
+async def opening_suggestion(
+    actor: ShiftActor,
+    db: DbSession,
+    branch_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> OpeningSuggestion:
+    """Gợi ý đầu ca = tiền để lại của ca đóng gần nhất (nhân viên đếm lại)."""
+    amount = await shift_service.opening_suggestion(db, actor, branch_id)
+    return OpeningSuggestion(suggested_opening_cash=amount)
 
 
 @router.get("", response_model=Page[ShiftOut])
@@ -65,4 +82,6 @@ async def shift_summary(shift_id: uuid.UUID, actor: ShiftActor, db: DbSession) -
 async def close_shift(
     shift_id: uuid.UUID, payload: ShiftClose, actor: ShiftActor, db: DbSession
 ) -> ShiftOut:
-    return await shift_service.close_shift(db, actor, shift_id, payload.closing_cash_actual)
+    return await shift_service.close_shift(
+        db, actor, shift_id, payload.closing_cash_actual, payload.handover_to_owner
+    )

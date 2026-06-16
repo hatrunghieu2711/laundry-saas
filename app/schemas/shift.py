@@ -14,6 +14,14 @@ class ShiftOpen(BaseModel):
 
 class ShiftClose(BaseModel):
     closing_cash_actual: Decimal = Field(ge=0)
+    # Stage 6.2: rút tiền nộp chủ (>=0, mặc định 0). Validate <= actual ở service.
+    handover_to_owner: Decimal = Field(default=Decimal(0), ge=0)
+
+
+class OpeningSuggestion(BaseModel):
+    """Gợi ý đầu ca = tiền để lại của ca đóng gần nhất cùng branch (Stage 6.2)."""
+
+    suggested_opening_cash: Decimal
 
 
 class ShiftSummary(BaseModel):
@@ -52,6 +60,8 @@ class ShiftOut(BaseModel):
     total_income: Decimal | None
     total_expense: Decimal | None
     orders_count: int | None
+    handover_to_owner: Decimal | None  # Stage 6.2
+    cash_left_for_next: Decimal | None  # Stage 6.2
     status: str
     opened_at: datetime
     closed_at: datetime | None

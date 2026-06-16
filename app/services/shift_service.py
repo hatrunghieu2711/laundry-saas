@@ -116,11 +116,21 @@ async def _get_shift_in_tenant(
 
 
 async def close_shift(
-    db: AsyncSession, actor: User, shift_id: uuid.UUID, closing_cash_actual: Decimal
+    db: AsyncSession,
+    actor: User,
+    shift_id: uuid.UUID,
+    closing_cash_actual: Decimal,
+    handover_to_owner: Decimal = Decimal(0),
 ) -> Shift:
     shift = await _get_shift_in_tenant(db, actor, shift_id)
     if shift.status == "closed":
         raise APIError(409, "SHIFT_CLOSED", "Ca đã đóng, không thể thao tác")
+    # Rút nộp chủ KHÔNG được vượt tiền thực đếm (không rút quá số có trong két).
+    if handover_to_owner > closing_cash_actual:
+        raise APIError(
+            422, "HANDOVER_EXCEEDS_CASH",
+            "Số tiền nộp chủ không được vượt quá tiền mặt thực đếm",
+        )
 
     # Aggregate toàn bộ payments của ca trong MỘT query.
     def _sum(method: str):
@@ -171,6 +181,10 @@ async def close_shift(
     shift.closing_cash_expected = expected
     shift.closing_cash_actual = closing_cash_actual
     shift.cash_difference = closing_cash_actual - expected
+    # Rút nộp chủ: bước SAU đối soát — rút từ TIỀN THỰC ĐẾM (đã khớp), KHÔNG nằm
+    # trong công thức expected (không phải chi phí, không ảnh hưởng doanh thu).
+    shift.handover_to_owner = handover_to_owner
+    shift.cash_left_for_next = closing_cash_actual - handover_to_owner
     shift.closed_by = actor.id
     shift.closed_at = datetime.now(timezone.utc)
     shift.status = "closed"
@@ -194,6 +208,27 @@ async def get_current_shift(
 
 async def get_shift(db: AsyncSession, actor: User, shift_id: uuid.UUID) -> Shift:
     return await _get_shift_in_tenant(db, actor, shift_id)
+
+
+async def opening_suggestion(
+    db: AsyncSession, actor: User, branch_id: uuid.UUID | None
+) -> Decimal:
+    """Gợi ý đầu ca = cash_left_for_next của ca ĐÓNG gần nhất cùng branch (nhân
+    viên ĐẾM LẠI rồi xác nhận/sửa — KHÔNG tự lấy cứng). Chưa có ca đóng → 0."""
+    branch_id = _resolve_branch(actor, branch_id)
+    last = await db.scalar(
+        select(Shift)
+        .where(
+            Shift.tenant_id == actor.tenant_id,
+            Shift.branch_id == branch_id,
+            Shift.status == "closed",
+        )
+        .order_by(Shift.closed_at.desc())
+        .limit(1)
+    )
+    if last is None or last.cash_left_for_next is None:
+        return Decimal(0)
+    return last.cash_left_for_next
 
 
 async def shift_summary(db: AsyncSession, actor: User, shift_id: uuid.UUID) -> dict:

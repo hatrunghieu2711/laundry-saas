@@ -54,6 +54,11 @@ class Shift(TimestampMixin, Base):
     total_income: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     total_expense: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     orders_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Rút tiền nộp chủ khi đóng ca (Stage 6.2). handover_to_owner: tiền RA khỏi két
+    # SAU đối soát (KHÔNG vào expected, KHÔNG phải chi phí). cash_left_for_next =
+    # closing_cash_actual − handover_to_owner → gợi ý đầu ca sau.
+    handover_to_owner: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    cash_left_for_next: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
 
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="open")
     opened_at: Mapped[datetime] = mapped_column(
