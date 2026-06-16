@@ -1274,13 +1274,24 @@ body {
 }
 
 @media print {
-  /* Khổ giấy nhiệt 80mm; máy in giấy thường vẫn in cột 80mm gọn giữa trang. */
+  /* Giấy nhiệt 80mm, CHIỀU CAO AUTO theo nội dung (KHÔNG cố định 210mm/A4) →
+     giấy cuộn cắt đúng độ dài bill. margin 0: tránh lề đẩy nội dung sinh trang
+     trắng; canh lề ngang bằng .rcp width 72mm + margin auto (chừa ~4mm mỗi bên). */
   @page {
     size: 80mm auto;
-    margin: 4mm;
+    margin: 0;
   }
-  /* Ẩn toàn bộ UI app (portal phiếu nằm NGOÀI .app-shell). */
-  .app-shell {
+  /* #root height:100% (xem reset đầu file) tạo HỘP RỖNG cao 1 trang khi in →
+     sinh TRANG TRẮNG ĐẦU rồi đẩy phiếu sang trang 2. Phiếu in nằm ở portal
+     .print-receipt (con trực tiếp của <body>, NGOÀI #root) nên ẩn hẳn #root +
+     bỏ height 100% để chỉ còn đúng nội dung phiếu trên 1 trang. */
+  html,
+  body,
+  #root {
+    height: auto !important;
+    margin: 0 !important;
+  }
+  #root {
     display: none !important;
   }
   body {

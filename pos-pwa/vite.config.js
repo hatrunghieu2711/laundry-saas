@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import legacy from '@vitejs/plugin-legacy'
 import { VitePWA } from 'vite-plugin-pwa'
 
 // Frontend tĩnh: build ra dist/, nginx serve. API gọi qua /api/v1 (nginx proxy).
@@ -37,6 +38,12 @@ export default defineConfig({
           },
         ],
       },
+    }),
+    // Bản tương thích trình duyệt cũ (Android 6 / Chrome ~44–50 không hiểu ES2020
+    // và không hỗ trợ <script type=module>). Sinh thêm bundle nomodule + polyfills.
+    // Đặt SAU VitePWA để workbox precache cả file *-legacy*.js (globPatterns **/*.js).
+    legacy({
+      targets: ['chrome >= 44', 'android >= 6', 'defaults'],
     }),
   ],
   server: {
