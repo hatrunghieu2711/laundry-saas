@@ -1507,6 +1507,12 @@ body {
   width: 20px;
   height: 20px;
 }
+/* Toggle dạng HÀNG riêng (vd "Tự động in phiếu") — Stage 6.8.2. */
+.rcfg__switch--row {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
 
 /* Tờ phiếu xem trước (mô phỏng khổ nhiệt 80mm) */
 .rcp-preview {
@@ -2526,33 +2532,81 @@ body {
   margin-top: 8px;
 }
 
-/* ── Modal Xác nhận đơn — 2 cột màn POS ngang, đường kẻ thẳng (Stage 6.6.3) ── */
+/* ── Modal Xác nhận đơn — WIZARD 2 BƯỚC (Stage 6.7) ──────────────────────────
+   Tiêu đề + thanh nút CỐ ĐỊNH (flex none); .cfm__body CUỘN nội bộ, các nhóm
+   flex-shrink:0 (không bị nén đè khi co/bàn phím). Đường kẻ thẳng, radius 4px. */
 .cfm {
   max-width: 720px;
-  max-height: 92vh;
+  max-height: calc(100vh - 20px);
   overflow: hidden;
   border-radius: 6px;
   padding: 0;
   display: flex;
   flex-direction: column;
 }
-/* Tiêu đề + thanh nút luôn HIỆN (flex none); chỉ phần cột cuộn nếu tràn. */
-.cfm__title {
+/* Header: tiêu đề trái + thanh tiến trình 1→2 phải. */
+.cfm__head {
   flex: none;
-  margin: 0;
+  display: flex;
+  align-items: center;
   padding: 8px 14px;
-  font-size: 14px;
-  font-weight: 500;
   border-bottom: 1px solid var(--line);
 }
-.cfm__cols {
+.cfm__title {
+  font-size: 14px;
+  font-weight: 500;
+}
+.cfm__spacer {
+  flex: 1;
+}
+.cfm__steps {
+  display: flex;
+  align-items: center;
+}
+.cfm__steps > * + * {
+  margin-left: 5px;
+}
+.cfm__dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+  line-height: 16px;
+}
+.cfm__dot--active {
+  background: var(--orange);
+  border-color: var(--orange);
+  color: #fff;
+}
+.cfm__dot--done {
+  background: #16a34a;
+  border-color: #16a34a;
+  color: #fff;
+}
+.cfm__bar {
+  width: 22px;
+  height: 2px;
+  background: var(--line);
+}
+.cfm__bar--done {
+  background: var(--orange);
+}
+/* Thân CUỘN nội bộ. */
+.cfm__body {
   flex: 1 1 auto;
   min-height: 0;
   overflow-y: auto;
+}
+.cfm__cols {
   display: flex;
   flex-direction: column;
 }
 .cfm__col {
+  flex: none;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -2563,6 +2617,51 @@ body {
 }
 .cfm__col + .cfm__col {
   border-top: 1px solid var(--line);
+}
+/* Bước 2 — thanh toán (toàn nút bấm). */
+.cfm__pay {
+  padding: 12px 14px;
+}
+.cfm__pay > * + * {
+  margin-top: 10px;
+}
+.cfm__sum > * + * {
+  margin-top: 4px;
+}
+.cfm__adjtoggle {
+  display: flex;
+  align-items: center;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 9px 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+.cfm__addlink {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: #185fa5;
+  cursor: pointer;
+}
+.cfm__paygroup {
+  display: flex;
+  flex-direction: column;
+}
+.cfm__paygroup > * + * {
+  margin-top: 6px;
+}
+/* Bước 2 toàn nút bấm (không bàn phím) → nút to dễ chạm. */
+.cfm__paygroup .seg__btn,
+.cfm__paygroup .method-btn {
+  min-height: 40px;
+  font-size: 14px;
+}
+.cfm__sum .adj__row--total {
+  font-size: 16px;
 }
 /* Nhóm phân cách bằng ĐƯỜNG KẺ NGANG; nhóm đầu không kẻ. */
 .cfm__sec {
@@ -2717,10 +2816,17 @@ body {
 .cfm__actions .btn {
   min-height: 38px;
   font-size: 13px;
+  border-radius: 4px;
 }
+/* Nút phụ (Quay lại / Thêm dịch vụ) rộng theo nội dung; nút chính chiếm phần
+   còn lại — chứa được 2 nút phụ ở bước 2 (Stage 6.8). */
 .cfm__actions .btn--ghost {
   flex: 0 0 auto;
-  padding: 0 18px;
+  padding: 0 14px;
+  white-space: nowrap;
+}
+.cfm__more {
+  color: var(--orange-dark);
 }
 .cfm__submit {
   flex: 1 1 auto;
@@ -2738,6 +2844,20 @@ body {
     border-top: none;
     border-left: 1px solid var(--line);
   }
+}
+/* Bàn phím cảm ứng (Sunmi) che modal khi căn giữa → căn TRÊN + overlay cuộn được
+   (Stage 6.6.5). Body modal (.cfm__cols) tự cuộn tới ô đang focus; tiêu đề + thanh
+   nút vẫn cố định. Đặt SAU rule center ở @media để override. */
+.modal-overlay--top {
+  align-items: flex-start;
+  overflow-y: auto;
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+/* Khi bàn phím làm viewport co (adjustResize) → max-height theo vh tự nhỏ lại,
+   .cfm__cols cuộn tới ô đang focus; tiêu đề + nút vẫn cố định. */
+.modal-overlay--top .cfm {
+  max-height: calc(100vh - 20px);
 }
 
 /* Bước thanh toán trong modal */
@@ -3588,3 +3708,106 @@ body {
 .reports__neg { color: var(--danger); font-weight: 800; }
 .reports__pos { color: #16a34a; font-weight: 800; }
 .reports__hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+
+/* ── Màn "Đã tạo đơn" (Stage 6.8.2): card kẻ thẳng, gọn, tóm tắt đơn ──────── */
+.ordok {
+  max-width: 440px;
+  margin: 8px auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 16px;
+}
+.ordok--wait {
+  text-align: center;
+}
+.ordok__head {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 700;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+.ordok__check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  margin-right: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 800;
+}
+.ordok__code {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+.ordok__code-lbl {
+  font-size: 12px;
+  color: var(--muted);
+}
+.ordok__code-val {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.ordok__rows {
+  display: flex;
+  flex-direction: column;
+}
+.ordok__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 14px;
+}
+.ordok__row > span:first-child {
+  color: var(--muted);
+  flex: none;
+  margin-right: 12px;
+}
+.ordok__row > strong {
+  font-weight: 800;
+  color: var(--ink);
+  text-align: right;
+  min-width: 0;
+}
+/* Dòng phụ (SĐT, Giờ nhận): xám nhạt cả 2 cột. */
+.ordok__row--sec > span {
+  color: var(--muted);
+  font-weight: 400;
+}
+.ordok__actions {
+  display: flex;
+  margin-top: 14px;
+}
+.ordok__actions > * + * {
+  margin-left: 10px;
+}
+.ordok__print {
+  flex: 0 0 38%;
+  min-height: 44px;
+  border-radius: 8px;
+}
+.ordok__new {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border-radius: 8px;
+}
+.ordok__hint {
+  margin: 10px 0 0;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}

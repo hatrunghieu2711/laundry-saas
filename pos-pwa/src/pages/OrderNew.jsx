@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import Receipt from '../components/Receipt'
 import { ApiError, api } from '../lib/api'
-import { formatVND, toNumber } from '../lib/format'
+import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import {
   QUARTERS,
   addDaysVn,
@@ -26,6 +26,7 @@ const HOURS = Array.from({ length: 24 }, (_, h) => h)
 import { PAYMENT_METHOD } from '../lib/orders'
 import { UNIT_LABEL, normalizeService } from '../lib/services'
 import { DEFAULT_CATEGORY_ICON } from '../lib/categories'
+import { getReceiptConfig } from '../lib/receipt'
 
 const PREPAY_METHODS = ['cash', 'transfer', 'qr']
 
@@ -48,13 +49,26 @@ export default function OrderNew() {
   const [cart, setCart] = useState([])
   const [overflowKg, setOverflowKg] = useState({})
   const [turnaround, setTurnaround] = useState(4) // từ tenant settings
+  // null = chưa biết (đang nạp settings) · true = tự in (2H) · false = không tự in.
+  const [autoPrint, setAutoPrint] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState(null)
+  const [printed, setPrinted] = useState(false) // đã gọi window.print() cho đơn này
+  // Cấu hình bill nạp SẴN (cùng nguồn với In thủ công) để auto-print dùng ĐÚNG mẫu
+  // tenant ngay từ render đầu, không rơi vào DEFAULT_RECEIPT (Stage 6.8.1).
+  const [receiptConfig, setReceiptConfig] = useState(null)
+  const [logoReady, setLogoReady] = useState(false)
   const idRef = useRef(0)
+  const printedRef = useRef(null) // mã đơn đã auto-in (in 1 lần/đơn) — Stage 6.8
 
-  // ── modal xác nhận ──
+  // ── modal xác nhận (wizard 2 bước — Stage 6.7) ──
   const [showConfirm, setShowConfirm] = useState(false)
+  // confirmActive: phiên xác nhận ĐANG mở (đã nhập liệu) — đóng modal để "Thêm dịch
+  // vụ" KHÔNG reset; mở lại = resume giữ nguyên thông tin (Stage 6.8).
+  const [confirmActive, setConfirmActive] = useState(false)
+  const [step, setStep] = useState(1) // 1 = khách & giờ giao · 2 = thanh toán
+  const [adjOpen, setAdjOpen] = useState(false) // phụ thu/giảm ẩn sau "Thêm" (bước 2)
   const [phone, setPhone] = useState('')
   const [custName, setCustName] = useState('')
   const [custFound, setCustFound] = useState(null)
@@ -85,13 +99,39 @@ export default function OrderNew() {
       .finally(() => setSvcLoading(false))
   }, [])
 
-  // Turnaround chuẩn của tenant (gợi ý giờ giao). Lỗi → giữ mặc định 4.
+  // Turnaround + cờ tự-in từ tenant settings. Lỗi → turnaround 4, tự-in mặc định BẬT.
   useEffect(() => {
     api
       .get('/settings/pos')
-      .then((s) => setTurnaround(s.default_turnaround_hours ?? 4))
-      .catch(() => {})
+      .then((s) => {
+        setTurnaround(s.default_turnaround_hours ?? 4)
+        setAutoPrint(s.auto_print_receipt !== false) // default true
+      })
+      .catch(() => setAutoPrint(true))
   }, [])
+
+  // Nạp SẴN cấu hình bill + preload logo (Stage 6.8.1) → auto-print in ĐÚNG mẫu
+  // tenant ngay, không in nhầm mẫu mặc định.
+  useEffect(() => {
+    let alive = true
+    const safety = setTimeout(() => alive && setLogoReady(true), 2500) // logo lỗi/chậm → vẫn in
+    getReceiptConfig().then((cfg) => {
+      if (!alive) return
+      setReceiptConfig(cfg)
+      if (cfg.logo_url) {
+        const img = new Image()
+        img.onload = img.onerror = () => alive && setLogoReady(true)
+        img.src = cfg.logo_url
+      } else {
+        setLogoReady(true)
+      }
+    })
+    return () => {
+      alive = false
+      clearTimeout(safety)
+    }
+  }, [])
+  const printReady = receiptConfig !== null && logoReady
 
   const checkShift = useCallback(async () => {
     setError('')
@@ -243,9 +283,29 @@ export default function OrderNew() {
   const perUnitServices = shown.filter((s) => s.pricing_type === 'per_unit')
 
   // ── modal ──
+  // "Thêm dịch vụ": đóng modal về màn chọn, GIỮ NGUYÊN mọi thông tin (Stage 6.8).
+  const addMoreServices = () => {
+    setShowConfirm(false)
+    setError('')
+  }
+
   const openConfirm = async () => {
     if (cart.length === 0) return
-    setPickup(defaultPickupVnWall(turnaround))
+    // Đang có phiên (vừa "Thêm dịch vụ") → MỞ LẠI, giữ nguyên thông tin đã nhập;
+    // tổng tiền tự tính lại theo giỏ hiện tại (có món mới). KHÔNG reset/áp lại rule.
+    if (confirmActive) {
+      setError('')
+      setShowConfirm(true)
+      return
+    }
+    setConfirmActive(true)
+    // Giờ hẹn MẶC ĐỊNH 08:00 (Stage 6.6.5): hôm nay nếu 08:00 còn ở tương lai,
+    // ngược lại ngày mai → mặc định luôn hợp lệ, nhân viên sổ chọn lại nếu cần.
+    const vnToday0 = startOfDayVn(new Date(Date.now() + 7 * 60 * 60 * 1000))
+    const at8Today = combineVn(vnToday0, 8, 0)
+    setPickup(isPastVnWall(at8Today) ? combineVn(addDaysVn(vnToday0, 1), 8, 0) : at8Today)
+    setStep(1)
+    setAdjOpen(false)
     setPayMode('prepay')
     setPayMethod('cash')
     setError('')
@@ -302,6 +362,16 @@ export default function OrderNew() {
     }
   }, [phone, showConfirm])
 
+  // Bước 1 → 2: chặn giờ quá khứ trước khi sang bước thanh toán.
+  const goStep2 = () => {
+    if (isPastVnWall(pickup)) {
+      setError('Không thể hẹn giờ giao trong quá khứ. Chọn lại giờ giao.')
+      return
+    }
+    setError('')
+    setStep(2)
+  }
+
   const submit = async () => {
     if (cart.length === 0) return
     if (isPastVnWall(pickup)) {
@@ -345,6 +415,7 @@ export default function OrderNew() {
       setPaidInfo(paid)
       setPayWarn('')
       setShowConfirm(false)
+      setConfirmActive(false)
       setCreated(order)
     } catch (err) {
       if (err instanceof ApiError && err.code === 'NO_OPEN_SHIFT') {
@@ -361,6 +432,8 @@ export default function OrderNew() {
 
   const startNew = () => {
     setCreated(null)
+    setPrinted(false)
+    setConfirmActive(false)
     setCart([])
     setPhone('')
     setCustName('')
@@ -373,38 +446,70 @@ export default function OrderNew() {
     setPayWarn('')
   }
 
-  // ── màn kết quả (bước cuối: in phiếu SAU khi đã tạo + xử lý thanh toán) ──
+  // Tạo đơn xong → IN NGAY (bỏ màn trung gian, như bấm "In phiếu"). In 1 lần/đơn.
+  // CHỜ receipt_config + logo nạp xong (printReady) → in ĐÚNG mẫu tenant, không
+  // nhầm mẫu mặc định (Stage 6.8.1). setPrinted SAU khi gọi in → lưới an toàn chỉ
+  // hiện sau khi in, không nháy trước.
+  useEffect(() => {
+    if (!created || autoPrint !== true || !printReady) return undefined // tenant tắt → KHÔNG tự in
+    if (printedRef.current === created.id) return undefined
+    printedRef.current = created.id
+    const raf = requestAnimationFrame(() => {
+      window.print()
+      setPrinted(true)
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [created, autoPrint, printReady])
+
+  // In xong / đóng hộp thoại in → tự về màn Tạo đơn mới.
+  useEffect(() => {
+    if (!created) return undefined
+    const onAfterPrint = () => startNew()
+    window.addEventListener('afterprint', onAfterPrint)
+    return () => window.removeEventListener('afterprint', onAfterPrint)
+  }, [created])
+
+  // ── sau khi tạo đơn: render Bill (portal) NGAY + in thẳng (đúng mẫu tenant).
+  //    Trước khi in chỉ hiện 1 dòng "đang chuẩn bị/in" (calm) — KHÔNG nháy lưới
+  //    an toàn. Sau khi đã gọi in (printed) mới hiện nút (dự phòng nếu máy không
+  //    bắn 'afterprint'). Mã đơn nằm trên bill. Stage 6.8.1. ──
   if (created) {
-    const orderTotal = toNumber(created.total_amount)
+    // Auto-print BẬT mà CHƯA in xong → màn chờ calm (không nháy lưới an toàn).
+    const waiting = autoPrint !== false && !printed
     return (
       <div className="ordernew">
-        <div className="created">
-          <p className="created__hint">Đã tạo đơn — ghi mã lên đồ/phiếu:</p>
-          <div className="created__code">{created.order_code}</div>
-          <div className="created__total">{formatVND(orderTotal)}</div>
-
-          {/* Trạng thái thanh toán (2H: thu ĐỦ hoặc chưa thu — không có một phần) */}
-          {paidInfo.amount > 0 ? (
-            <div className="created__pay created__pay--ok">
-              ✓ Đã thanh toán: {formatVND(paidInfo.amount)}
-              {paidInfo.method ? ` (${PAYMENT_METHOD[paidInfo.method] || paidInfo.method})` : ''}
+        {waiting ? (
+          <div className="ordok ordok--wait">
+            <p className="shift__hint">{printReady ? 'Đang in phiếu…' : 'Đang chuẩn bị phiếu in…'}</p>
+          </div>
+        ) : (
+          <div className="ordok">
+            <div className="ordok__head"><span className="ordok__check">✓</span> Đã tạo đơn</div>
+            <div className="ordok__code">
+              <span className="ordok__code-lbl">Mã đơn hàng</span>
+              <span className="ordok__code-val">{created.order_code}</span>
             </div>
-          ) : (
-            <div className="created__pay created__pay--unpaid">Chưa thanh toán · còn {formatVND(orderTotal)}</div>
-          )}
-
-          {payWarn && <div className="alert alert--error">{payWarn}</div>}
-
-          {/* Thanh toán đã quyết ở modal — màn này KHÔNG hỏi thu tiền lại.
-              Đơn chưa thu vẫn thu được ở /orders/:id hoặc lúc giao hàng. */}
-          <button className="btn btn--primary btn--xl btn--block" onClick={() => window.print()}>
-            🖨️ IN PHIẾU
-          </button>
-          <button className="btn btn--ghost btn--lg btn--block" onClick={startNew}>
-            ＋ Tạo đơn mới
-          </button>
-        </div>
-        <Receipt order={created} paid={paidInfo.amount} method={paidInfo.method} />
+            <div className="ordok__rows">
+              <div className="ordok__row"><span>Tên khách</span><strong>{created.customer_name || 'Khách vãng lai'}</strong></div>
+              <div className="ordok__row ordok__row--sec"><span>SĐT</span><span>{created.customer_phone || '—'}</span></div>
+              <div className="ordok__row ordok__row--sec"><span>Giờ nhận</span><span>{formatDateTime(created.created_at)}</span></div>
+              <div className="ordok__row"><span>Giờ giao</span><strong>{formatDateTime(created.pickup_at)}</strong></div>
+            </div>
+            {payWarn && <div className="alert alert--error">{payWarn}</div>}
+            <div className="ordok__actions">
+              <button className="btn btn--ghost ordok__print" onClick={() => window.print()}>
+                {printed ? 'In lại' : 'In phiếu'}
+              </button>
+              <button className="btn btn--primary ordok__new" onClick={startNew}>
+                ＋ Tạo đơn mới
+              </button>
+            </div>
+            <p className="ordok__hint">
+              {autoPrint === false ? 'Bấm In phiếu nếu khách cần bill.' : 'In xong sẽ tự về đơn mới.'}
+            </p>
+          </div>
+        )}
+        <Receipt config={receiptConfig} order={created} paid={paidInfo.amount} method={paidInfo.method} />
       </div>
     )
   }
@@ -604,159 +709,170 @@ export default function OrderNew() {
       {/* Modal xác nhận đơn — 2 cột màn POS ngang, đường kẻ thẳng (Stage 6.6.3).
           TRÁI: khách + phụ thu/giảm · PHẢI: giờ giao + tổng + thanh toán. */}
       {showConfirm && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
+        <div className="modal-overlay modal-overlay--top" role="dialog" aria-modal="true">
           <div className="modal cfm">
-            <h3 className="cfm__title">Xác nhận đơn</h3>
+            <div className="cfm__head">
+              <span className="cfm__title">Xác nhận đơn</span>
+              <span className="cfm__spacer" />
+              <span className="cfm__steps">
+                <span className={`cfm__dot ${step === 1 ? 'cfm__dot--active' : 'cfm__dot--done'}`}>{step === 1 ? '1' : '✓'}</span>
+                <span className={`cfm__bar ${step === 2 ? 'cfm__bar--done' : ''}`} />
+                <span className={`cfm__dot ${step === 2 ? 'cfm__dot--active' : ''}`}>2</span>
+              </span>
+            </div>
 
-            <div className="cfm__cols">
-              {/* TRÁI: thông tin khách + tab Giảm giá/Phụ thu */}
-              <div className="cfm__col">
-                <label className="field">
-                  <span>SĐT khách (trống = vãng lai)</span>
-                  <input className="input" type="tel" inputMode="numeric" placeholder="VD 0905..."
-                    value={phone} onChange={(e) => setPhone(e.target.value)} />
-                </label>
-                {phone.trim() && (
-                  <p className={`cust-hint ${custFound ? 'cust-hint--known' : ''}`}>
-                    {custFound
-                      ? `✓ Khách quen: ${custFound.full_name || '(chưa có tên)'}`
-                      : 'Khách mới — nhập tên'}
-                  </p>
-                )}
-                <label className="field">
-                  <span>Tên khách</span>
-                  <input className="input" type="text" placeholder="Tên khách (tùy chọn)"
-                    value={custName} onChange={(e) => setCustName(e.target.value)} />
-                </label>
-                <label className="field">
-                  <span>Ghi chú</span>
-                  <input className="input" type="text" placeholder="VD: giặt riêng…"
-                    value={note} onChange={(e) => setNote(e.target.value)} />
-                </label>
-
-                {/* Phụ thu / Giảm giá gộp 2 TAB (mặc định Giảm giá) — state độc lập */}
-                <div className="cfm__sec cfm__adj">
-                  <div className="cfm__tabs">
-                    <button type="button" className={`cfm__tab ${adjTab === 'discount' ? 'cfm__tab--active' : ''}`} onClick={() => setAdjTab('discount')}>
-                      Giảm giá {disAuto && <span className="badge-auto">tự áp</span>}
-                    </button>
-                    <button type="button" className={`cfm__tab ${adjTab === 'surcharge' ? 'cfm__tab--active' : ''}`} onClick={() => setAdjTab('surcharge')}>
-                      Phụ thu {surAuto && <span className="badge-auto">tự áp</span>}
-                    </button>
+            <div className="cfm__body">
+              {step === 1 ? (
+                /* BƯỚC 1 — Khách & giờ giao (có nhập liệu, ít trường) */
+                <div className="cfm__cols">
+                  <div className="cfm__col">
+                    <label className="field">
+                      <span>SĐT khách (trống = vãng lai)</span>
+                      <input className="input" type="tel" inputMode="numeric" placeholder="VD 0905..."
+                        value={phone} onChange={(e) => setPhone(e.target.value)} />
+                    </label>
+                    {phone.trim() && (
+                      <p className={`cust-hint ${custFound ? 'cust-hint--known' : ''}`}>
+                        {custFound ? `✓ Khách quen: ${custFound.full_name || '(chưa có tên)'}` : 'Khách mới — nhập tên'}
+                      </p>
+                    )}
+                    <label className="field">
+                      <span>Tên khách</span>
+                      <input className="input" type="text" placeholder="Tên khách (tùy chọn)"
+                        value={custName} onChange={(e) => setCustName(e.target.value)} />
+                    </label>
+                    <label className="field">
+                      <span>Ghi chú</span>
+                      <input className="input" type="text" placeholder="VD: giặt riêng…"
+                        value={note} onChange={(e) => setNote(e.target.value)} />
+                    </label>
                   </div>
 
-                  {adjTab === 'discount' ? (
-                    <>
-                      <div className="cfm__adj-row">
-                        <input className="input" type="number" min="0" inputMode="decimal"
-                          placeholder={disType === 'percent' ? 'VD 10' : 'VD 20000'}
-                          value={disValue} onChange={(e) => setDisValue(e.target.value)} />
-                        <div className="seg seg--sm">
-                          <button type="button" className={`seg__btn ${disType === 'percent' ? 'seg__btn--active' : ''}`} onClick={() => setDisType('percent')}>%</button>
-                          <button type="button" className={`seg__btn ${disType === 'fixed' ? 'seg__btn--active' : ''}`} onClick={() => setDisType('fixed')}>đ</button>
-                        </div>
-                      </div>
-                      <input className="input adj__reason" type="text" placeholder="Lý do (tùy chọn)"
-                        value={disReason} onChange={(e) => setDisReason(e.target.value)} />
-                    </>
-                  ) : (
-                    <>
-                      <div className="cfm__adj-row">
-                        <input className="input" type="number" min="0" inputMode="decimal"
-                          placeholder={surType === 'percent' ? 'VD 10' : 'VD 20000'}
-                          value={surValue} onChange={(e) => setSurValue(e.target.value)} />
-                        <div className="seg seg--sm">
-                          <button type="button" className={`seg__btn ${surType === 'percent' ? 'seg__btn--active' : ''}`} onClick={() => setSurType('percent')}>%</button>
-                          <button type="button" className={`seg__btn ${surType === 'fixed' ? 'seg__btn--active' : ''}`} onClick={() => setSurType('fixed')}>đ</button>
-                        </div>
-                      </div>
-                      <input className="input adj__reason" type="text" placeholder="Lý do (tùy chọn)"
-                        value={surReason} onChange={(e) => setSurReason(e.target.value)} />
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* PHẢI: giờ giao (dropdown) + tổng + thanh toán */}
-              <div className="cfm__col cfm__col--right">
-                <div className="cfm__sec cfm__sec--first">
-                  <span className="field-label">Giờ hẹn giao</span>
-                  <div className="cfm__daybtns">
-                    <button type="button" className={`chip chip--sm ${isToday ? 'chip--active' : ''}`} onClick={() => setPickDay(vnNowDay)}>Hôm nay</button>
-                    <button type="button" className={`chip chip--sm ${isTomorrow ? 'chip--active' : ''}`} onClick={() => setPickDay(addDaysVn(vnNowDay, 1))}>Ngày mai</button>
-                  </div>
-                  <div className="cfm__timesel">
-                    <input className="input" type="date" min={dateInputValueVn(vnNowDay)}
-                      value={dateInputValueVn(pkDay)}
-                      onChange={(e) => e.target.value && setPickDay(parseDateInputVn(e.target.value))} />
-                    <select className="input" value={pkHour}
-                      onChange={(e) => setPickup(combineVn(pickup, Number(e.target.value), QUARTERS[pkMinIdx]))}>
-                      {HOURS.map((h) => <option key={h} value={h}>{String(h).padStart(2, '0')}</option>)}
-                    </select>
-                    <span className="cfm__colon">:</span>
-                    <select className="input" value={pkMinIdx}
-                      onChange={(e) => setPickup(combineVn(pickup, pkHour, QUARTERS[Number(e.target.value)]))}>
-                      {QUARTERS.map((m, i) => <option key={m} value={i}>{String(m).padStart(2, '0')}</option>)}
-                    </select>
-                  </div>
-                  <div className={`cfm__when-note ${pickupPast ? 'cfm__when-note--bad' : ''}`}>
-                    {pickupPast ? '⚠️ Giờ giao không ở quá khứ.' : <>Giao lúc: <strong>{formatPickupLong(pickup)}</strong></>}
+                  <div className="cfm__col cfm__col--right">
+                    <span className="field-label">Giờ hẹn giao</span>
+                    <div className="cfm__daybtns">
+                      <button type="button" className={`chip chip--sm ${isToday ? 'chip--active' : ''}`} onClick={() => setPickDay(vnNowDay)}>Hôm nay</button>
+                      <button type="button" className={`chip chip--sm ${isTomorrow ? 'chip--active' : ''}`} onClick={() => setPickDay(addDaysVn(vnNowDay, 1))}>Ngày mai</button>
+                    </div>
+                    <div className="cfm__timesel">
+                      <input className="input" type="date" min={dateInputValueVn(vnNowDay)}
+                        value={dateInputValueVn(pkDay)}
+                        onChange={(e) => e.target.value && setPickDay(parseDateInputVn(e.target.value))} />
+                      <select className="input" value={pkHour}
+                        onChange={(e) => setPickup(combineVn(pickup, Number(e.target.value), QUARTERS[pkMinIdx]))}>
+                        {HOURS.map((h) => <option key={h} value={h}>{String(h).padStart(2, '0')}</option>)}
+                      </select>
+                      <span className="cfm__colon">:</span>
+                      <select className="input" value={pkMinIdx}
+                        onChange={(e) => setPickup(combineVn(pickup, pkHour, QUARTERS[Number(e.target.value)]))}>
+                        {QUARTERS.map((m, i) => <option key={m} value={i}>{String(m).padStart(2, '0')}</option>)}
+                      </select>
+                    </div>
+                    <div className={`cfm__when-note ${pickupPast ? 'cfm__when-note--bad' : ''}`}>
+                      {pickupPast ? '⚠️ Giờ giao không ở quá khứ.' : <>Giao lúc: <strong>{formatPickupLong(pickup)}</strong></>}
+                    </div>
                   </div>
                 </div>
-
-                <div className="cfm__sec">
-                  <div className="adj__summary">
+              ) : (
+                /* BƯỚC 2 — Thanh toán (toàn nút bấm, không nhập text → bàn phím không bật) */
+                <div className="cfm__pay">
+                  <div className="cfm__sum">
                     <div className="adj__row"><span>Tạm tính</span><span>{formatVND(total)}</span></div>
-                    {surAmount > 0 && (
-                      <div className="adj__row"><span>+ Phụ thu</span><span>{formatVND(surAmount)}</span></div>
-                    )}
-                    {disAmount > 0 && (
-                      <div className="adj__row adj__row--minus"><span>− Giảm</span><span>−{formatVND(disAmount)}</span></div>
-                    )}
+                    {surAmount > 0 && <div className="adj__row"><span>+ Phụ thu</span><span>{formatVND(surAmount)}</span></div>}
+                    {disAmount > 0 && <div className="adj__row adj__row--minus"><span>− Giảm</span><span>−{formatVND(disAmount)}</span></div>}
                     <div className="adj__row adj__row--total"><span>Tổng cộng</span><span>{formatVND(grandTotal)}</span></div>
                   </div>
-                </div>
 
-                <div className="cfm__sec paystep">
-                  <span className="field-label">Thanh toán</span>
-                  <div className="seg">
-                    <button type="button" className={`seg__btn ${payMode === 'prepay' ? 'seg__btn--active' : ''}`} onClick={() => setPayMode('prepay')}>Thu trước</button>
-                    <button type="button" className={`seg__btn ${payMode === 'later' ? 'seg__btn--active' : ''}`} onClick={() => setPayMode('later')}>Thu sau</button>
+                  {/* Phụ thu/giảm ẩn sau "Thêm" (ít dùng) */}
+                  <div className="cfm__adjtoggle">
+                    <span>+ Phụ thu / giảm giá</span>
+                    <button type="button" className="cfm__addlink" onClick={() => setAdjOpen((o) => !o)}>
+                      {adjOpen ? 'Ẩn' : 'Thêm'}
+                    </button>
                   </div>
-                  {payMode === 'prepay' && (
-                    <div className="paystep__body">
-                      <div className="method-grid">
-                        {PREPAY_METHODS.map((m) => (
-                          <button type="button" key={m}
-                            className={`method-btn ${payMethod === m ? 'method-btn--active' : ''}`}
-                            onClick={() => setPayMethod(m)}>
-                            {PAYMENT_METHOD[m]}
-                          </button>
-                        ))}
+                  {adjOpen && (
+                    <div className="cfm__adj">
+                      <div className="cfm__tabs">
+                        <button type="button" className={`cfm__tab ${adjTab === 'discount' ? 'cfm__tab--active' : ''}`} onClick={() => setAdjTab('discount')}>Giảm giá {disAuto && <span className="badge-auto">tự áp</span>}</button>
+                        <button type="button" className={`cfm__tab ${adjTab === 'surcharge' ? 'cfm__tab--active' : ''}`} onClick={() => setAdjTab('surcharge')}>Phụ thu {surAuto && <span className="badge-auto">tự áp</span>}</button>
                       </div>
-                      {/* 2H thu ĐỦ 100% — không nhập số tùy ý. */}
-                      <p className="paystep__note">Thu đủ <strong>{formatVND(grandTotal)}</strong> khi tạo đơn.</p>
+                      {adjTab === 'discount' ? (
+                        <>
+                          <div className="cfm__adj-row">
+                            <input className="input" type="number" min="0" inputMode="decimal" placeholder={disType === 'percent' ? 'VD 10' : 'VD 20000'} value={disValue} onChange={(e) => setDisValue(e.target.value)} />
+                            <div className="seg seg--sm">
+                              <button type="button" className={`seg__btn ${disType === 'percent' ? 'seg__btn--active' : ''}`} onClick={() => setDisType('percent')}>%</button>
+                              <button type="button" className={`seg__btn ${disType === 'fixed' ? 'seg__btn--active' : ''}`} onClick={() => setDisType('fixed')}>đ</button>
+                            </div>
+                          </div>
+                          <input className="input adj__reason" type="text" placeholder="Lý do (tùy chọn)" value={disReason} onChange={(e) => setDisReason(e.target.value)} />
+                        </>
+                      ) : (
+                        <>
+                          <div className="cfm__adj-row">
+                            <input className="input" type="number" min="0" inputMode="decimal" placeholder={surType === 'percent' ? 'VD 10' : 'VD 20000'} value={surValue} onChange={(e) => setSurValue(e.target.value)} />
+                            <div className="seg seg--sm">
+                              <button type="button" className={`seg__btn ${surType === 'percent' ? 'seg__btn--active' : ''}`} onClick={() => setSurType('percent')}>%</button>
+                              <button type="button" className={`seg__btn ${surType === 'fixed' ? 'seg__btn--active' : ''}`} onClick={() => setSurType('fixed')}>đ</button>
+                            </div>
+                          </div>
+                          <input className="input adj__reason" type="text" placeholder="Lý do (tùy chọn)" value={surReason} onChange={(e) => setSurReason(e.target.value)} />
+                        </>
+                      )}
                     </div>
                   )}
+
+                  <div className="cfm__paygroup">
+                    <span className="field-label">Thời điểm thu</span>
+                    <div className="seg">
+                      <button type="button" className={`seg__btn ${payMode === 'prepay' ? 'seg__btn--active' : ''}`} onClick={() => setPayMode('prepay')}>Thu trước</button>
+                      <button type="button" className={`seg__btn ${payMode === 'later' ? 'seg__btn--active' : ''}`} onClick={() => setPayMode('later')}>Thu sau</button>
+                    </div>
+                    {payMode === 'prepay' && (
+                      <>
+                        <span className="field-label">Phương thức</span>
+                        <div className="method-grid">
+                          {PREPAY_METHODS.map((m) => (
+                            <button type="button" key={m} className={`method-btn ${payMethod === m ? 'method-btn--active' : ''}`} onClick={() => setPayMethod(m)}>{PAYMENT_METHOD[m]}</button>
+                          ))}
+                        </div>
+                        <p className="paystep__note">Thu đủ <strong>{formatVND(grandTotal)}</strong> khi tạo đơn.</p>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {error && <div className="alert alert--error cfm__error">{error}</div>}
 
             <div className="cfm__actions">
-              <button className="btn btn--ghost btn--lg"
-                onClick={() => { setShowConfirm(false); setError('') }} disabled={busy}>
-                Quay lại
-              </button>
-              <button className="btn btn--primary btn--lg cfm__submit"
-                onClick={submit} disabled={busy || isPastVnWall(pickup)}>
-                {busy
-                  ? 'Đang tạo…'
-                  : payMode === 'prepay'
-                    ? `Tạo & thu · ${formatVND(grandTotal)}`
-                    : `Tạo đơn · ${formatVND(grandTotal)}`}
-              </button>
+              {step === 1 ? (
+                <>
+                  <button className="btn btn--ghost cfm__more" onClick={addMoreServices} disabled={busy}>
+                    ← Thêm dịch vụ
+                  </button>
+                  <button className="btn btn--primary cfm__submit" onClick={goStep2}>
+                    Tiếp · Thanh toán →
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button className="btn btn--ghost" onClick={() => { setStep(1); setError('') }} disabled={busy}>
+                    ← Quay lại
+                  </button>
+                  <button className="btn btn--ghost cfm__more" onClick={addMoreServices} disabled={busy}>
+                    ＋ Thêm dịch vụ
+                  </button>
+                  <button className="btn btn--primary cfm__submit" onClick={submit} disabled={busy || isPastVnWall(pickup)}>
+                    {busy
+                      ? 'Đang tạo…'
+                      : payMode === 'prepay'
+                        ? `Tạo & thu · ${formatVND(grandTotal)}`
+                        : `Tạo đơn · ${formatVND(grandTotal)}`}
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>

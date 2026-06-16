@@ -15,6 +15,7 @@ class SettingsPublic(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     default_turnaround_hours: int
+    auto_print_receipt: bool
 
 
 class SettingsOut(BaseModel):
@@ -23,6 +24,7 @@ class SettingsOut(BaseModel):
     tenant_id: uuid.UUID
     default_turnaround_hours: int
     cash_diff_threshold: Decimal
+    auto_print_receipt: bool
     telegram_bot_token: str | None
     telegram_owner_chat_id: str | None
 
@@ -30,6 +32,7 @@ class SettingsOut(BaseModel):
 class SettingsUpdate(BaseModel):
     default_turnaround_hours: int | None = Field(default=None, ge=0, le=72)
     cash_diff_threshold: Decimal | None = Field(default=None, ge=0)
+    auto_print_receipt: bool | None = None
     telegram_bot_token: str | None = None
     telegram_owner_chat_id: str | None = None
 

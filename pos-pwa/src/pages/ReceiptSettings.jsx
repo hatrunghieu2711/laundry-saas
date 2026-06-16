@@ -46,6 +46,8 @@ export default function ReceiptSettings() {
   const [saved, setSaved] = useState(false)
   const [dragRi, setDragRi] = useState(null)
   const [hasDefault, setHasDefault] = useState(false) // mẫu mặc định tenant đã lưu?
+  const [autoPrint, setAutoPrint] = useState(true) // tự in sau khi tạo đơn (6.8.2)
+  const [autoSaving, setAutoSaving] = useState(false)
 
   const [editBlk, setEditBlk] = useState(null) // {ri, ci, type}
   const [editContent, setEditContent] = useState({})
@@ -68,7 +70,26 @@ export default function ReceiptSettings() {
     api.get('/settings/receipt/status')
       .then((s) => setHasDefault(!!s.has_tenant_default))
       .catch(() => {})
+    api.get('/settings/pos')
+      .then((s) => setAutoPrint(s.auto_print_receipt !== false))
+      .catch(() => {})
   }, [])
+
+  // Lưu NGAY cờ tự-in (PUT /settings, owner). Optimistic + revert nếu lỗi.
+  const saveAutoPrint = async (next) => {
+    if (autoSaving) return
+    setAutoPrint(next)
+    setAutoSaving(true)
+    setError('')
+    try {
+      await api.put('/settings', { auto_print_receipt: next })
+    } catch (e) {
+      setAutoPrint(!next)
+      setError(e?.message || 'Không lưu được tùy chọn tự in')
+    } finally {
+      setAutoSaving(false)
+    }
+  }
 
   const dirty = () => setSaved(false)
   const mutate = (fn) => { dirty(); setRows((rs) => fn(rs.map((r) => r.slice()))) }
@@ -241,6 +262,15 @@ export default function ReceiptSettings() {
               onChange={(e) => { dirty(); setTrackBaseUrl(e.target.value) }} />
           </label>
           <p className="rcfg__hint">Để trống = dùng mặc định track.giatui2h.com. QR = link này + mã đơn.</p>
+
+          <label className="rcfg__switch rcfg__switch--row">
+            <input type="checkbox" checked={autoPrint} disabled={!canEdit || autoSaving}
+              onChange={(e) => saveAutoPrint(e.target.checked)} />
+            <span>Tự động in phiếu sau khi tạo đơn</span>
+          </label>
+          <p className="rcfg__hint">
+            Bật: tạo đơn xong tự in phiếu ngay. Tắt: không tự in — nhân viên bấm “In phiếu” khi khách cần lấy bill.
+          </p>
         </div>
 
         <div className="card">

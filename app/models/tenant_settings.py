@@ -7,7 +7,7 @@ import uuid
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import ForeignKey, Integer, String, text
+from sqlalchemy import Boolean, ForeignKey, Integer, String, text
 from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -31,6 +31,11 @@ class TenantSettings(TimestampMixin, UpdatedAtMixin, Base):
     # Turnaround chuẩn (giờ) — POS gợi ý giờ hẹn giao = now + giá trị này. Mặc định 4.
     default_turnaround_hours: Mapped[int] = mapped_column(
         Integer, nullable=False, server_default=text("4")
+    )
+    # Tự động in phiếu sau khi tạo đơn (Stage 6.8.2). MẶC ĐỊNH TRUE = giữ hành vi 2H.
+    # Tenant tắt → tạo đơn KHÔNG auto-print, nhân viên bấm "In phiếu" nếu khách cần.
+    auto_print_receipt: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
     )
     # Cấu hình mẫu phiếu in (bill builder theo khối). NULL = dùng mẫu gốc nền tảng
     # (service tự trả DEFAULT_RECEIPT — đã có placeholder, không lộ thông tin tenant nào).
