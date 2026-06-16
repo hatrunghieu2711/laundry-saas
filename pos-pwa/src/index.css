@@ -2891,3 +2891,70 @@ body {
   margin-top: 12px;
   font-size: 11px;
 }
+
+/* ── Báo cáo cho chủ (Stage 6.3) ─────────────────────────────────────── */
+.reports { max-width: 640px; margin: 0 auto; }
+.reports__filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
+.reports__dates { display: flex; gap: 12px; }
+.field--inline { flex: 1; }
+.field--inline > span { font-size: 13px; color: var(--muted); font-weight: 600; }
+.reports__filters .branch-picker { margin-bottom: 0; }
+
+.reports__cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.rcard {
+  background: #fff;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rcard__label { font-size: 13px; color: var(--muted); font-weight: 600; }
+.rcard__value { font-size: 22px; font-weight: 800; line-height: 1.2; }
+.rcard__sub { font-size: 12px; color: var(--muted); }
+.rcard--revenue { border-color: var(--orange); background: var(--orange-soft); }
+.rcard--revenue .rcard__value { color: var(--orange-dark); }
+.rcard--handover .rcard__value { color: #0369a1; }
+.rcard--warn { border-color: var(--danger); background: var(--danger-soft); }
+.rcard--warn .rcard__value { color: var(--danger); }
+.rcard--ok .rcard__value { color: #16a34a; }
+.rcard--debt .rcard__value { color: #b45309; }
+
+.reports__h {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.reports__warn-tag { font-size: 12px; color: var(--danger); font-weight: 700; }
+.reports__table { width: 100%; border-collapse: collapse; }
+.reports__table td { padding: 7px 4px; border-bottom: 1px solid var(--line); font-size: 15px; }
+.reports__num { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.reports__table-total td { font-weight: 800; border-bottom: none; border-top: 2px solid var(--line); }
+.reports__ok { color: #16a34a; font-weight: 700; margin: 0; }
+
+.reports__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.reports__list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.reports__list-item--warn { border-color: var(--danger); background: var(--danger-soft); }
+.reports__list-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.reports__list-title { font-weight: 700; font-size: 15px; }
+.reports__list-meta { font-size: 12px; color: var(--muted); }
+.reports__neg { color: var(--danger); font-weight: 800; }
+.reports__pos { color: #16a34a; font-weight: 800; }
+.reports__hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }

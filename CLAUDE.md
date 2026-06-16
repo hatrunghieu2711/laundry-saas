@@ -170,6 +170,17 @@ mọi bảng có created_at; bảng mutable có updated_at.
   /shifts/opening-suggestion (= cash_left_for_next ca đóng gần nhất cùng branch;
   nhân viên đếm lại), POST /shifts/{id}/close nhận handover_to_owner. Báo cáo nộp
   chủ: GET /reports/owner-handover (owner) — liệt kê khoản nộp chủ theo ca đã đóng.
+- Báo cáo tổng cho chủ (Stage 6.3): GET /reports/owner-summary (owner) — params
+  from_date/to_date/branch_id (thiếu branch_id = tất cả CN). Trả 4 nhóm trong khoảng:
+  (a) revenue {total, by_day[], by_branch[]} = SUM(orders.total_amount) đơn TẠO trong
+  khoảng, LOẠI order_status='cancelled'; by_branch chỉ điền khi xem tất cả CN.
+  (b) handover = dùng lại owner_handover_report (ca đóng trong khoảng, handover>0).
+  (c) cash_diff {total(net có dấu), count(ca lệch), matched_count(ca khớp), rows[]} —
+  ca ĐÓNG trong khoảng; CHỈ liệt kê ca cash_difference≠0 (cảnh báo thất thoát), ca
+  khớp chỉ ĐẾM. (d) unpaid {total_outstanding, order_count} = đơn TẠO trong khoảng có
+  payment_status IN (unpaid,partial,debt), còn nợ = total_amount − SUM(payments).
+  QUYẾT ĐỊNH: nợ tính theo đơn TẠO trong khoảng (nhất quán filter ngày+CN), giá trị
+  nợ là tới HIỆN TẠI. Ngày theo UTC (MVP). Read-only, không migration.
 - PARTIAL UNIQUE INDEX: CREATE UNIQUE INDEX one_open_shift_per_branch
   ON shifts (branch_id) WHERE status = 'open';
 - Index: (tenant_id, branch_id, opened_at), (branch_id, status)
@@ -676,6 +687,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.7: bill builder nâng cao — sửa MỌI nhãn text (song ngữ, lưu content `<key>_vi/_en`, giá trị động giữ nguyên) + định dạng theo khối (bold/align/size) + khối divider (dashed/solid) & spacer (small/medium) + ghép TỰ DO 2 khối bất kỳ/hàng (kéo-thả + nút) + popup sửa khối (nhãn+nội dung+định dạng) + migrate cấu hình 5.6 giữ nguyên
 - [x] Stage 5.6: bill builder THEO KHỐI (thay layout cứng 2H của 5.3) — receipt_config {bilingual, logo_url, blocks[{id,type,enabled,row,col,content}]} + migrate-on-read cấu hình cũ + Bill.jsx render theo khối (2 khối/hàng, song ngữ) + màn builder (kéo-thả + nút sắp xếp, bật/tắt, ghép/tách khối hẹp, sửa nội dung text, thêm văn bản tự do, toggle tiếng Anh, preview 80mm realtime)
 - [x] Stage 5.5: màn quản lý tài khoản nhân viên (phân quyền theo role + branch) — bổ sung POST /users/{id}/reset-password + PATCH /users/{id}/status (suspended/active, không tự khóa) + list kèm branch_name/in_open_shift + màn "Nhân viên" (owner+manager, ☰): danh sách badge role/trạng thái/đang-trong-ca, lọc theo CN, thêm/sửa/đặt-lại-MK/khóa-mở, hỗ trợ tài khoản theo ca (username). KHÔNG thêm role mới.
+- [x] Stage 6.3: báo cáo cho chủ (owner dashboard cơ bản) — GET /reports/owner-summary (owner; from_date/to_date/branch_id) trả 4 nhóm: doanh thu (total/by_day/by_branch, đơn TẠO trong khoảng, loại cancelled), nộp chủ (reuse owner_handover_report), lệch két (chỉ liệt kê ca cash_difference≠0 cảnh báo thất thoát, đếm ca khớp), nợ chưa thu (đơn tạo trong khoảng còn nợ = total−SUM(payments)) + màn "📊 Báo cáo" (☰, owner): chọn khoảng ngày (mặc định 7 ngày) + chi nhánh (Tất cả/từng CN) + 4 thẻ số (Doanh thu/Đã nộp chủ/Lệch két đỏ nếu có/Nợ chưa thu) + bảng doanh thu theo ngày & theo CN + danh sách lệch két (highlight) hoặc "Tất cả ca khớp ✓" + danh sách nộp chủ + nợ tổng/số đơn. Bản cơ bản: không biểu đồ/Excel/so sánh kỳ. Read-only, không migration. Test: tests/test_owner_summary.py (7).
 - [x] Stage 6.2: đóng ca rút tiền nộp chủ (handover_to_owner; cash_left_for_next=actual−handover, KHÔNG vào expected; 422 nếu vượt) + gợi ý đầu ca = tiền để lại ca trước (GET /shifts/opening-suggestion) + báo cáo nộp chủ (GET /reports/owner-handover) + form đóng ca có ô rút nộp chủ & tiền để lại realtime + 2 phiếu in 80mm (biên nhận nộp chủ + biên bản giao ca với đối soát/bàn giao). Migration e9f0a1b2c3d4.
 - [x] Stage 6.1: màn Ca hiện chỉ số realtime — GET /shifts/{id}/summary (cash_in_drawer dùng công thức reconciliation; transfer_total; total_collected theo ca THU; shift_revenue theo ca TẠO đơn; order_count) + màn Ca nhóm "Tiền trong ca" (két nổi bật/CK-QR/tổng thu) & "Doanh thu" (doanh thu ca/số đơn) + nút làm mới. Phân biệt total_collected vs shift_revenue (đơn nợ qua ca).
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
