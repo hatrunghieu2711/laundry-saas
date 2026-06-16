@@ -18,10 +18,11 @@ import {
   rowsToBlocks,
 } from '../lib/receipt'
 
+// Demo cho preview builder: KHÔNG đặt surcharge_reason/discount_reason để preview
+// giữ nhãn chung "Phụ thu"/"Giảm giá" (tên chiến dịch chỉ hiện ở bill IN THẬT).
 const SAMPLE_ORDER = {
   order_code: 'B1-00042',
   subtotal: 185000, surcharge_amount: 18500, discount_amount: 15000,
-  surcharge_reason: 'Phụ thu Tết', discount_reason: 'Khách quen',
   total_amount: 188500, payment_status: 'paid',
   pickup_at: '2026-06-14T03:30:00Z', created_at: '2026-06-13T09:15:00Z',
   customer_name: 'Chị Lan', customer_phone: '0905 123 456',

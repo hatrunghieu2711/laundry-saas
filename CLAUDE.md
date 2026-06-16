@@ -399,6 +399,12 @@ mọi bảng có created_at; bảng mutable có updated_at.
     helpers `blocksToRows`/`rowsToBlocks`/`removeCellFromRows` ra `lib/receipt.js`
     (dùng chung + test được). Mọi thao tác builder theo (ri,ci) — toggle/✎/⧉(id mới)/
     ⊟ — không nhầm sang khối cùng row.
+  - **Stage 5.10.2 — bill hiện TÊN CHIẾN DỊCH phụ thu/giảm (chỉ frontend):** khối
+    `totals` trên BILL IN THẬT dùng `order.surcharge_reason` / `order.discount_reason`
+    làm nhãn dòng (vd "Phụ Thu Tết", "Giảm giá khai trương"); KHÔNG có reason →
+    fallback nhãn chung sửa được ("Phụ thu"/"Giảm giá"). Subtotal/total giữ nhãn
+    chung. Vẫn căn 2 đầu (rcp__row-lbl/amt). Preview builder dùng SAMPLE_ORDER KHÔNG
+    có reason → giữ nhãn chung (không đổi).
 
 ### plans, subscriptions
 - Tạo bảng trong baseline nhưng CHƯA viết logic — chỉ làm khi có khách ngoài đầu tiên.
@@ -644,6 +650,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.2: trang tracking công khai track.giatui2h.com — GET /public/track/{order_code} (read-only, rate-limit IP/Redis, KHÔNG lộ tiền/khách) + trang tĩnh nhẹ (step indicator Đã nhận→…→Đã giao, liên hệ branch) + nginx subdomain + certbot SSL + QR bill trỏ về subdomain
 - [x] Stage 5.3: phiếu bill SONG NGỮ Việt/Anh khớp mẫu 2H (logo ảnh + bảng món Service/Qty/Price/Total + ghi chú trách nhiệm + footer hotline/web/zalo + phụ thu Tết bật/tắt) — POST /settings/receipt/logo (Pillow resize/optimize) + nginx serve /uploads/ + order customer_phone + màn cấu hình upload logo & sửa text song ngữ & preview realtime
 - [x] Stage 5.4: phụ thu & giảm giá vào TIỀN THẬT — price_rules (tự áp theo ngày, owner CRUD) + orders.subtotal/surcharge_amount/discount_amount (snapshot, total=subtotal+surcharge−discount) + POST /orders nhận surcharge/discount (nhập tay ghi đè rule) + discount_logs + GET /reports/discounts (theo nhân viên/ngày) + màn xác nhận đơn (badge "tự áp" + breakdown Tạm tính→+Phụ thu→−Giảm→Tổng cộng) + màn quản lý quy tắc + bill hiện phụ thu/giảm. (Bỏ phụ thu display-only của 5.3.)
+- [x] Stage 5.10.2: bill IN THẬT hiện TÊN CHIẾN DỊCH phụ thu/giảm (surcharge_reason/discount_reason) thay nhãn chung; không reason → fallback "Phụ thu"/"Giảm giá"; căn 2 đầu; preview builder giữ nhãn chung. Chỉ frontend.
 - [x] Stage 5.10.1: fix bug xóa khối trong hàng ghép — xóa theo (ri,ci) đúng 1 khối (trước đây splice cả hàng → mất cả 2); khối còn lại về col=full; tách pure helpers ra lib + test. Chỉ frontend.
 - [x] Stage 5.10: mẫu gốc nền tảng (placeholder, cho tenant mới) + mẫu mặc định per-tenant (receipt_default_config + Lưu/Khôi phục + 3 trạng thái) + fix bug xóa khối copy (field `removable`: khối copy/owner xóa được, khối gốc chỉ tắt). 2H giữ nguyên config. Migration d8e9f0a1b2c3.
 - [x] Stage 5.9: bill builder sửa bug + UX — fix cỡ chữ bảng món (table nhận size); dòng tổng tiền bỏ ngoặc lý do + căn 2 đầu (nhãn trái/số phải); khối custom_text hiện nội dung rút gọn trong builder; nút ⧉ nhân bản khối (giữ nội dung+định dạng). Chỉ frontend/CSS.

@@ -99,20 +99,23 @@ export default function BillContent({ config, order }) {
           </table>
         )
       case 'totals': {
-        // Mọi dòng căn 2 đầu: nhãn trái, số phải. Tạm tính/Phụ thu/Giảm CHỈ hiện
-        // khi đơn thật sự có (lý do KHÔNG hiển thị — Stage 5.9).
-        const trow = (key, amount, cls = '') => (
+        // Mọi dòng căn 2 đầu: nhãn trái, số phải. Stage 5.10.2: dòng phụ thu/giảm
+        // hiện TÊN CHIẾN DỊCH (surcharge_reason/discount_reason) nếu có; không có
+        // → fallback nhãn chung sửa được ("Phụ thu"/"Giảm giá").
+        const trow = (label, amount, cls = '') => (
           <div className={`rcp__row ${cls}`}>
-            <span className="rcp__row-lbl">{lbl('totals', c, key)}</span>
+            <span className="rcp__row-lbl">{label}</span>
             <span className="rcp__row-amt">{amount}</span>
           </div>
         )
+        const surLabel = (order.surcharge_reason || '').trim() || lbl('totals', c, 'surcharge')
+        const disLabel = (order.discount_reason || '').trim() || lbl('totals', c, 'discount')
         return (
           <div className="rcp__totals">
-            {hasAdj && trow('subtotal', formatVND(subtotal))}
-            {surcharge > 0 && trow('surcharge', `+${formatVND(surcharge)}`)}
-            {discount > 0 && trow('discount', `−${formatVND(discount)}`)}
-            {trow('total', formatVND(grandTotal), 'rcp__row--total')}
+            {hasAdj && trow(lbl('totals', c, 'subtotal'), formatVND(subtotal))}
+            {surcharge > 0 && trow(surLabel, `+${formatVND(surcharge)}`)}
+            {discount > 0 && trow(disLabel, `−${formatVND(discount)}`)}
+            {trow(lbl('totals', c, 'total'), formatVND(grandTotal), 'rcp__row--total')}
           </div>
         )
       }
