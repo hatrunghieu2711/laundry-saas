@@ -50,20 +50,8 @@ export default function Layout({ children }) {
 
   return (
     <div className="app-shell">
-      <header className="app-header">
-        <div className="app-header__brand">
-          <span className="app-header__logo">2H</span>
-          <div className="app-header__titles">
-            <strong>{user?.branch_name || 'Giặt Ủi 2H'}</strong>
-            <small>
-              {user?.full_name} · {user?.role_label}
-            </small>
-          </div>
-        </div>
-        <button className="btn btn--ghost btn--sm" onClick={handleLogout}>
-          Đăng xuất
-        </button>
-      </header>
+      {/* Header GỌN 1 dòng (Stage 6.6): tab trái · chi nhánh + ☰ phải.
+          Tên tiệm / tài khoản / Đăng xuất chuyển vào menu ☰ để tiết kiệm chiều cao. */}
       <nav className="app-nav">
         {NAV.map((n) => (
           <NavLink
@@ -75,6 +63,12 @@ export default function Layout({ children }) {
             {n.label}
           </NavLink>
         ))}
+        <div className="app-nav__spacer" />
+        {user?.branch_name && (
+          <span className="app-nav__branch" title={user.branch_name}>
+            {user.branch_name}
+          </span>
+        )}
         <div className="app-nav__menu" ref={menuRef}>
           <button
             className={`app-nav__tab app-nav__more ${menuOpen ? 'app-nav__tab--active' : ''}`}
@@ -85,15 +79,21 @@ export default function Layout({ children }) {
           </button>
           {menuOpen && (
             <div className="app-menu">
-              {menuItems.length === 0 ? (
-                <div className="app-menu__empty">Không có mục nào</div>
-              ) : (
-                menuItems.map((m) => (
-                  <button key={m.to} className="app-menu__item" onClick={() => go(m.to)}>
-                    {m.label}
-                  </button>
-                ))
-              )}
+              <div className="app-menu__head">
+                <strong>{user?.full_name || 'Giặt Ủi 2H'}</strong>
+                <small>
+                  {user?.role_label}
+                  {user?.branch_name ? ` · ${user.branch_name}` : ''}
+                </small>
+              </div>
+              {menuItems.map((m) => (
+                <button key={m.to} className="app-menu__item" onClick={() => go(m.to)}>
+                  {m.label}
+                </button>
+              ))}
+              <button className="app-menu__item app-menu__logout" onClick={handleLogout}>
+                ↪ Đăng xuất
+              </button>
             </div>
           )}
         </div>

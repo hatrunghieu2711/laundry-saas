@@ -534,8 +534,10 @@ export default function OrderNew() {
           {perUnitServices.map((svc) => (
             <button key={svc.id} className="svc-card" onClick={() => addPerUnit(svc)}>
               <span className="svc-card__name">{svc.name}</span>
-              <span className="svc-card__unit">{UNIT_LABEL[svc.unit] || svc.unit}</span>
-              <span className="svc-card__price">{formatVND(svc.unit_price)}</span>
+              <span className="svc-card__meta">
+                <span className="svc-card__unit">{UNIT_LABEL[svc.unit] || svc.unit}</span>
+                <span className="svc-card__price">{formatVND(svc.unit_price)}</span>
+              </span>
             </button>
           ))}
         </div>
@@ -614,7 +616,7 @@ export default function OrderNew() {
               <strong>{formatVND(total)}</strong>
             </div>
             <button
-              className="btn btn--primary btn--xl btn--block"
+              className="btn btn--primary btn--lg"
               onClick={openConfirm}
               disabled={cart.length === 0}
             >
