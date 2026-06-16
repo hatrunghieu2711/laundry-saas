@@ -2810,3 +2810,51 @@ body {
   gap: 8px;
   margin-top: 8px;
 }
+
+/* ══ Stage 6.1: chỉ số tiền/doanh thu realtime màn Ca ════════════════ */
+.shift__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.metrics-group {
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  background: var(--bg);
+}
+.metrics-group__title {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+.metric {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 5px 0;
+}
+.metric__label {
+  color: var(--ink);
+  font-weight: 600;
+}
+.metric__value {
+  font-weight: 800;
+  white-space: nowrap;
+}
+.metric--hero {
+  background: var(--orange-soft);
+  border: 1.5px solid var(--orange);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 6px;
+}
+.metric--hero .metric__label { color: var(--orange-dark); font-weight: 800; }
+.metric--hero .metric__value { color: var(--orange-dark); font-size: 22px; }

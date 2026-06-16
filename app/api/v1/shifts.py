@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, Query, status
 from app.api.deps import DbSession, PageParams, require_role
 from app.models.user import User
 from app.schemas.common import Page
-from app.schemas.shift import ShiftClose, ShiftOpen, ShiftOut
+from app.schemas.shift import ShiftClose, ShiftOpen, ShiftOut, ShiftSummary
 from app.services import shift_service
 
 router = APIRouter(prefix="/shifts", tags=["shifts"])
@@ -53,6 +53,12 @@ async def list_shifts(
 @router.get("/{shift_id}", response_model=ShiftOut)
 async def get_shift(shift_id: uuid.UUID, actor: ShiftActor, db: DbSession) -> ShiftOut:
     return await shift_service.get_shift(db, actor, shift_id)
+
+
+@router.get("/{shift_id}/summary", response_model=ShiftSummary)
+async def shift_summary(shift_id: uuid.UUID, actor: ShiftActor, db: DbSession) -> ShiftSummary:
+    """Chỉ số realtime ca (Stage 6.1): két, chuyển khoản, tổng thu, doanh thu, số đơn."""
+    return await shift_service.shift_summary(db, actor, shift_id)
 
 
 @router.post("/{shift_id}/close", response_model=ShiftOut)

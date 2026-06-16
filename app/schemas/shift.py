@@ -16,6 +16,21 @@ class ShiftClose(BaseModel):
     closing_cash_actual: Decimal = Field(ge=0)
 
 
+class ShiftSummary(BaseModel):
+    """Chỉ số REALTIME của ca (Stage 6.1). cash_in_drawer dùng đúng công thức
+    reconciliation lúc đóng ca. total_collected (TIỀN THU theo ca thu) vs
+    shift_revenue (DOANH THU theo ca TẠO đơn) — lệch khi có đơn nợ qua ca."""
+
+    shift_id: uuid.UUID
+    status: str
+    opening_cash: Decimal
+    cash_in_drawer: Decimal      # két hiện tại = đầu ca + cash thu + thu quỹ − chi quỹ
+    transfer_total: Decimal      # chuyển khoản + QR (không vào két)
+    total_collected: Decimal     # mọi payment cash+transfer+qr trong ca (theo ca THU)
+    shift_revenue: Decimal       # SUM total_amount đơn TẠO trong ca (kể cả còn nợ)
+    order_count: int             # số đơn TẠO trong ca
+
+
 class ShiftOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -60,6 +60,14 @@ Mục tiêu dài hạn: bán SaaS subscription cho 50–100 branch.
    `cash_difference = actual - expected` và tính sẵn các cột aggregate (gồm
    total_income/total_expense tiền mặt). Lệch két vượt ngưỡng → cảnh báo owner qua
    Telegram (message kèm dòng thu/chi tiền mặt ngoài dịch vụ nếu có).
+5. **Chỉ số REALTIME ca đang mở (Stage 6.1): GET /shifts/{id}/summary** →
+   cash_in_drawer (= ĐÚNG công thức expected lúc đóng ca), transfer_total (CK+QR),
+   total_collected (mọi payment cash+transfer+qr theo shift_id), shift_revenue
+   (SUM total_amount đơn TẠO trong ca: created_at ∈ ca + cùng branch + trừ cancelled),
+   order_count (đơn tạo trong ca). **PHÂN BIỆT KẾ TOÁN (KHÔNG phải bug khi lệch):**
+   total_collected = TIỀN THU theo ca THU (gồm đơn nợ ca TRƯỚC thu ca này — "ai thu
+   người đó ghi nhận"); shift_revenue = DOANH THU theo ca TẠO đơn (kể cả đơn còn nợ
+   chưa thu). Đơn nợ qua ca → 2 số lệch là đúng.
 
 ## QUY TẮC MULTI-TENANT
 
@@ -658,6 +666,7 @@ sms_logs, notifications, inventory, machines.
 - [x] Stage 5.7: bill builder nâng cao — sửa MỌI nhãn text (song ngữ, lưu content `<key>_vi/_en`, giá trị động giữ nguyên) + định dạng theo khối (bold/align/size) + khối divider (dashed/solid) & spacer (small/medium) + ghép TỰ DO 2 khối bất kỳ/hàng (kéo-thả + nút) + popup sửa khối (nhãn+nội dung+định dạng) + migrate cấu hình 5.6 giữ nguyên
 - [x] Stage 5.6: bill builder THEO KHỐI (thay layout cứng 2H của 5.3) — receipt_config {bilingual, logo_url, blocks[{id,type,enabled,row,col,content}]} + migrate-on-read cấu hình cũ + Bill.jsx render theo khối (2 khối/hàng, song ngữ) + màn builder (kéo-thả + nút sắp xếp, bật/tắt, ghép/tách khối hẹp, sửa nội dung text, thêm văn bản tự do, toggle tiếng Anh, preview 80mm realtime)
 - [x] Stage 5.5: màn quản lý tài khoản nhân viên (phân quyền theo role + branch) — bổ sung POST /users/{id}/reset-password + PATCH /users/{id}/status (suspended/active, không tự khóa) + list kèm branch_name/in_open_shift + màn "Nhân viên" (owner+manager, ☰): danh sách badge role/trạng thái/đang-trong-ca, lọc theo CN, thêm/sửa/đặt-lại-MK/khóa-mở, hỗ trợ tài khoản theo ca (username). KHÔNG thêm role mới.
+- [x] Stage 6.1: màn Ca hiện chỉ số realtime — GET /shifts/{id}/summary (cash_in_drawer dùng công thức reconciliation; transfer_total; total_collected theo ca THU; shift_revenue theo ca TẠO đơn; order_count) + màn Ca nhóm "Tiền trong ca" (két nổi bật/CK-QR/tổng thu) & "Doanh thu" (doanh thu ca/số đơn) + nút làm mới. Phân biệt total_collected vs shift_revenue (đơn nợ qua ca).
 - [ ] Stage 5: rollout 3 branch + Admin Dashboard + QR tracking công khai
 - [ ] Stage 6: Delivery module + COD reconciliation + cron (backup/healthcheck/ssl)
 - [ ] Stage 7+: Public API, subscriptions — chỉ khi có khách ngoài thật

@@ -24,6 +24,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import Pagination
 from app.core.errors import APIError
 from app.models.cash_transaction import CashTransaction
+from app.models.order import Order
 from app.models.payment import Payment
 from app.models.shift import Shift
 from app.models.user import User
@@ -193,6 +194,76 @@ async def get_current_shift(
 
 async def get_shift(db: AsyncSession, actor: User, shift_id: uuid.UUID) -> Shift:
     return await _get_shift_in_tenant(db, actor, shift_id)
+
+
+async def shift_summary(db: AsyncSession, actor: User, shift_id: uuid.UUID) -> dict:
+    """Chỉ số REALTIME của ca (Stage 6.1). cash_in_drawer dùng ĐÚNG công thức
+    reconciliation (close_shift) để nhất quán lúc đóng ca.
+
+    PHÂN BIỆT (KHÔNG phải bug khi 2 số lệch):
+    - total_collected = TIỀN THU trong ca này (mọi payment cash+transfer+qr theo
+      shift_id) — GỒM đơn nợ ca TRƯỚC được thu ca này ("ai thu người đó ghi nhận").
+    - shift_revenue = DOANH THU ca này = SUM(total_amount) đơn TẠO trong ca
+      (created_at ∈ ca, cùng branch, trừ đơn đã hủy) — kể cả đơn còn nợ chưa thu.
+    """
+    shift = await _get_shift_in_tenant(db, actor, shift_id)
+
+    def _sum(method: str):
+        return func.coalesce(
+            func.sum(Payment.amount).filter(Payment.payment_method == method), _ZERO
+        )
+
+    pay = (
+        await db.execute(
+            select(
+                _sum("cash").label("cash"),
+                _sum("transfer").label("transfer"),
+                _sum("qr").label("qr"),
+            ).where(Payment.shift_id == shift.id)
+        )
+    ).one()
+
+    def _ct_cash(ttype: str):
+        return func.coalesce(
+            func.sum(CashTransaction.amount).filter(
+                CashTransaction.type == ttype,
+                CashTransaction.payment_method == "cash",
+            ),
+            _ZERO,
+        )
+
+    ct = (
+        await db.execute(
+            select(_ct_cash("income").label("income"), _ct_cash("expense").label("expense"))
+            .where(CashTransaction.shift_id == shift.id)
+        )
+    ).one()
+
+    # Doanh thu theo ca TẠO đơn: created_at ∈ [opened_at, closed_at|now], cùng branch.
+    rev_q = select(
+        func.coalesce(func.sum(Order.total_amount), _ZERO).label("revenue"),
+        func.count().label("cnt"),
+    ).where(
+        Order.tenant_id == shift.tenant_id,
+        Order.branch_id == shift.branch_id,
+        Order.created_at >= shift.opened_at,
+        Order.order_status != "cancelled",
+    )
+    if shift.closed_at is not None:
+        rev_q = rev_q.where(Order.created_at <= shift.closed_at)
+    rev = (await db.execute(rev_q)).one()
+
+    return {
+        "shift_id": shift.id,
+        "status": shift.status,
+        "opening_cash": shift.opening_cash,
+        # Két = đầu ca + tiền mặt thu đơn + thu quỹ cash − chi quỹ cash (= expected đóng ca).
+        "cash_in_drawer": shift.opening_cash + pay.cash + ct.income - ct.expense,
+        "transfer_total": pay.transfer + pay.qr,
+        "total_collected": pay.cash + pay.transfer + pay.qr,
+        "shift_revenue": rev.revenue,
+        "order_count": rev.cnt,
+    }
 
 
 async def list_shifts(

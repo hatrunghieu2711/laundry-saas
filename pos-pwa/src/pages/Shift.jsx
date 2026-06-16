@@ -62,7 +62,9 @@ export default function Shift() {
   const [branches, setBranches] = useState([])
   const [branchId, setBranchId] = useState(isOwner ? null : user?.branch_id || null)
   const [shift, setShift] = useState(undefined) // undefined=loading, null=chưa có ca, obj=đang mở
-  const [summary, setSummary] = useState(null)
+  const [summary, setSummary] = useState(null) // client-side (cho form đóng ca)
+  const [metrics, setMetrics] = useState(null) // realtime từ GET /shifts/{id}/summary (Stage 6.1)
+  const [refreshing, setRefreshing] = useState(false)
   const [view, setView] = useState('main') // main | open | close | result
   const [opening, setOpening] = useState('')
   const [actual, setActual] = useState('')
@@ -86,6 +88,7 @@ export default function Shift() {
   const loadCurrent = useCallback(async () => {
     setError('')
     setSummary(null)
+    setMetrics(null)
     if (isOwner && !branchId) {
       setShift(undefined)
       return
@@ -95,7 +98,12 @@ export default function Shift() {
       const q = isOwner ? `?branch_id=${branchId}` : ''
       const s = await api.get(`/shifts/current${q}`)
       setShift(s)
-      setSummary(await fetchShiftSummary(s.id))
+      const [cs, m] = await Promise.all([
+        fetchShiftSummary(s.id),
+        api.get(`/shifts/${s.id}/summary`),
+      ])
+      setSummary(cs)
+      setMetrics(m)
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setShift(null) // chưa có ca mở
@@ -159,6 +167,24 @@ export default function Shift() {
     setClosed(null)
     setView('main')
     await loadCurrent()
+  }
+
+  // Làm mới chỉ số realtime (không reset cả màn, tránh nháy).
+  const refresh = async () => {
+    if (!shift) return
+    setRefreshing(true)
+    try {
+      const [cs, m] = await Promise.all([
+        fetchShiftSummary(shift.id),
+        api.get(`/shifts/${shift.id}/summary`),
+      ])
+      setSummary(cs)
+      setMetrics(m)
+    } catch (err) {
+      setError(err?.message || 'Không làm mới được chỉ số')
+    } finally {
+      setRefreshing(false)
+    }
   }
 
   const expected = summary
@@ -244,7 +270,12 @@ export default function Shift() {
       {/* ── CA ĐANG MỞ ── */}
       {view === 'main' && shift && (
         <div className="card">
-          <div className="badge badge--open">● Ca đang mở</div>
+          <div className="shift__head">
+            <div className="badge badge--open">● Ca đang mở</div>
+            <button className="btn btn--ghost btn--sm" onClick={refresh} disabled={refreshing}>
+              {refreshing ? '…' : '🔄 Làm mới'}
+            </button>
+          </div>
           <dl className="kv">
             <div><dt>Giờ mở</dt><dd>{formatDateTime(shift.opened_at)}</dd></div>
             <div>
@@ -255,8 +286,38 @@ export default function Shift() {
               </dd>
             </div>
             <div><dt>Tiền đầu ca</dt><dd>{formatVND(shift.opening_cash)}</dd></div>
-            <div><dt>Số đơn đã thu</dt><dd>{summary ? summary.ordersCount : '…'}</dd></div>
           </dl>
+
+          {/* NHÓM Tiền trong ca (theo ca THU) */}
+          <div className="metrics-group">
+            <div className="metrics-group__title">Tiền trong ca</div>
+            <div className="metric metric--hero">
+              <span className="metric__label">💵 Tiền mặt trong két</span>
+              <span className="metric__value">{metrics ? formatVND(metrics.cash_in_drawer) : '…'}</span>
+            </div>
+            <div className="metric">
+              <span className="metric__label">🏦 Chuyển khoản / QR</span>
+              <span className="metric__value">{metrics ? formatVND(metrics.transfer_total) : '…'}</span>
+            </div>
+            <div className="metric">
+              <span className="metric__label">Tổng đã thu</span>
+              <span className="metric__value">{metrics ? formatVND(metrics.total_collected) : '…'}</span>
+            </div>
+          </div>
+
+          {/* NHÓM Doanh thu (theo ca TẠO đơn) */}
+          <div className="metrics-group">
+            <div className="metrics-group__title">Doanh thu</div>
+            <div className="metric">
+              <span className="metric__label">📊 Doanh thu ca</span>
+              <span className="metric__value">{metrics ? formatVND(metrics.shift_revenue) : '…'}</span>
+            </div>
+            <div className="metric">
+              <span className="metric__label">Số đơn</span>
+              <span className="metric__value">{metrics ? metrics.order_count : '…'}</span>
+            </div>
+          </div>
+
           <button
             className="btn btn--primary btn--xl btn--block"
             onClick={() => navigate('/orders/new')}
