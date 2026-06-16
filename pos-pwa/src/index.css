@@ -52,8 +52,11 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
   transition: background 0.12s ease, opacity 0.12s ease;
+}
+/* ── Buttons ─────────────────────────────────────────────────────── */
+.btn > * + * {
+  margin-left: 8px;
 }
 .btn:disabled {
   opacity: 0.55;
@@ -83,8 +86,11 @@ body {
 .field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   margin-bottom: 16px;
+}
+/* ── Form fields ─────────────────────────────────────────────────── */
+.field > * + * {
+  margin-top: 6px;
 }
 .field > span {
   font-size: 14px;
@@ -175,18 +181,22 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   padding: 10px 16px;
   padding-top: max(10px, env(safe-area-inset-top));
   position: sticky;
   top: 0;
   z-index: 10;
 }
+.app-header > * + * {
+  margin-left: 12px;
+}
 .app-header__brand {
   display: flex;
   align-items: center;
-  gap: 12px;
   min-width: 0;
+}
+.app-header__brand > * + * {
+  margin-left: 12px;
 }
 .app-header__logo {
   width: 44px;
@@ -228,9 +238,14 @@ body {
   margin: 0 0 20px;
 }
 .grid-actions {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: -7px;
+}
+.grid-actions > * {
+  flex: 1 1 calc(50% - 14px);
+  margin: 7px;
+  box-sizing: border-box;
 }
 .action-card {
   background: var(--surface);
@@ -243,8 +258,10 @@ body {
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 8px;
   cursor: pointer;
+}
+.action-card > * + * {
+  margin-top: 8px;
 }
 .action-card__icon {
   font-size: 30px;
@@ -325,16 +342,19 @@ body {
 
 .kv {
   margin: 0 0 18px;
-  display: grid;
-  gap: 10px;
+}
+.kv > div + div {
+  margin-top: 10px;
 }
 .kv > div {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  gap: 12px;
   border-bottom: 1px dashed var(--line);
   padding-bottom: 8px;
+}
+.kv > div > * + * {
+  margin-left: 12px;
 }
 .kv dt {
   color: var(--muted);
@@ -447,8 +467,11 @@ body {
 /* Hàng nút (hủy / xác nhận) */
 .row-actions {
   display: flex;
-  gap: 12px;
   margin-top: 18px;
+}
+/* Hàng nút (hủy / xác nhận) */
+.row-actions > * + * {
+  margin-left: 12px;
 }
 .row-actions .btn {
   flex: 1;
@@ -465,9 +488,11 @@ body {
 }
 .branch-picker__chips {
   display: flex;
-  gap: 8px;
   overflow-x: auto;
   padding: 8px 0 2px;
+}
+.branch-picker__chips > * + * {
+  margin-left: 8px;
 }
 .chip {
   flex: none;
@@ -517,12 +542,16 @@ body {
   margin-bottom: 8px;
 }
 
-/* Lưới dịch vụ per_unit (đồ lẻ) */
+/* Lưới dịch vụ per_unit (đồ lẻ). Flex-wrap thay grid auto-fill (Chrome cũ). */
 .svc-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-  margin-top: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  margin-top: 7px;
+}
+.svc-grid > * {
+  flex: 1 1 150px;
+  margin: 5px;
+  box-sizing: border-box;
 }
 .svc-card {
   min-height: 84px;
@@ -533,10 +562,12 @@ body {
   flex-direction: column;
   align-items: flex-start;
   justify-content: center;
-  gap: 2px;
   padding: 10px 12px;
   text-align: left;
   cursor: pointer;
+}
+.svc-card > * + * {
+  margin-top: 2px;
 }
 .svc-card:active {
   background: var(--orange-soft);
@@ -557,9 +588,14 @@ body {
 }
 
 .pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: -5px;
+}
+.pricing-grid > * {
+  flex: 1 1 150px;
+  margin: 5px;
+  box-sizing: border-box;
 }
 .tier-btn {
   min-height: 84px;
@@ -570,8 +606,10 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
   cursor: pointer;
+}
+.tier-btn > * + * {
+  margin-top: 4px;
 }
 .tier-btn:active {
   background: #ffe6d2;
@@ -601,8 +639,10 @@ body {
 }
 .perkg__row {
   display: flex;
-  gap: 10px;
   margin-top: 8px;
+}
+.perkg__row > * + * {
+  margin-left: 10px;
 }
 .perkg__row .input {
   flex: 1;
@@ -622,18 +662,22 @@ body {
 .cart__item {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 10px 12px;
   margin-bottom: 8px;
 }
+.cart__item > * + * {
+  margin-top: 6px;
+}
 .cart__top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+}
+.cart__top > * + * {
+  margin-left: 8px;
 }
 .cart__name {
   font-weight: 700;
@@ -662,7 +706,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+}
+.cart__bot > * + * {
+  margin-left: 8px;
 }
 .cart__amt {
   font-weight: 800;
@@ -680,8 +726,10 @@ body {
 .cart__qty {
   display: flex;
   align-items: center;
-  gap: 6px;
   flex: none;
+}
+.cart__qty > * + * {
+  margin-left: 6px;
 }
 .qty-btn {
   width: 40px;
@@ -720,8 +768,10 @@ body {
 .customer__fields {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   padding-bottom: 14px;
+}
+.customer__fields > * + * {
+  margin-top: 10px;
 }
 
 /* Thanh tổng + nút TẠO ĐƠN dính đáy màn hình */
@@ -736,8 +786,11 @@ body {
   padding-bottom: max(10px, env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
-  gap: 8px;
   box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.06);
+}
+/* Thanh tổng + nút TẠO ĐƠN dính đáy màn hình */
+.order-bar > * + * {
+  margin-top: 8px;
 }
 .order-bar__total {
   display: flex;
@@ -789,18 +842,26 @@ body {
     padding-bottom: 0;
   }
   .ordernew__grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 380px;
-    gap: 20px;
-    align-items: start;
+    display: flex;
+    align-items: flex-start;
+  }
+  .ordernew__grid > * + * {
+    margin-left: 20px;
+  }
+  .ordernew__grid > :first-child {
+    flex: 1 1 0;
+    min-width: 0;
   }
   .ordernew__side {
+    flex: 0 0 380px;
     position: sticky;
     top: 112px; /* dưới header + tab nav */
     display: flex;
     flex-direction: column;
-    gap: 14px;
   }
+.ordernew__side > * + * {
+    margin-top: 14px;
+}
   .ordernew__side .customer {
     margin-top: 0;
   }
@@ -811,21 +872,24 @@ body {
     border-radius: var(--radius);
     box-shadow: var(--shadow);
   }
-  .svc-grid {
-    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  .svc-grid > * {
+    flex-basis: 160px;
   }
 }
 
 /* ── Tab nav dưới header ──────────────────────────────────────────── */
 .app-nav {
   display: flex;
-  gap: 4px;
   background: var(--surface);
   border-bottom: 1px solid var(--line);
   padding: 0 8px;
   position: sticky;
   top: 0;
   z-index: 9;
+}
+/* ── Tab nav dưới header ──────────────────────────────────────────── */
+.app-nav > * + * {
+  margin-left: 4px;
 }
 .app-nav__tab {
   flex: 1;
@@ -863,17 +927,21 @@ body {
 }
 .orders__search {
   display: flex;
-  gap: 8px;
   margin-bottom: 10px;
+}
+.orders__search > * + * {
+  margin-left: 8px;
 }
 .orders__search .input {
   flex: 1;
 }
 .chip-row {
   display: flex;
-  gap: 8px;
   overflow-x: auto;
   padding-bottom: 8px;
+}
+.chip-row > * + * {
+  margin-left: 8px;
 }
 .chip--sm {
   min-height: 38px;
@@ -883,8 +951,10 @@ body {
 .order-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   margin: 6px 0 14px;
+}
+.order-list > * + * {
+  margin-top: 10px;
 }
 .order-row {
   text-align: left;
@@ -912,8 +982,10 @@ body {
 .order-row__mid {
   display: flex;
   align-items: center;
-  gap: 10px;
   margin: 6px 0;
+}
+.order-row__mid > * + * {
+  margin-left: 10px;
 }
 .order-row__os {
   font-size: 14px;
@@ -934,7 +1006,10 @@ body {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 14px;
+}
+.detail > * + *,
+.pay > * + * {
+  margin-top: 14px;
 }
 .detail .card,
 .pay .card {
@@ -954,7 +1029,9 @@ body {
 .detail__actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.detail__actions > * + * {
+  margin-top: 10px;
 }
 
 .confirm {
@@ -974,9 +1051,12 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
-  gap: 10px;
   padding: 10px 0;
   border-bottom: 1px dashed var(--line);
+}
+/* Lịch sử payment */
+.pay-row > * + * {
+  margin-left: 10px;
 }
 .pay-row:last-child {
   border-bottom: none;
@@ -1011,7 +1091,10 @@ body {
 .pay-amounts {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+/* ── Thu tiền ────────────────────────────────────────────────────── */
+.pay-amounts > * + * {
+  margin-top: 8px;
 }
 .pay-amounts > div {
   display: flex;
@@ -1036,10 +1119,14 @@ body {
   color: var(--muted);
 }
 .method-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 10px;
-  margin-top: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: 3px -5px 0;
+}
+.method-grid > * {
+  flex: 1 1 calc(50% - 10px);
+  margin: 5px;
+  box-sizing: border-box;
 }
 .method-btn {
   min-height: 56px;
@@ -1065,8 +1152,8 @@ body {
 }
 
 @media (min-width: 640px) {
-  .method-grid {
-    grid-template-columns: repeat(4, 1fr);
+  .method-grid > * {
+    flex-basis: calc(25% - 10px);
   }
 }
 
@@ -1121,8 +1208,10 @@ body {
 }
 .rcp__info-row {
   display: flex;
-  gap: 8px;
   padding: 1px 0;
+}
+.rcp__info-row > * + * {
+  margin-left: 8px;
 }
 .rcp__info-cell {
   flex: 1;
@@ -1183,9 +1272,11 @@ body {
 .rcp__row {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
   padding: 1px 0;
   font-size: 12px;
+}
+.rcp__row > * + * {
+  margin-left: 8px;
 }
 /* Nhãn trái (co được), số phải (không wrap, có khoảng cách) — Stage 5.9. */
 .rcp__row-lbl {
@@ -1310,7 +1401,10 @@ body {
 .rcfg {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+}
+/* ══ Cấu hình mẫu phiếu in + preview trên màn ════════════════════════ */
+.rcfg > * + * {
+  margin-top: 16px;
 }
 .rcfg__editor {
   min-width: 0;
@@ -1323,12 +1417,20 @@ body {
 }
 @media (min-width: 920px) {
   .rcfg {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) 340px;
-    gap: 24px;
-    align-items: start;
+    display: flex;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  .rcfg > * + * {
+    margin-top: 0;
+    margin-left: 24px;
+  }
+  .rcfg__editor {
+    flex: 1 1 0;
+    min-width: 0;
   }
   .rcfg__preview {
+    flex: 0 0 340px;
     position: sticky;
     top: 16px;
   }
@@ -1337,9 +1439,12 @@ body {
 /* Logo upload */
 .rcfg__logo {
   display: flex;
-  gap: 14px;
   align-items: center;
   margin-bottom: 10px;
+}
+/* Logo upload */
+.rcfg__logo > * + * {
+  margin-left: 14px;
 }
 .rcfg__logo-prev {
   width: 90px;
@@ -1383,16 +1488,20 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+}
+.rcfg__card-head > * + * {
+  margin-left: 8px;
 }
 .rcfg__switch {
   display: flex;
   align-items: center;
-  gap: 6px;
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
   cursor: pointer;
+}
+.rcfg__switch > * + * {
+  margin-left: 6px;
 }
 .rcfg__switch input {
   width: 20px;
@@ -1419,8 +1528,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   margin-bottom: 14px;
+}
+.services__head > * + * {
+  margin-left: 12px;
 }
 .services__title {
   margin: 0;
@@ -1429,12 +1540,14 @@ body {
 .services__toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
   color: var(--muted);
   font-size: 15px;
   font-weight: 600;
   margin: 4px 0 12px;
   cursor: pointer;
+}
+.services__toggle > * + * {
+  margin-left: 8px;
 }
 .services__toggle input {
   width: 20px;
@@ -1452,9 +1565,13 @@ body {
 
 /* Segmented control loại tính tiền */
 .seg {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
+  display: flex;
+}
+.seg > * + * {
+  margin-left: 8px;
+}
+.seg > .seg__btn {
+  flex: 1 1 0;
 }
 .seg__btn {
   min-height: var(--tap);
@@ -1473,13 +1590,37 @@ body {
   color: var(--orange-dark);
 }
 
-/* Editor bậc giá */
+/* Editor bậc giá — flex 5 cột (Chrome cũ không grid). Tỉ lệ qua flex-grow,
+   2 nút cuối cố định 44px. */
 .tier-edit__head,
 .tier-edit {
-  display: grid;
-  grid-template-columns: 1.4fr 0.9fr 1.1fr 44px 44px;
-  gap: 8px;
+  display: flex;
   align-items: center;
+}
+.tier-edit__head > * + *,
+.tier-edit > * + * {
+  margin-left: 8px;
+}
+.tier-edit__head > :nth-child(1),
+.tier-edit > :nth-child(1) {
+  flex: 1.4 1 0;
+  min-width: 0;
+}
+.tier-edit__head > :nth-child(2),
+.tier-edit > :nth-child(2) {
+  flex: 0.9 1 0;
+  min-width: 0;
+}
+.tier-edit__head > :nth-child(3),
+.tier-edit > :nth-child(3) {
+  flex: 1.1 1 0;
+  min-width: 0;
+}
+.tier-edit__head > :nth-child(4),
+.tier-edit > :nth-child(4),
+.tier-edit__head > :nth-child(5),
+.tier-edit > :nth-child(5) {
+  flex: 0 0 44px;
 }
 .tier-edit__head {
   font-size: 13px;
@@ -1509,18 +1650,23 @@ body {
 .svc-manage-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+/* Danh sách dịch vụ */
+.svc-manage-list > * + * {
+  margin-top: 10px;
 }
 .svc-manage {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 12px 14px;
+}
+.svc-manage > * + * {
+  margin-left: 10px;
 }
 .svc-manage--off {
   opacity: 0.6;
@@ -1535,7 +1681,9 @@ body {
   font-size: 17px;
   display: flex;
   align-items: center;
-  gap: 8px;
+}
+.svc-manage__name > * + * {
+  margin-left: 8px;
 }
 .svc-manage__badge {
   font-size: 12px;
@@ -1551,8 +1699,10 @@ body {
 }
 .svc-manage__actions {
   display: flex;
-  gap: 8px;
   flex: none;
+}
+.svc-manage__actions > * + * {
+  margin-left: 8px;
 }
 
 /* ══ Stage 3.7B ══════════════════════════════════════════════════════ */
@@ -1561,17 +1711,27 @@ body {
 .pickup-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+/* ══ Stage 3.7B ══════════════════════════════════════════════════════ */
+
+/* ── Wheel time picker (giờ hẹn giao) ─────────────────────────────── */
+.pickup-card > * + * {
+  margin-top: 10px;
 }
 .pickup {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.pickup > * + * {
+  margin-top: 10px;
 }
 .pickup__dates {
   display: flex;
-  gap: 8px;
   flex-wrap: wrap;
+  margin: -4px;
+}
+.pickup__dates > * {
+  margin: 4px;
 }
 .pickup__cal {
   margin-top: 2px;
@@ -1582,8 +1742,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
   user-select: none;
+}
+.pickup__wheels > * + * {
+  margin-left: 6px;
 }
 /* Dải highlight ô đang chọn (dòng giữa, ROWS=3 → top = 1×40px) */
 .pickup__wheels::before {
@@ -1669,10 +1831,12 @@ body {
 }
 .board__bar {
   display: flex;
-  gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
   margin-bottom: 10px;
+}
+.board__bar > * + * {
+  margin-left: 8px;
 }
 .board__bar::-webkit-scrollbar {
   display: none;
@@ -1717,8 +1881,10 @@ body {
 .board__toolbar {
   display: flex;
   align-items: center;
-  gap: 10px;
   margin-bottom: 10px;
+}
+.board__toolbar > * + * {
+  margin-left: 10px;
 }
 .board__updated {
   font-size: 13px;
@@ -1726,11 +1892,13 @@ body {
 }
 .board__cols {
   display: flex;
-  gap: 12px;
   overflow-x: auto;
   scroll-snap-type: x proximity;
   padding-bottom: 12px;
   -webkit-overflow-scrolling: touch;
+}
+.board__cols > * + * {
+  margin-left: 12px;
 }
 /* Điện thoại: cột rộng ~80% màn → thấy cột kế bên, cuộn ngang giữa cột. */
 .board__col {
@@ -1765,8 +1933,10 @@ body {
 .board__col-body {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   padding: 10px;
+}
+.board__col-body > * + * {
+  margin-top: 8px;
 }
 .board__empty {
   text-align: center;
@@ -1791,8 +1961,10 @@ body {
   padding: 10px 12px 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
   cursor: pointer;
+}
+.board__card-main > * + * {
+  margin-top: 4px;
 }
 .bl--unpaid { border-left-color: #dc2626; }
 .bl--partial { border-left-color: #f59e0b; }
@@ -1803,7 +1975,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+}
+.board__card-top > * + * {
+  margin-left: 8px;
 }
 .board__card-code {
   font-weight: 800;
@@ -1829,7 +2003,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+}
+.board__card-bot > * + * {
+  margin-left: 8px;
 }
 .board__card-total {
   font-weight: 800;
@@ -1852,8 +2028,11 @@ body {
 .board__card-actions {
   display: flex;
   align-items: center;
-  gap: 6px;
   padding: 0 8px 8px;
+}
+/* Hàng thao tác nhanh trên thẻ Kanban */
+.board__card-actions > * + * {
+  margin-left: 6px;
 }
 .card-act {
   min-height: 34px;
@@ -1917,9 +2096,12 @@ body {
 /* Thanh trên cùng: search + chuyển view */
 .orders-top {
   display: flex;
-  gap: 10px;
   align-items: center;
   margin-bottom: 10px;
+}
+/* Thanh trên cùng: search + chuyển view */
+.orders-top > * + * {
+  margin-left: 10px;
 }
 .orders-top__search {
   flex: 1;
@@ -2002,7 +2184,10 @@ body {
 /* ── Modal bắt buộc (giao + thanh toán) ───────────────────────────── */
 .modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background: rgba(15, 23, 42, 0.55);
   display: flex;
   align-items: flex-end;
@@ -2030,7 +2215,9 @@ body {
 .modal__actions {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.modal__actions > * + * {
+  margin-top: 10px;
 }
 @media (min-width: 640px) {
   .modal-overlay {
@@ -2044,12 +2231,13 @@ body {
 .zones {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.zones > * + * {
+  margin-top: 10px;
 }
 .zones__tabs {
   display: flex;
   flex-direction: row;
-  gap: 6px;
   overflow-x: auto;
   scrollbar-width: none;
   position: sticky;
@@ -2057,6 +2245,9 @@ body {
   z-index: 5;
   background: var(--bg);
   padding-bottom: 4px;
+}
+.zones__tabs > * + * {
+  margin-left: 6px;
 }
 .zones__tabs::-webkit-scrollbar {
   display: none;
@@ -2066,7 +2257,6 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
   min-width: 76px;
   padding: 8px 10px;
   border: 1px solid var(--line);
@@ -2075,6 +2265,9 @@ body {
   color: var(--muted);
   font-weight: 700;
   cursor: pointer;
+}
+.cat-tab > * + * {
+  margin-top: 2px;
 }
 .cat-tab--active {
   border-color: var(--orange);
@@ -2094,13 +2287,17 @@ body {
 .zones__mid {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   min-height: 0;
+}
+.zones__mid > * + * {
+  margin-top: 8px;
 }
 .zones__grid {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+}
+.zones__grid > * + * {
+  margin-top: 12px;
 }
 .zones__cart {
   position: sticky;
@@ -2125,7 +2322,9 @@ body {
   padding: 10px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+.zones__cart-foot > * + * {
+  margin-top: 8px;
 }
 
 /* Desktop/POS: 3 cột cố định chiều cao màn, KHÔNG cuộn cả trang. */
@@ -2140,14 +2339,20 @@ body {
   .app-main:has(.ordernew--zones) {
     max-width: 1480px;
   }
+  /* Chrome cũ (Sunmi) không hỗ trợ CSS Grid → dùng flex-row 3 cột (104 / co giãn
+     / 340). Khoảng cách cột bằng margin (gap trong flex không chạy ở Chrome<84). */
   .zones {
     flex: 1;
     min-height: 0;
-    display: grid;
-    grid-template-columns: 104px minmax(0, 1fr) 340px;
-    gap: 14px;
+    display: flex;
+    flex-direction: row;
+  }
+  .zones > * + * {
+    margin-top: 0;
+    margin-left: 14px;
   }
   .zones__tabs {
+    flex: 0 0 104px;
     flex-direction: column;
     overflow-x: hidden;
     overflow-y: auto;
@@ -2162,6 +2367,8 @@ body {
     max-width: 100%;
   }
   .zones__mid {
+    flex: 1 1 0;
+    min-width: 0;
     min-height: 0;
   }
   .zones__grid {
@@ -2170,6 +2377,7 @@ body {
     padding-right: 4px;
   }
   .zones__cart {
+    flex: 0 0 340px;
     position: static;
     max-height: none;
     height: 100%;
@@ -2184,7 +2392,9 @@ body {
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.modal--confirm > * + * {
+  margin-top: 10px;
 }
 .modal--confirm .field {
   margin: 0;
@@ -2193,19 +2403,26 @@ body {
 .modal__cols {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.modal__cols > * + * {
+  margin-top: 10px;
 }
 .modal__col {
   display: flex;
   flex-direction: column;
-  gap: 10px;
   min-width: 0;
+}
+.modal__col > * + * {
+  margin-top: 10px;
 }
 /* Màn rộng: 2 cột — trái thông tin khách, phải giờ giao (wheel cạnh ô nhập). */
 @media (min-width: 560px) {
   .modal__cols {
     flex-direction: row;
     align-items: flex-start;
+  }
+  .modal__cols > * + * {
+    margin-top: 0;
   }
   .modal__col {
     flex: 1 1 0;
@@ -2231,22 +2448,27 @@ body {
   font-weight: 700;
 }
 /* Trong modal: pickup gọn lại */
-.modal--confirm .pickup {
-  gap: 8px;
+.modal--confirm .pickup > * + * {
+  margin-top: 8px;
 }
 
 /* Bước thanh toán trong modal */
 .paystep {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   border-top: 1px solid var(--line);
   padding-top: 10px;
+}
+/* Bước thanh toán trong modal */
+.paystep > * + * {
+  margin-top: 8px;
 }
 .paystep__body {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.paystep__body > * + * {
+  margin-top: 10px;
 }
 .paystep__amount {
   margin: 0;
@@ -2277,10 +2499,13 @@ body {
 .svc-fav-toggle {
   display: flex;
   align-items: center;
-  gap: 8px;
   font-weight: 600;
   margin: 4px 0 14px;
   cursor: pointer;
+}
+/* Quản lý bảng giá: danh mục + Hay chọn */
+.svc-fav-toggle > * + * {
+  margin-left: 8px;
 }
 .svc-fav-toggle input {
   width: 20px;
@@ -2330,10 +2555,14 @@ body {
 }
 
 .cashbook__actions {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  display: flex;
   margin: 14px 0;
+}
+.cashbook__actions > * {
+  flex: 1 1 0;
+}
+.cashbook__actions > * + * {
+  margin-left: 12px;
 }
 
 .cashbook__list {
@@ -2342,19 +2571,23 @@ body {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+.cashbook__list > * + * {
+  margin-top: 8px;
 }
 .cashbook__item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-left: 4px solid var(--line);
   border-radius: var(--radius);
   padding: 12px 14px;
   box-shadow: var(--shadow);
+}
+.cashbook__item > * + * {
+  margin-left: 12px;
 }
 .cashbook__item--income {
   border-left-color: var(--success);
@@ -2365,8 +2598,10 @@ body {
 .cashbook__item-main {
   display: flex;
   flex-direction: column;
-  gap: 2px;
   min-width: 0;
+}
+.cashbook__item-main > * + * {
+  margin-top: 2px;
 }
 .cashbook__item-cat {
   font-weight: 700;
@@ -2393,11 +2628,16 @@ body {
   text-decoration: none;
 }
 
-/* Bộ chọn icon (emoji) */
+/* Bộ chọn icon (emoji) — flex-wrap thay grid auto-fill (Chrome cũ). */
 .icon-picker {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
-  gap: 8px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: -4px;
+}
+.icon-picker > * {
+  flex: 0 0 46px;
+  width: 46px;
+  margin: 4px;
 }
 .icon-opt {
   min-height: 46px;
@@ -2416,22 +2656,29 @@ body {
 .cat-manage-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+/* Danh sách danh mục */
+.cat-manage-list > * + * {
+  margin-top: 8px;
 }
 .cat-manage {
   display: flex;
   align-items: center;
-  gap: 12px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 10px 14px;
 }
+.cat-manage > * + * {
+  margin-left: 12px;
+}
 .cat-manage__order {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+}
+.cat-manage__order > * + * {
+  margin-top: 4px;
 }
 .cat-manage__order .qty-btn {
   min-height: 26px;
@@ -2451,7 +2698,9 @@ body {
 }
 .cat-manage__actions {
   display: flex;
-  gap: 6px;
+}
+.cat-manage__actions > * + * {
+  margin-left: 6px;
 }
 
 /* ══ Stage 5.4: Phụ thu / Giảm giá (vào tiền thật) ═══════════════════ */
@@ -2462,35 +2711,47 @@ body {
   padding-top: 12px;
 }
 .adj__inputs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: -7px;
+}
+.adj__inputs > * {
+  flex: 1 1 calc(50% - 14px);
+  margin: 7px;
+  box-sizing: border-box;
 }
 @media (max-width: 560px) {
-  .adj__inputs {
-    grid-template-columns: 1fr;
+  .adj__inputs > * {
+    flex-basis: 100%;
   }
 }
 .adj__block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+}
+.adj__block > * + * {
+  margin-top: 6px;
 }
 .adj__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+}
+.adj__head > * + * {
+  margin-left: 8px;
 }
 .adj__reason {
   font-size: 13px;
 }
 .seg--sm {
-  display: inline-grid;
-  grid-template-columns: 40px 40px;
-  gap: 4px;
+  display: inline-flex;
+}
+.seg--sm > * + * {
+  margin-left: 4px;
 }
 .seg--sm .seg__btn {
+  flex: 0 0 40px;
+  width: 40px;
   min-height: 34px;
   font-size: 14px;
   padding: 2px 6px;
@@ -2516,9 +2777,11 @@ body {
 .adj__row {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
   padding: 2px 0;
   font-size: 14px;
+}
+.adj__row > * + * {
+  margin-left: 8px;
 }
 .adj__row--minus {
   color: var(--green, #137333);
@@ -2535,12 +2798,17 @@ body {
 .rule-form {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+}
+/* Màn quản lý quy tắc phụ thu/giảm */
+.rule-form > * + * {
+  margin-top: 12px;
 }
 .rule-form__row {
   display: flex;
-  gap: 10px;
   align-items: flex-end;
+}
+.rule-form__row > * + * {
+  margin-left: 10px;
 }
 .rule-form__row .field {
   flex: 1;
@@ -2587,7 +2855,11 @@ body {
 /* Khối bill: 2 khối/hàng (chia đôi 80mm) — dùng cho cả in + preview. */
 .rcp__brow {
   display: flex;
-  gap: 8px;
+}
+/* ══ Stage 5.6: Bill builder theo khối ═══════════════════════════════ */
+/* Khối bill: 2 khối/hàng (chia đôi 80mm) — dùng cho cả in + preview. */
+.rcp__brow > * + * {
+  margin-left: 8px;
 }
 .rcp__bcell {
   flex: 1;
@@ -2631,16 +2903,21 @@ body {
 .bld-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+}
+/* Builder (màn cấu hình) */
+.bld-list > * + * {
+  margin-top: 8px;
 }
 .bld-row {
   display: flex;
   align-items: center;
-  gap: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 6px 8px;
   background: #fff;
+}
+.bld-row > * + * {
+  margin-left: 8px;
 }
 .bld-row__grip {
   cursor: grab;
@@ -2651,20 +2928,24 @@ body {
 }
 .bld-row__cells {
   display: flex;
-  gap: 8px;
   flex: 1;
   min-width: 0;
+}
+.bld-row__cells > * + * {
+  margin-left: 8px;
 }
 .bld-cell {
   display: flex;
   align-items: center;
-  gap: 6px;
   flex: 1;
   min-width: 0;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 4px 8px;
+}
+.bld-cell > * + * {
+  margin-left: 6px;
 }
 .bld-cell--off {
   opacity: 0.5;
@@ -2690,13 +2971,17 @@ body {
 }
 .bld-cell__acts {
   display: flex;
-  gap: 2px;
   flex: none;
+}
+.bld-cell__acts > * + * {
+  margin-left: 2px;
 }
 .bld-row__ops {
   display: flex;
-  gap: 2px;
   flex: none;
+}
+.bld-row__ops > * + * {
+  margin-left: 2px;
 }
 .icon-btn {
   min-width: 30px;
@@ -2763,8 +3048,10 @@ body {
 .bld-add {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
+  margin: 6px -4px 0;
+}
+.bld-add > * {
+  margin: 4px;
 }
 .modal--scroll {
   max-height: 86vh;
@@ -2776,22 +3063,25 @@ body {
   padding-top: 10px;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+}
+.fmt-controls > * + * {
+  margin-top: 10px;
 }
 .fmt-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+}
+.fmt-row > * + * {
+  margin-left: 10px;
 }
 .fmt-row > span { font-weight: 600; color: var(--muted); }
 .seg--sm3 {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 4px;
+  display: flex;
   min-width: 200px;
 }
-.seg--sm3 .seg__btn { min-height: 34px; font-size: 13px; padding: 2px 6px; }
+.seg--sm3 > * + * { margin-left: 4px; }
+.seg--sm3 .seg__btn { flex: 1 1 0; min-height: 34px; font-size: 13px; padding: 2px 6px; }
 .lbl-edit {
   border-top: 1px solid var(--line);
   margin-top: 10px;
@@ -2799,12 +3089,17 @@ body {
 }
 .lbl-edit__title { font-weight: 700; margin-bottom: 6px; }
 .lbl-edit__row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
+  display: flex;
   margin-bottom: 6px;
 }
-.lbl-edit__row:has(input:only-child) { grid-template-columns: 1fr; }
+.lbl-edit__row > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
+.lbl-edit__row > * + * {
+  margin-left: 6px;
+}
+/* Khối 1 input chiếm trọn dòng — flex tự xử lý (bỏ :has không chạy ở Chrome cũ). */
 
 /* ══ Stage 5.8: nhãn vs giá trị (bold riêng) ═════════════════════════ */
 .rcp__lbl { font-weight: 600; }
@@ -2812,13 +3107,17 @@ body {
 .rcp__lblbold .rcp__lbl { font-weight: 800; }
 .rcp__valbold .rcp__val { font-weight: 800; }
 /* 2 toggle bold cạnh nhau trong popup khối field */
-.fmt-row--bold { justify-content: flex-start; gap: 20px; }
+.fmt-row--bold { justify-content: flex-start; }
+.fmt-row--bold > * + * { margin-left: 20px; }
 
 /* Stage 5.10: nút lưu/khôi phục mẫu mặc định */
 .rcfg__default-btns {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  margin-top: 8px;
+}
+/* Stage 5.10: nút lưu/khôi phục mẫu mặc định */
+.rcfg__default-btns > * + * {
   margin-top: 8px;
 }
 
@@ -2827,8 +3126,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
   margin-bottom: 8px;
+}
+/* ══ Stage 6.1: chỉ số tiền/doanh thu realtime màn Ca ════════════════ */
+.shift__head > * + * {
+  margin-left: 8px;
 }
 .metrics-group {
   margin-top: 14px;
@@ -2849,8 +3151,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
   padding: 5px 0;
+}
+.metric > * + * {
+  margin-left: 10px;
 }
 .metric__label {
   color: var(--ink);
@@ -2875,7 +3179,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
   margin-top: 8px;
   padding: 10px 12px;
   border: 1.5px solid var(--orange);
@@ -2883,6 +3186,10 @@ body {
   border-radius: var(--radius);
   font-weight: 700;
   color: var(--orange-dark);
+}
+/* ══ Stage 6.2: đóng ca rút nộp chủ + phiếu giao ca ══════════════════ */
+.cashleft > * + * {
+  margin-left: 10px;
 }
 .cashleft--bad {
   border-color: #c0392b;
@@ -2897,25 +3204,37 @@ body {
 .rcp .sslip__signs {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
   text-align: center;
   margin-top: 12px;
   font-size: 11px;
 }
+.rcp .sslip__signs > * + * {
+  margin-left: 12px;
+}
 
 /* ── Báo cáo cho chủ (Stage 6.3) ─────────────────────────────────────── */
 .reports { max-width: 640px; margin: 0 auto; }
-.reports__filters { display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px; }
-.reports__dates { display: flex; gap: 12px; }
+.reports__filters { display: flex; flex-direction: column; margin-bottom: 16px; }
+.reports__filters > * + * {
+  margin-top: 8px;
+}
+.reports__dates { display: flex; }
+.reports__dates > * + * {
+  margin-left: 12px;
+}
 .field--inline { flex: 1; }
 .field--inline > span { font-size: 13px; color: var(--muted); font-weight: 600; }
 .reports__filters .branch-picker { margin-bottom: 0; }
 
 .reports__cards {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-  margin-bottom: 16px;
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0 -5px 16px;
+}
+.reports__cards > * {
+  flex: 1 1 calc(50% - 10px);
+  margin: 5px;
+  box-sizing: border-box;
 }
 .rcard {
   background: #fff;
@@ -2924,7 +3243,9 @@ body {
   padding: 14px;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+}
+.rcard > * + * {
+  margin-top: 2px;
 }
 .rcard__label { font-size: 13px; color: var(--muted); font-weight: 600; }
 .rcard__value { font-size: 22px; font-weight: 800; line-height: 1.2; }
@@ -2943,7 +3264,9 @@ body {
   margin: 0 0 10px;
   display: flex;
   align-items: center;
-  gap: 8px;
+}
+.reports__h > * + * {
+  margin-left: 8px;
 }
 .reports__warn-tag { font-size: 12px; color: var(--danger); font-weight: 700; }
 .reports__table { width: 100%; border-collapse: collapse; }
@@ -2952,18 +3275,26 @@ body {
 .reports__table-total td { font-weight: 800; border-bottom: none; border-top: 2px solid var(--line); }
 .reports__ok { color: #16a34a; font-weight: 700; margin: 0; }
 
-.reports__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.reports__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.reports__list > * + * {
+  margin-top: 8px;
+}
 .reports__list-item {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
   padding: 10px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
 }
+.reports__list-item > * + * {
+  margin-left: 12px;
+}
 .reports__list-item--warn { border-color: var(--danger); background: var(--danger-soft); }
-.reports__list-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.reports__list-main { display: flex; flex-direction: column; min-width: 0; }
+.reports__list-main > * + * {
+  margin-top: 2px;
+}
 .reports__list-title { font-weight: 700; font-size: 15px; }
 .reports__list-meta { font-size: 12px; color: var(--muted); }
 .reports__neg { color: var(--danger); font-weight: 800; }
