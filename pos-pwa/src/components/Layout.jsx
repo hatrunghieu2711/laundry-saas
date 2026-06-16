@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useBranch } from '../context/BranchContext'
 
 // Nav chính (Stage 3.9): + Tạo đơn · Đơn hàng · Ca · ☰ (menu).
 const NAV = [
@@ -23,6 +24,9 @@ const MENU = [
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
+  const { branchId, setBranchId, branches } = useBranch()
+  const isOwner = user?.role === 'owner'
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
 
@@ -64,11 +68,26 @@ export default function Layout({ children }) {
           </NavLink>
         ))}
         <div className="app-nav__spacer" />
-        {user?.branch_name && (
+        {isOwner && pathname === '/orders/new' && branches.length > 0 ? (
+          // Chủ + màn Tạo đơn: dropdown chọn CN (đơn tạo theo CN này).
+          <select
+            className="app-nav__branch app-nav__branch--select"
+            value={branchId || ''}
+            onChange={(e) => setBranchId(e.target.value || null)}
+            aria-label="Chọn chi nhánh"
+          >
+            <option value="">— Chọn CN —</option>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.code} · {b.name}
+              </option>
+            ))}
+          </select>
+        ) : user?.branch_name ? (
           <span className="app-nav__branch" title={user.branch_name}>
             {user.branch_name}
           </span>
-        )}
+        ) : null}
         <div className="app-nav__menu" ref={menuRef}>
           <button
             className={`app-nav__tab app-nav__more ${menuOpen ? 'app-nav__tab--active' : ''}`}

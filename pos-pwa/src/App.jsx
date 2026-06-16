@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
+import { BranchProvider } from './context/BranchContext'
 import Board from './pages/Board'
 import BranchesManage from './pages/BranchesManage'
 import CashBook from './pages/CashBook'
@@ -19,7 +20,9 @@ import Shift from './pages/Shift'
 function Protected({ children }) {
   return (
     <ProtectedRoute>
-      <Layout>{children}</Layout>
+      <BranchProvider>
+        <Layout>{children}</Layout>
+      </BranchProvider>
     </ProtectedRoute>
   )
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
+import { useBranch } from '../context/BranchContext'
 import Receipt from '../components/Receipt'
 import WheelTimePicker from '../components/WheelTimePicker'
 import MoneyInput from '../components/MoneyInput'
@@ -22,8 +23,8 @@ export default function OrderNew() {
   const isOwner = user?.role === 'owner'
   const canManage = user?.role === 'owner' || user?.role === 'manager'
 
-  const [branches, setBranches] = useState([])
-  const [branchId, setBranchId] = useState(isOwner ? null : user?.branch_id || null)
+  // Chi nhánh chọn từ HEADER (Stage 6.6.1) — dropdown ở header, không còn hàng riêng.
+  const { branchId } = useBranch()
   const [shiftState, setShiftState] = useState('loading') // loading|open|none|needbranch
   const [services, setServices] = useState([])
   const [svcLoading, setSvcLoading] = useState(true)
@@ -60,18 +61,6 @@ export default function OrderNew() {
   const [disValue, setDisValue] = useState('')
   const [disReason, setDisReason] = useState('')
   const [disAuto, setDisAuto] = useState(false)
-
-  useEffect(() => {
-    if (!isOwner) return
-    api
-      .get('/branches?limit=200')
-      .then((p) => {
-        const active = p.items.filter((b) => b.status === 'active')
-        setBranches(active)
-        if (active.length === 1) setBranchId(active[0].id)
-      })
-      .catch(() => {})
-  }, [isOwner])
 
   useEffect(() => {
     setSvcLoading(true)
@@ -430,34 +419,16 @@ export default function OrderNew() {
 
   if (shiftState === 'loading') return <p className="shift__hint">Đang kiểm tra ca…</p>
 
-  const branchPicker = isOwner && (
-    <div className="branch-picker">
-      <div className="branch-picker__chips">
-        {branches.map((b) => (
-          <button
-            key={b.id}
-            className={`chip chip--sm ${branchId === b.id ? 'chip--active' : ''}`}
-            onClick={() => setBranchId(b.id)}
-          >
-            {b.code} · {b.name}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-
   if (shiftState === 'needbranch') {
     return (
       <div className="ordernew">
-        {branchPicker}
-        <p className="shift__hint">Chọn chi nhánh để tạo đơn.</p>
+        <p className="shift__hint">Chọn chi nhánh ở thanh trên để tạo đơn.</p>
       </div>
     )
   }
   if (shiftState === 'none') {
     return (
       <div className="ordernew">
-        {branchPicker}
         <div className="shift__empty">
           <div className="shift__empty-icon">🕒</div>
           <p>Cần mở ca trước khi tạo đơn.</p>
@@ -547,7 +518,6 @@ export default function OrderNew() {
 
   return (
     <div className="ordernew ordernew--zones">
-      {branchPicker}
       {error && !showConfirm && <div className="alert alert--error">{error}</div>}
 
       <div className="zones">
