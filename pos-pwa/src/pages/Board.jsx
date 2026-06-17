@@ -152,22 +152,32 @@ export default function Board() {
     }
   }
 
-  // → tới 'delivered': server giao đơn rồi cờ requires_payment nếu chưa thu.
+  // → tới 'delivered' (PAY-FIRST, Stage 6.13): XỬ LÝ TIỀN TRƯỚC, GIAO SAU.
+  // Đơn KHÔNG bao giờ sang delivered khi chưa xử lý tiền → bỏ luồng "lùi" mong manh.
   const deliver = async (o) => {
+    const needsPay = o.payment_status === 'unpaid' || o.payment_status === 'partial'
+    if (!needsPay) {
+      // Đã xử lý tiền (paid/debt/refunded) → PATCH delivered thẳng.
+      setBusyId(o.id)
+      try {
+        await api.patch(`/orders/${o.id}/status`, { order_status: 'delivered' })
+        setBoard((prev) => moveCard(prev, o.id, o.order_status, 'delivered')) // rời board
+      } catch (err) {
+        showToast(err?.message || 'Không giao được đơn')
+      } finally {
+        setBusyId(null)
+      }
+      return
+    }
+    // Chưa thu → MỞ POPUP NGAY, CHƯA PATCH gì (đơn vẫn ở 'ready' trên server).
     setBusyId(o.id)
     try {
-      const res = await api.patch(`/orders/${o.id}/status`, { order_status: 'delivered' })
-      if (res?.requires_payment) {
-        // Chưa thu → mở popup; GIỮ thẻ ở 'ready' đến khi xử lý xong (chống thất thoát).
-        const pays = await api.get(`/payments?order_id=${o.id}&limit=200`)
-        const paid = pays.items.reduce((s, p) => s + toNumber(p.amount), 0)
-        setPayMethod('cash'); setDebtMode(false); setDebtReason('')
-        setPayModal({ order: o, remaining: toNumber(o.total_amount) - paid })
-      } else {
-        setBoard((prev) => moveCard(prev, o.id, o.order_status, 'delivered')) // rời board
-      }
+      const pays = await api.get(`/payments?order_id=${o.id}&limit=200`)
+      const paid = pays.items.reduce((s, p) => s + toNumber(p.amount), 0)
+      setPayMethod('cash'); setDebtMode(false); setDebtReason('')
+      setPayModal({ order: o, remaining: toNumber(o.total_amount) - paid })
     } catch (err) {
-      showToast(err?.message || 'Không giao được đơn')
+      showToast(err?.message || 'Không mở được màn thu tiền, thử lại.')
     } finally {
       setBusyId(null)
     }
@@ -179,7 +189,21 @@ export default function Board() {
     return err?.message || 'Không xử lý được'
   }
 
-  const finishDeliver = async (orderId) => {
+  // Tiền đã xử lý xong → GIỜ MỚI chuyển 'delivered'. KHÔNG nuốt lỗi: nếu PATCH cuối
+  // lỗi thì tiền đã vào sổ đúng, đơn vẫn ở 'ready' (paid/debt) — báo rõ để bấm lại giao.
+  const finishDeliver = async (orderId, kind) => {
+    try {
+      await api.patch(`/orders/${orderId}/status`, { order_status: 'delivered' })
+    } catch {
+      setPayModal(null)
+      showToast(
+        kind === 'debt'
+          ? 'Đã ghi nợ, nhưng chưa cập nhật trạng thái — bấm lại để giao.'
+          : 'Đã thu tiền, nhưng chưa cập nhật trạng thái — bấm lại để giao.',
+      )
+      await load()
+      return
+    }
     setPayModal(null)
     if (autoPrint) await printBill(orderId)
     await load()
@@ -194,7 +218,7 @@ export default function Board() {
         payment_method: payMethod,
         transaction_type: 'payment',
       })
-      await finishDeliver(payModal.order.id)
+      await finishDeliver(payModal.order.id, 'pay')
     } catch (err) {
       showToast(payErr(err))
     } finally {
@@ -214,7 +238,7 @@ export default function Board() {
         transaction_type: 'debt',
         reason,
       })
-      await finishDeliver(payModal.order.id)
+      await finishDeliver(payModal.order.id, 'debt')
     } catch (err) {
       showToast(payErr(err))
     } finally {
@@ -222,18 +246,10 @@ export default function Board() {
     }
   }
 
-  // Đóng popup KHÔNG xử lý → lùi delivered→ready (đơn chưa thu nên được phép) →
-  // đơn KHÔNG ở trạng thái đã giao. Đây là điểm chống thất thoát.
-  const dismissPay = async () => {
-    const id = payModal.order.id
-    setPayModal(null)
-    try {
-      await api.patch(`/orders/${id}/status`, { order_status: 'ready' })
-    } catch {
-      /* nếu không lùi được (vd đã thu nơi khác) → load() phản ánh thực tế */
-    }
-    await load()
-  }
+  // PAY-FIRST: khi popup mở, đơn CHƯA hề sang 'delivered' → đóng popup KHÔNG gọi
+  // server lần nào (không PATCH, không lùi, không load). Đơn nguyên ở 'ready'.
+  // Đây là điểm cốt lõi xoá khe W1/W2/W3 (không còn trạng thái delivered‑chưa‑thu).
+  const dismissPay = () => setPayModal(null)
 
   // ── Bottom sheet ☰ ────────────────────────────────────────────────────
   const openSheet = async (o) => {
