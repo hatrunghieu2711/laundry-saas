@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import Receipt from '../components/Receipt'
+import { Lien2BillLabel } from '../components/Lien2Label'
+import Lien2PrintButton from '../components/Lien2PrintButton'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import {
@@ -500,6 +502,7 @@ export default function OrderNew() {
               <button className="btn btn--ghost ordok__print" onClick={() => window.print()}>
                 {printed ? 'In lại' : 'In phiếu'}
               </button>
+              <Lien2PrintButton order={created} className="btn btn--ghost ordok__lien2" />
               <button className="btn btn--primary ordok__new" onClick={startNew}>
                 ＋ Tạo đơn mới
               </button>
@@ -510,6 +513,8 @@ export default function OrderNew() {
           </div>
         )}
         <Receipt config={receiptConfig} order={created} paid={paidInfo.amount} method={paidInfo.method} />
+        {/* Liên 2 (Stage 6.9): 1 nhãn KHÔNG SỐ in KÈM bill (cùng 1 lần in). */}
+        <Lien2BillLabel order={created} />
       </div>
     )
   }

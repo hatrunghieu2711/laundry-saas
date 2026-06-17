@@ -107,6 +107,27 @@ export function formatPickupShort(value) {
   )}`
 }
 
+// "DD/MM HH:MM" từ instant thực (ISO/Date) → giờ VN. Dùng cho NHÃN liên 2 (in
+// ngày chính xác, KHÔNG "Hôm nay/Ngày mai" vì nhãn tồn tại qua ngày) — Stage 6.9.
+export function formatLabelDateTime(value) {
+  if (!value) return ''
+  const inst = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(inst.getTime())) return ''
+  const w = toVnWall(inst)
+  return `${pad(w.getUTCDate())}/${pad(w.getUTCMonth() + 1)} ${pad(w.getUTCHours())}:${pad(
+    w.getUTCMinutes(),
+  )}`
+}
+
+// "HH:MM" (giờ VN) — giờ nhận trên nhãn liên 2 (cùng dòng tên, không ngày) 6.9.1.
+export function formatLabelTime(value) {
+  if (!value) return ''
+  const inst = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(inst.getTime())) return ''
+  const w = toVnWall(inst)
+  return `${pad(w.getUTCHours())}:${pad(w.getUTCMinutes())}`
+}
+
 // <input type="date"> theo giờ VN.
 export function dateInputValueVn(wall) {
   return `${wall.getUTCFullYear()}-${pad(wall.getUTCMonth() + 1)}-${pad(wall.getUTCDate())}`

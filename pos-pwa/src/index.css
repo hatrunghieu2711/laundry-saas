@@ -1363,6 +1363,9 @@ body {
 .print-receipt {
   display: none;
 }
+.print-lien2 {
+  display: none;
+}
 
 @media print {
   /* Giấy nhiệt 80mm, CHIỀU CAO AUTO theo nội dung (KHÔNG cố định 210mm/A4) →
@@ -1395,6 +1398,230 @@ body {
     width: 72mm;
     margin: 0 auto;
   }
+  /* Liên 2 (Stage 6.9): nhãn KÈM BILL (.print-receipt--label) cắt sau bill. */
+  .print-receipt--label {
+    page-break-before: always;
+  }
+  /* In CHỦ ĐỘNG nhiều nhãn: body.print-mode-lien2 → ẩn bill, chỉ hiện .print-lien2. */
+  body.print-mode-lien2 .print-receipt {
+    display: none !important;
+  }
+  body.print-mode-lien2 .print-lien2 {
+    display: block !important;
+  }
+  .print-lien2 .lbl-page + .lbl-page {
+    page-break-before: always; /* cắt giữa các nhãn — CẦN TEST tự cắt trên Sunmi */
+  }
+  /* CẦN TEST SUNMI: rotate 180 — xoay TỪNG nhãn liên 2 khi in để leader gap (~1cm
+     đầu mỗi tờ) rơi vào vùng dòng kẻ ghi tay (đáy thiết kế). transform-origin
+     center → không lệch mép. CHỈ nhãn (.lbl), KHÔNG đụng bill khách (.rcp). */
+  .print-receipt--label .lbl,
+  .print-lien2 .lbl {
+    transform: rotate(180deg);
+    transform-origin: center center;
+  }
+}
+
+/* ── Nhãn liên 2 (mẫu cố định, 80mm nhiệt, monospace) — Stage 6.9 ──────────── */
+.lbl {
+  width: 72mm;
+  margin: 0 auto;
+  background: #fff;
+  border: 1px solid #000;
+  padding: 14px 14px 18px;
+  font-family: 'Courier New', monospace;
+  color: #000;
+}
+.lbl__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1.5px solid #000;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+}
+.lbl__code {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+.lbl__num {
+  flex: none;
+  margin-left: 8px;
+  text-align: center;
+  border: 2px solid #000;
+  padding: 2px 10px;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1;
+}
+.lbl__pay {
+  text-align: center;
+  border: 2px solid #000;
+  padding: 5px;
+  margin-bottom: 10px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.lbl__info {
+  font-size: 14px;
+  line-height: 1.85;
+}
+.lbl__nameRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.lbl__recv {
+  margin-left: 8px;
+  color: #333;
+}
+.lbl__deliv {
+  font-size: 16px;
+}
+.lbl__deliv .lbl__k,
+.lbl__deliv .lbl__v {
+  font-weight: 700;
+}
+.lbl__note {
+  border-top: 1px dashed #000;
+  margin-top: 8px;
+  padding-top: 6px;
+  font-size: 13px;
+}
+.lbl__blank {
+  border-bottom: 1px solid #000;
+  height: 18px;
+  margin-top: 12px;
+}
+
+/* ── Modal in liên 2 chủ động (Stage 6.9) ─────────────────────────────────── */
+.lien2m {
+  max-width: 360px;
+  padding: 0;
+}
+.lien2m__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+}
+.lien2m__title {
+  font-size: 16px;
+  font-weight: 600;
+}
+.lien2m__x {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+  color: var(--muted);
+  cursor: pointer;
+}
+.lien2m__body {
+  padding: 16px;
+}
+.lien2m__lbl {
+  margin-bottom: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.lien2m__quick {
+  display: flex;
+  margin-bottom: 12px;
+}
+.lien2m__quick > * + * {
+  margin-left: 8px;
+}
+.lien2m__q {
+  flex: 1 1 0;
+  height: 48px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.lien2m__q--on {
+  border: 2px solid var(--orange);
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+}
+.lien2m__manual {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16px;
+}
+.lien2m__manual > span {
+  margin-right: 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.stepper {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.stepper button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  background: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+.stepper button:first-child {
+  border-right: 1px solid var(--line);
+}
+.stepper button:last-child {
+  border-left: 1px solid var(--line);
+}
+.stepper__val {
+  width: 48px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 600;
+}
+.lien2m__chk {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.lien2m__chk > * + * {
+  margin-left: 10px;
+}
+.lien2m__chk input {
+  width: 18px;
+  height: 18px;
+}
+.lien2m__chk span {
+  font-size: 14px;
+}
+.lien2m__foot {
+  display: flex;
+  padding: 12px 16px;
+  border-top: 1px solid var(--line);
+}
+.lien2m__foot > * + * {
+  margin-left: 8px;
+}
+.lien2m__cancel {
+  flex: 0 0 auto;
+  min-height: 44px;
+  border-radius: 8px;
+}
+.lien2m__print {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border-radius: 8px;
 }
 
 /* ══ Cấu hình mẫu phiếu in + preview trên màn ════════════════════════ */
@@ -3795,8 +4022,9 @@ body {
 .ordok__actions > * + * {
   margin-left: 10px;
 }
-.ordok__print {
-  flex: 0 0 38%;
+.ordok__print,
+.ordok__lien2 {
+  flex: 0 0 auto;
   min-height: 44px;
   border-radius: 8px;
 }
