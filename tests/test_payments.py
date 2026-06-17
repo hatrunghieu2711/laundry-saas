@@ -139,13 +139,36 @@ async def test_debt_then_resolve(client: AsyncClient, pctx: dict):
     order = await _create_order(client, t)
     await _open_shift(client, t)
 
-    d = await _pay(client, t, order["id"], 0, ttype="debt")
+    d = await _pay(client, t, order["id"], 0, ttype="debt", reason="Khách hẹn trả sau")
     assert d.status_code == 201, d.text
     assert _num(d.json()["amount"]) == 0           # debt = 0 trong dòng tiền
     assert await _order_status(client, t, order["id"]) == "debt"
 
     await _pay(client, t, order["id"], 100000, ttype="resolve_debt")
     assert await _order_status(client, t, order["id"]) == "paid"
+
+
+# ── Stage 6.12: ghi nợ BẮT BUỘC có lý do (reason) ───────────────────────────
+async def test_debt_requires_reason(client: AsyncClient, pctx: dict):
+    t = pctx["staff_token"]
+    order = await _create_order(client, t)
+    await _open_shift(client, t)
+
+    # thiếu reason → 422 DEBT_REASON_REQUIRED
+    r = await _pay(client, t, order["id"], 0, ttype="debt")
+    assert r.status_code == 422, r.text
+    assert r.json()["code"] == "DEBT_REASON_REQUIRED"
+
+    # reason rỗng/khoảng trắng → cũng 422
+    r = await _pay(client, t, order["id"], 0, ttype="debt", reason="   ")
+    assert r.status_code == 422
+    assert r.json()["code"] == "DEBT_REASON_REQUIRED"
+
+    # có reason → ok, payment_status='debt'
+    ok = await _pay(client, t, order["id"], 0, ttype="debt", reason="Khách quen, trả cuối tháng")
+    assert ok.status_code == 201, ok.text
+    assert _num(ok.json()["amount"]) == 0
+    assert await _order_status(client, t, order["id"]) == "debt"
 
 
 # ── adjustment ──────────────────────────────────────────────────────────────

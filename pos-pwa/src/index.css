@@ -2637,20 +2637,170 @@ body {
     margin: 0;
   }
 }
-/* CARD = KHUNG RỖNG (52px), click → chi tiết đơn. Nội dung thẻ thiết kế stage sau. */
-.board3__card-ph {
-  height: 52px;
-  border: 0.5px solid var(--ns-border);
-  border-radius: 6px;
+/* Thẻ đơn (Stage 6.12): nội dung gọn + viền trái theo TT + nút thao tác ← → ☰. */
+.board3__card {
+  display: flex;
+  flex-direction: column;
   background: var(--surface);
-  padding: 0;
+  border: 0.5px solid var(--ns-border);
+  border-left: 3px solid var(--ns-border-2);
+  border-radius: 6px;
+  position: relative;
+  overflow: hidden;
+}
+.board3__main {
+  position: relative;
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 7px 8px 5px;
   cursor: pointer;
-  -webkit-appearance: none;
-  appearance: none;
 }
-.board3__card-ph:active {
+.board3__late {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: #dc2626;
+  color: #fff;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.3px;
+  padding: 1px 5px;
+  border-bottom-left-radius: 6px;
+}
+.board3__l1 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.board3__code { font-weight: 700; font-size: 13px; color: var(--ink); }
+.board3__cust {
+  margin-left: 6px;
+  font-size: 11px;
+  color: var(--ns-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.board3__l2 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 3px;
+}
+.board3__total { font-weight: 700; font-size: 12px; color: var(--ink); }
+.board3__l3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 3px;
+}
+.board3__pickup { font-size: 11px; color: var(--ns-text-3); white-space: nowrap; }
+.board3__pickup.is-overdue { color: #dc2626; font-weight: 700; }
+.board3__note { font-size: 12px; margin-left: 4px; }
+.board3__actions {
+  display: flex;
+  align-items: stretch;
+  border-top: 0.5px solid var(--ns-border);
+}
+.kbtn {
+  flex: 1;
+  min-height: 32px;
+  background: none;
+  border: none;
+  border-right: 0.5px solid var(--ns-border);
+  font-size: 15px;
+  color: var(--ns-text-2);
+  cursor: pointer;
+}
+.kbtn:last-child { border-right: none; }
+.kbtn--fwd { color: var(--ns-accent); font-weight: 800; }
+.kbtn:disabled { opacity: 0.32; cursor: default; }
+/* badge NỢ (tím) trên thẻ */
+.ps--debt-no { background: #ede9fe; color: #6d28d9; }
+
+/* Toast tiếng Việt (transient) */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 60;
+  max-width: 90%;
+  background: rgba(26, 26, 24, 0.94);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 16px;
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+/* Bottom sheet ☰ (dùng modal-overlay căn đáy) */
+.sheet {
+  background: var(--surface);
+  border-radius: 12px 12px 0 0;
+  width: 100%;
+  max-width: 440px;
+  padding: 8px;
+  margin-bottom: env(safe-area-inset-bottom, 0);
+}
+.sheet__title { font-size: 13px; color: var(--ns-text-3); padding: 8px 10px 6px; }
+.sheet__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 14px 12px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sheet__item:disabled { color: var(--ns-text-3); }
+.sheet__item:active { background: var(--bg); }
+.sheet__cancel { color: var(--danger); text-align: center; margin-top: 4px; }
+
+/* Popup giao‑thanh‑toán */
+.pay-due {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
   background: var(--bg);
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
 }
+.pay-due strong { font-size: 22px; color: var(--danger); }
+.pay-methods { display: flex; margin-bottom: 14px; }
+.pay-methods > * + * { margin-left: 8px; }
+.pay-method {
+  flex: 1;
+  min-height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.pay-method--on { border-color: var(--ns-accent); background: #fdf1ec; color: var(--ns-accent); }
+.pay-dismiss {
+  display: block;
+  width: 100%;
+  margin-top: 12px;
+  background: none;
+  border: none;
+  color: var(--ns-text-3);
+  font-size: 13px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.btn--warn { background: var(--ns-warn); color: #fff; }
 
 /* ══ Tab Tra cứu (Stage 6.11) ══════════════════════════════════════════
    Tìm mọi đơn theo mã/tên/SĐT, phân trang. Style mới (0.5px, radius nhỏ). */

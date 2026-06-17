@@ -128,6 +128,7 @@ class BoardOrder(BaseModel):
     order_status: str
     pickup_at: datetime
     is_overdue: bool
+    notes: str | None  # để thẻ hiện icon ghi chú (Stage 6.12); không kèm items
 
 
 class BoardSummary(BaseModel):

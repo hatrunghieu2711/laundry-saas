@@ -109,6 +109,10 @@ async def create_payment(
     if transaction_type in _REASON_REQUIRED and not (reason and reason.strip()):
         raise APIError(422, "REASON_REQUIRED", f"{transaction_type} bắt buộc có reason")
 
+    # Ghi nợ BẮT BUỘC có lý do (Stage 6.12) — code riêng để UI hiện rõ.
+    if transaction_type == "debt" and not (reason and reason.strip()):
+        raise APIError(422, "DEBT_REASON_REQUIRED", "Ghi nợ bắt buộc có lý do")
+
     # reference bắt buộc + phải thuộc cùng order.
     if transaction_type in _REFERENCE_REQUIRED:
         if reference_payment_id is None:
