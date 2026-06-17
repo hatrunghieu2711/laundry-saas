@@ -1445,12 +1445,12 @@ body {
   width: 76mm;
   margin: 0 auto;
   background: #fff;
-  /* v8 (6.9.9) — KHE CẮT MÃ ĐƠN dùng SPACER (.lbl__spacer), KHÔNG dùng padding nữa:
-     padding ở mép trang bị máy in BỎ (trim trailing blank) → tăng padding-top vô hiệu.
-     Spacer là phần tử có chiều cao THẬT → máy feed hết rồi mới tới mã đơn.
-     - top 0: khe cắt mã đơn do SPACER lo (xem .lbl__spacer + @media print).
-     - bottom 10px: phía ghi chú (đáy đọc) — sau xoay thành đỉnh giấy (leader gap); 10px
-       vừa đủ, KHÔNG dư trắng.
+  /* v9 (6.9.10) — KHE CẮT MÃ ĐƠN dùng VẠCH MỐC CÓ MỰC (.lbl__cutline), KHÔNG padding,
+     KHÔNG spacer trắng (máy nhiệt trim hết vùng trắng dù là content). Vạch có MỰC →
+     máy không trim qua; khe trắng giữa vạch và mã đơn bị "kẹp" giữa 2 phần tử có mực
+     nên KHÔNG bị trim.
+     - top 0: vạch mốc nằm ngay mép giấy (sau xoay), do .lbl__cutline lo.
+     - bottom 10px: phía ghi chú (đáy đọc) → sau xoay thành đỉnh giấy (leader gap).
      - ngang 6px: lề mỏng. */
   padding: 0 6px 10px;
   /* FONT GIỐNG BILL (.rcp) — sans-serif thường, KHÔNG monospace nữa. */
@@ -1458,17 +1458,23 @@ body {
   color: #000;
   font-weight: 700; /* thân đậm */
 }
-/* SPACER chống cắt sát mã đơn (6.9.9). CHỈ có chiều cao KHI IN (màn hình = 0 → không
-   lệch preview). 44px (>30px tiêu chí) đệm giữa mã đơn và mép máy cắt sau xoay 180°. */
-.lbl__spacer { height: 0; }
+/* VẠCH MỐC CHỐNG TRIM (6.9.10) — thay spacer trắng (bị máy trim). Là phần tử ĐẦU DOM
+   trong .lbl → khi IN xoay 180° rơi xuống ngay MÉP GIẤY MÁY CẮT (đáy giấy). border-top
+   là đường kẻ CÓ MỰC nên máy KHÔNG trim qua. margin-bottom = khe trắng giữa vạch và mã
+   đơn; khe này bị "kẹp" giữa vạch (mực) và mã đơn (mực) → KHÔNG bị trim → mã đơn cách
+   mép cắt ~khe này. CHỈ áp khi IN (màn hình = ẩn, height 0, không lệch preview). */
+.lbl__cutline { height: 0; }
 @media print {
-  .lbl__spacer { height: 44px; }
+  .lbl__cutline {
+    border-top: 2px solid #000; /* vạch mốc CÓ MỰC ngay mép cắt */
+    margin-bottom: 26px;        /* khe mã đơn ↔ vạch (~24-30px tiêu chí) */
+  }
 }
 .lbl__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
 }
 .lbl__code {
   font-size: 34px;
@@ -1487,7 +1493,7 @@ body {
 }
 .lbl__pay {
   text-align: center;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   font-size: 18px; /* v7: TO hơn 6.9.7 (16→18). PAID và UNPAID DÙNG CHUNG rule này → BẰNG NHAU.
                       Ép 1 dòng (nowrap). MOCKUP đề xuất 21px NHƯNG đo print-preview: "CHƯA THANH
                       TOÁN / UNPAID" (24 ký tự, chuỗi dài nhất) ở 21px TRÀN ~28% khổ 80mm (kể cả
@@ -1503,7 +1509,7 @@ body {
 }
 .lbl__info {
   font-size: 18px;
-  line-height: 1.6;
+  line-height: 1.3; /* v9: giảm 1.6→1.3 cho nhãn ngắn hơn */
   font-weight: 700;
 }
 .lbl__nameRow {
@@ -1522,7 +1528,7 @@ body {
   text-align: center; /* v7: canh GIỮA */
 }
 .lbl__note {
-  margin-top: 10px;
+  margin-top: 6px; /* v9: giảm 10→6 cho nhãn ngắn hơn */
   font-size: 17px;
   font-weight: 400; /* v7: ghi chú chữ THƯỜNG (không đậm) */
 }
