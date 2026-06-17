@@ -1445,21 +1445,24 @@ body {
   width: 76mm;
   margin: 0 auto;
   background: #fff;
-  /* v7 padding — ĐÃ ĐO BẰNG PRINT-PREVIEW XOAY 180° (không đoán theo màn hình):
-     MÃ ĐƠN là phần tử ĐẦU → padding-top LUÔN nằm sát mã đơn (phía trên khi không xoay,
-     phía dưới khi xoay 180°). Đo: với xoay 180°, mã đơn rơi xuống ĐÁY giấy (mép máy cắt),
-     khoảng cách mã→mép = ĐÚNG padding-top. ⇒ padding-top = ĐỆM BẢO VỆ MÃ ĐƠN khỏi cắt sát.
-     - top 32px: 6.9.7 để 22px VẪN bị máy cắt sát → TĂNG lên 32px. NẾU MÁY THẬT VẪN SÁT →
-       TĂNG TIẾP riêng giá trị này (đây là núm điều khiển khe cắt mã đơn, dù máy có áp dụng
-       xoay hay không thì padding-top vẫn là khe cạnh mã đơn).
-     - bottom 10px: đầu KIA (ghi chú/đáy thiết kế) — sau xoay thành ĐỈNH giấy nơi có leader
-       gap sẵn của máy; giảm từ 28px→10px để BỎ khoảng trắng thừa ở vùng ghi chú.
-     - ngang 6px: lề mỏng, nội dung rộng gần hết khổ. */
-  padding: 32px 6px 10px;
+  /* v8 (6.9.9) — KHE CẮT MÃ ĐƠN dùng SPACER (.lbl__spacer), KHÔNG dùng padding nữa:
+     padding ở mép trang bị máy in BỎ (trim trailing blank) → tăng padding-top vô hiệu.
+     Spacer là phần tử có chiều cao THẬT → máy feed hết rồi mới tới mã đơn.
+     - top 0: khe cắt mã đơn do SPACER lo (xem .lbl__spacer + @media print).
+     - bottom 10px: phía ghi chú (đáy đọc) — sau xoay thành đỉnh giấy (leader gap); 10px
+       vừa đủ, KHÔNG dư trắng.
+     - ngang 6px: lề mỏng. */
+  padding: 0 6px 10px;
   /* FONT GIỐNG BILL (.rcp) — sans-serif thường, KHÔNG monospace nữa. */
   font-family: 'Segoe UI', system-ui, sans-serif;
   color: #000;
   font-weight: 700; /* thân đậm */
+}
+/* SPACER chống cắt sát mã đơn (6.9.9). CHỈ có chiều cao KHI IN (màn hình = 0 → không
+   lệch preview). 44px (>30px tiêu chí) đệm giữa mã đơn và mép máy cắt sau xoay 180°. */
+.lbl__spacer { height: 0; }
+@media print {
+  .lbl__spacer { height: 44px; }
 }
 .lbl__head {
   display: flex;

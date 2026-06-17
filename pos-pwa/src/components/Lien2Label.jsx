@@ -19,6 +19,12 @@ export function Lien2LabelBody({ order, seq = null }) {
   const paid = order.payment_status === 'paid'
   return (
     <div className="lbl">
+      {/* SPACER chống cắt sát mã đơn (Stage 6.9.9). Là NỘI DUNG THẬT (div có chiều cao
+          khi in), KHÁC padding — máy in feed hết vùng này rồi mới tới mã đơn. Đặt ĐẦU DOM:
+          mã đơn là phần tử đầu → khi IN xoay 180° mã đơn rơi xuống ĐÁY giấy (mép máy cắt),
+          spacer (đứng trước mã đơn trong DOM) rơi xuống DƯỚI mã đơn = giữa mã đơn và mép cắt.
+          Chỉ có chiều cao khi IN (xem @media print) — không ảnh hưởng preview màn hình. */}
+      <div className="lbl__spacer" aria-hidden="true" />
       <div className="lbl__head">
         <div className="lbl__code">{order.order_code}</div>
         {seq && <div className="lbl__num">{seq.n}/{seq.total}</div>}
