@@ -19,18 +19,17 @@ const COLUMNS = [
   { key: 'processing', label: 'Đang xử lý', statuses: ['washing', 'drying'] },
   { key: 'ready', label: 'Sẵn sàng', statuses: ['ready'] },
 ]
-// Badge thanh toán (mẫu chuẩn 6.14).
-const BADGE = {
-  paid: { label: 'Đã thu', cls: 'bps--paid' },
-  unpaid: { label: 'Chưa thu', cls: 'bps--unpaid' },
-  partial: { label: 'Thu 1 phần', cls: 'bps--partial' },
-  debt: { label: 'Ghi nợ', cls: 'bps--debt' },
-  refunded: { label: 'Đã hoàn', cls: 'bps--refunded' },
-}
-// Viền trái: xanh khi ĐÃ THU đủ; đỏ khi còn nợ tiền (unpaid/partial/debt); xám = hoàn.
-const cardMod = (ps) =>
-  ps === 'paid' ? 'board3__card--paid' : ps === 'refunded' ? 'board3__card--ref' : 'board3__card--owe'
 const REFRESH_MS = 30000
+
+// Màu giờ giao theo độ GẤP (tính ở FRONTEND từ pickup_at vs giờ hiện tại — so sánh
+// 2 mốc thời gian TUYỆT ĐỐI nên KHÔNG lệch UTC; tự cập nhật theo chu kỳ refresh ~30s).
+function timeUrgency(pickupAt) {
+  if (!pickupAt) return ''
+  const diffMin = (new Date(pickupAt).getTime() - Date.now()) / 60000
+  if (diffMin < 0) return 'is-late' // đã quá giờ hẹn → đỏ
+  if (diffMin <= 30) return 'is-soon' // còn ≤30 phút → cam
+  return '' // còn xa → màu thường (vẫn đậm)
+}
 
 // Icon SVG inline (kiểu Tabler) — KHÔNG phụ thuộc CDN/webfont, hợp PWA offline Sunmi.
 const ICON_PATHS = {
@@ -38,6 +37,7 @@ const ICON_PATHS = {
   'arrow-right': 'M5 12h14 M13 6l6 6 M13 18l6 -6',
   menu: 'M4 6h16 M4 12h16 M4 18h16',
   note: 'M5 4h8l5 5v11H5z M13 4v5h5',
+  truck: 'M2 5h12v10H2z M14 8h4l3 4v3h-7 M4 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0 M15 15a2 2 0 1 0 4 0a2 2 0 1 0 -4 0',
 }
 function Icon({ name, className = 'ic' }) {
   return (
@@ -347,10 +347,10 @@ export default function Board() {
             </div>
             <div className="board3__cards">
               {col.items.map((o) => {
-                const badge = BADGE[o.payment_status] || { label: o.payment_status, cls: '' }
                 const goDetail = () => navigate(`/orders/${o.id}`)
+                const paidFull = o.payment_status === 'paid'
                 return (
-                  <div key={o.id} className={`board3__card ${cardMod(o.payment_status)}`}>
+                  <div key={o.id} className={`board3__card ${paidFull ? 'board3__card--paid' : 'board3__card--owe'}`}>
                     <div
                       className="board3__main"
                       role="button"
@@ -363,25 +363,25 @@ export default function Board() {
                           <span className="board3__code">{o.order_code}</span>
                           {o.notes ? (
                             <button
-                              className="board3__flag"
+                              className="board3__flag board3__flag--note"
                               aria-label="Xem ghi chú"
                               onClick={(e) => { e.stopPropagation(); setNoteModal({ code: o.order_code, notes: o.notes }) }}
                             >
                               <Icon name="note" className="board3__flag-ic" />
                             </button>
                           ) : null}
+                          {/* TODO: cờ đơn giao — làm sau khi có module giao/COD (chưa có field is_delivery) */}
+                          {o.is_delivery ? <Icon name="truck" className="board3__flag-ic board3__flag--ship" /> : null}
                         </span>
-                        <span className="board3__cust">{o.customer_name || 'Khách lẻ'}</span>
+                        <span className={`board3__money ${paidFull ? 'board3__money--paid' : 'board3__money--unpaid'}`}>
+                          {formatVND(o.total_amount)}
+                        </span>
                       </div>
                       <div className="board3__l2">
-                        <span className="board3__total">{formatVND(o.total_amount)}</span>
-                        <span className={`bps ${badge.cls}`}>{badge.label}</span>
-                      </div>
-                      <div className="board3__l3">
-                        <span className={`board3__time ${o.is_overdue ? 'is-late' : ''}`}>
+                        <span className="board3__cust">{o.customer_name || 'Khách lẻ'}</span>
+                        <span className={`board3__time ${timeUrgency(o.pickup_at)}`}>
                           {formatPickupShort(o.pickup_at)}
                         </span>
-                        {o.is_overdue && <span className="board3__latetag">TRỄ</span>}
                       </div>
                     </div>
                     <div className="board3__actions">

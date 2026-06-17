@@ -24,6 +24,9 @@
   --ns-accent: #d85a30;
   --ns-warn: #854f0b;
   --ns-success: #0f6e56;
+  --ns-success-bg: #e1f5ee;
+  --ns-danger: #a32d2d;
+  --ns-danger-bg: #fcebeb;
   --ns-text-2: #6b6a65;
   --ns-text-3: #97968f;
 }
@@ -2637,8 +2640,8 @@ body {
     margin: 0;
   }
 }
-/* Thẻ đơn Kanban — MẪU CHUẨN (Stage 6.14). Viền trái: xanh=đã thu / đỏ=chưa thu đủ.
-   Icon: SVG inline (kiểu Tabler) — KHÔNG CDN/webfont (hợp PWA offline trên Sunmi). */
+/* Thẻ đơn Kanban — MẪU CHUẨN CHỐT (Stage 6.15). 2 dòng nội dung + dải nút.
+   Màu lấy từ TOKEN (--ns-*), KHÔNG hardcode hex. Icon SVG inline (không CDN/webfont). */
 .board3__card {
   display: flex;
   flex-direction: column;
@@ -2648,9 +2651,8 @@ body {
   border-radius: 0 8px 8px 0;
   overflow: hidden;
 }
-.board3__card--paid { border-left-color: #0f6e56; }
-.board3__card--owe { border-left-color: #a32d2d; }
-.board3__card--ref { border-left-color: #9ca3af; }
+.board3__card--paid { border-left-color: var(--ns-success); }
+.board3__card--owe { border-left-color: var(--ns-danger); }
 .board3__main {
   display: block;
   width: 100%;
@@ -2660,60 +2662,52 @@ body {
   padding: 11px 13px 9px;
   cursor: pointer;
 }
+/* Dòng 1: mã đơn (+ icon ghi chú / ship) | nhãn tiền (màu theo thanh toán).
+   flex-wrap + money margin-left:auto → màn rộng: 1 hàng (tiền dồn phải); thẻ quá
+   hẹp (vd 3 cột trên màn <~700px): nhãn tiền TỰ XUỐNG hàng — KHÔNG đè, KHÔNG cuộn ngang. */
 .board3__l1 {
   display: flex;
-  align-items: baseline;
-  margin-bottom: 7px;
-}
-.board3__codegrp { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
-.board3__code { font-weight: 600; font-size: 16px; color: var(--ink); white-space: nowrap; }
-.board3__flag {
-  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 0;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: var(--ns-warn);
+  gap: 2px 8px;
+  margin-bottom: 9px;
 }
+.board3__codegrp { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.board3__code { font-weight: 600; font-size: 16px; color: var(--ink); white-space: nowrap; }
+.board3__flag { display: flex; align-items: center; padding: 0; background: none; border: none; cursor: pointer; }
+.board3__flag--note { color: var(--ns-warn); }
+.board3__flag--ship { color: var(--ns-text-2); }
 .board3__flag-ic { width: 17px; height: 17px; display: block; }
+.board3__money {
+  flex: 0 0 auto;
+  margin-left: auto;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 8px;
+  white-space: nowrap;
+}
+.board3__money--paid { background: var(--ns-success-bg); color: var(--ns-success); }
+.board3__money--unpaid { background: var(--ns-danger-bg); color: var(--ns-danger); }
+/* Dòng 2: tên khách (ellipsis) | giờ giao (màu theo độ gấp) */
+.board3__l2 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
 .board3__cust {
   flex: 1 1 auto;
   min-width: 0;
-  margin-left: 8px;
-  text-align: right;
   font-size: 13px;
   color: var(--ns-text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.board3__l2 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 7px;
-}
-.board3__total { font-weight: 600; font-size: 15px; color: var(--ink); }
-/* badge thanh toán (màu mẫu chuẩn) */
-.bps { font-size: 12px; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
-.bps--paid { background: #e1f5ee; color: #0f6e56; }
-.bps--unpaid { background: #fcebeb; color: #a32d2d; }
-.bps--partial { background: #faeeda; color: #854f0b; }
-.bps--debt { background: #ede9fe; color: #6d28d9; }
-.bps--refunded { background: #eef0f2; color: #4b5563; }
-.board3__l3 { display: flex; align-items: center; gap: 6px; }
-.board3__time { font-size: 14px; font-weight: 600; color: var(--ink); }
-.board3__time.is-late { color: #a32d2d; }
-.board3__latetag {
-  font-size: 11px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 8px;
-  background: #fcebeb;
-  color: #a32d2d;
-}
+.board3__time { flex: 0 0 auto; font-size: 14px; font-weight: 600; white-space: nowrap; color: var(--ink); }
+.board3__time.is-soon { color: var(--ns-warn); }
+.board3__time.is-late { color: var(--ns-danger); }
 /* dải nút thao tác (icon SVG), cao 34px */
 .board3__actions {
   display: flex;
