@@ -1375,6 +1375,16 @@ body {
     size: 80mm auto;
     margin: 0;
   }
+  /* BILL dùng trang CAO CỐ ĐỊNH (Stage 6.9.3): `size: 80mm auto` bị Chromium GIỚI
+     HẠN chiều cao ~ khổ mặc định (~Letter/A4) → bill dài (ghi chú song ngữ + footer)
+     bị VẮT 2 TRANG ("1/2 2/2"). Trang named 80mm×500mm đủ chứa cả bill trên 1 trang.
+     Máy Sunmi chế độ "80 auto" cắt bỏ phần giấy trắng thừa ở đuôi.
+     CẦN TEST SUNMI: máy có cắt blank đuôi của trang cố định không (nếu KHÔNG → giảm
+     chiều cao billpg cho sát nội dung). Nhãn liên 2 (ngắn) vẫn dùng @page auto. */
+  @page billpg {
+    size: 80mm 500mm;
+    margin: 0;
+  }
   /* #root height:100% (xem reset đầu file) tạo HỘP RỖNG cao 1 trang khi in →
      sinh TRANG TRẮNG ĐẦU rồi đẩy phiếu sang trang 2. Phiếu in nằm ở portal
      .print-receipt (con trực tiếp của <body>, NGOÀI #root) nên ẩn hẳn #root +
@@ -1397,10 +1407,14 @@ body {
   .rcp {
     width: 72mm;
     margin: 0 auto;
+    page: billpg; /* bill 1 trang liên tục, không vắt 2 trang (6.9.3) */
   }
-  /* Liên 2 (Stage 6.9): nhãn KÈM BILL (.print-receipt--label) cắt sau bill. */
+  /* Liên 2 (Stage 6.9): nhãn KÈM BILL (.print-receipt--label) cắt sau bill.
+     break-after:always trên bill + break-before trên nhãn = 1 chỗ ngắt DUY NHẤT
+     (bill ↔ nhãn) cho máy cắt rời; KHÔNG ngắt trong lòng bill/nhãn. */
   .print-receipt--label {
     page-break-before: always;
+    break-before: page;
   }
   /* In CHỦ ĐỘNG nhiều nhãn: body.print-mode-lien2 → ẩn bill, chỉ hiện .print-lien2. */
   body.print-mode-lien2 .print-receipt {
