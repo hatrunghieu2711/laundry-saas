@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
+import { useTopbarSlot } from '../context/TopbarSlotContext'
 
-// Nav chính (Stage 3.9): + Tạo đơn · Đơn hàng · Ca · ☰ (menu).
+// Nav chính: + Tạo đơn · Đơn hàng · Ca · ☰ (menu). (Tab "Tra cứu" thêm ở Stage 6.11.)
 const NAV = [
   { to: '/orders/new', label: '＋ Tạo đơn', end: false },
   { to: '/board', label: 'Đơn hàng', end: false },
@@ -24,8 +25,8 @@ const MENU = [
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
-  const { pathname } = useLocation()
   const { branchId, setBranchId, branches } = useBranch()
+  const { setSlotEl } = useTopbarSlot()
   const isOwner = user?.role === 'owner'
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -68,15 +69,17 @@ export default function Layout({ children }) {
           </NavLink>
         ))}
         <div className="app-nav__spacer" />
-        {isOwner && pathname === '/orders/new' && branches.length > 0 ? (
-          // Chủ + màn Tạo đơn: dropdown chọn CN (đơn tạo theo CN này).
+        {/* Ô để trang hiện hành portal controls (search + làm mới) vào. */}
+        <div className="app-nav__slot" ref={setSlotEl} />
+        {isOwner && branches.length > 0 ? (
+          // Chủ: bộ chọn CN DÙNG CHUNG mọi màn (Đơn hàng, Ca, Tra cứu…).
           <select
             className="app-nav__branch app-nav__branch--select"
             value={branchId || ''}
             onChange={(e) => setBranchId(e.target.value || null)}
             aria-label="Chọn chi nhánh"
           >
-            <option value="">— Chọn CN —</option>
+            <option value="">Tất cả CN</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.code} · {b.name}

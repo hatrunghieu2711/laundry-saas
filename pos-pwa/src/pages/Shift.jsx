@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
 import ShiftSlip from '../components/ShiftSlip'
 import { useAuth } from '../context/AuthContext'
+import { useBranch } from '../context/BranchContext'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 
@@ -60,8 +61,8 @@ export default function Shift() {
   const navigate = useNavigate()
   const isOwner = user?.role === 'owner'
 
-  const [branches, setBranches] = useState([])
-  const [branchId, setBranchId] = useState(isOwner ? null : user?.branch_id || null)
+  // Bộ chọn chi nhánh DÙNG CHUNG trên thanh trên cùng (Stage 6.10).
+  const { branchId, branches } = useBranch()
   const [shift, setShift] = useState(undefined) // undefined=loading, null=chưa có ca, obj=đang mở
   const [summary, setSummary] = useState(null) // client-side (cho form đóng ca)
   const [metrics, setMetrics] = useState(null) // realtime từ GET /shifts/{id}/summary (Stage 6.1)
@@ -77,18 +78,10 @@ export default function Shift() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  // Owner: nạp danh sách branch để chọn.
+  // Đổi chi nhánh (bộ chọn dùng chung trên thanh) → quay về màn chính.
   useEffect(() => {
-    if (!isOwner) return
-    api
-      .get('/branches?limit=200')
-      .then((p) => {
-        const active = p.items.filter((b) => b.status === 'active')
-        setBranches(active)
-        if (active.length === 1) setBranchId(active[0].id)
-      })
-      .catch(() => {})
-  }, [isOwner])
+    setView('main')
+  }, [branchId])
 
   const loadCurrent = useCallback(async () => {
     setError('')
@@ -259,30 +252,8 @@ export default function Shift() {
     ? branches.find((b) => b.id === branchId)?.name || ''
     : user?.branch_name || ''
 
-  // ── Owner: bộ chọn chi nhánh ───────────────────────────────────────
-  const branchPicker = isOwner && (
-    <div className="branch-picker">
-      <span className="branch-picker__label">Chi nhánh</span>
-      <div className="branch-picker__chips">
-        {branches.map((b) => (
-          <button
-            key={b.id}
-            className={`chip ${branchId === b.id ? 'chip--active' : ''}`}
-            onClick={() => {
-              setView('main')
-              setBranchId(b.id)
-            }}
-          >
-            {b.code} · {b.name}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
-
   return (
     <div className="shift">
-      {branchPicker}
       {error && <div className="alert alert--error">{error}</div>}
 
       {isOwner && !branchId && (

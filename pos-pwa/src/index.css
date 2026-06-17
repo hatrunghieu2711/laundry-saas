@@ -17,6 +17,15 @@
   --radius: 14px;
   --tap: 48px; /* mục tiêu chạm tối thiểu > 44px */
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 4px 16px rgba(0, 0, 0, 0.05);
+  /* Style mới (Stage 6.10) — kẻ mảnh 0.5px, radius nhỏ, palette dịu (theo mockup
+     dashboard). Đặt tên riêng để KHÔNG đụng theme cam đang dùng ở các màn khác. */
+  --ns-border: rgba(0, 0, 0, 0.12);
+  --ns-border-2: rgba(0, 0, 0, 0.22);
+  --ns-accent: #d85a30;
+  --ns-warn: #854f0b;
+  --ns-success: #0f6e56;
+  --ns-text-2: #6b6a65;
+  --ns-text-3: #97968f;
 }
 
 * {
@@ -852,58 +861,71 @@ body {
   /* Card giữ cố định 190px ở desktop (không giãn) — chỉ wrap thêm cột khi rộng. */
 }
 
-/* ── Header GỌN 1 dòng (Stage 6.6): tab trái · spacer · chi nhánh · ☰ ──── */
+/* ── Thanh trên cùng GỘP 1 dòng 48px (Stage 6.10): tabs · spacer · SLOT thao tác
+   trang · bộ chọn CN (dùng chung mọi màn) · ☰. Style mới: kẻ 0.5px, palette dịu. */
 .app-nav {
   display: flex;
   align-items: center;
+  height: 48px;
   background: var(--surface);
-  border-bottom: 1px solid var(--line);
-  padding: 0 6px;
+  border-bottom: 0.5px solid var(--ns-border-2);
+  padding: 0 14px;
   padding-top: env(safe-area-inset-top, 0);
   position: sticky;
   top: 0;
   z-index: 10;
 }
 .app-nav > * + * {
-  margin-left: 4px;
+  margin-left: 8px;
 }
 .app-nav__tab {
   flex: 0 0 auto;
-  text-align: center;
+  display: flex;
+  align-items: center;
+  height: 48px;
   text-decoration: none;
-  color: var(--muted);
-  font-weight: 700;
-  font-size: 15px;
-  padding: 10px 12px;
-  border-bottom: 3px solid transparent;
+  color: var(--ns-text-3);
+  font-weight: 500;
+  font-size: 14px;
+  padding: 0 6px;
+  border-bottom: 2px solid transparent;
 }
 .app-nav__tab--active {
-  color: var(--orange-dark);
-  border-bottom-color: var(--orange);
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--ns-accent);
 }
 .app-nav__spacer {
   flex: 1 1 auto;
 }
+/* Ô để TRANG hiện hành portal controls (search + làm mới) vào — giữ chung 1 thanh. */
+.app-nav__slot {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
 .app-nav__branch {
   flex: 0 1 auto;
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-  background: var(--bg);
-  border-radius: 999px;
-  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  height: 30px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: 0.5px solid var(--ns-border-2);
+  border-radius: 6px;
+  padding: 0 8px;
   max-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-/* Chủ: bộ chọn CN trên header (Stage 6.6.1) — native select, hợp Chrome cũ. */
+/* Chủ: bộ chọn CN dùng chung — native select, hợp Chrome cũ. */
 .app-nav__branch--select {
-  color: var(--ink);
-  border: 1px solid var(--line);
   max-width: 200px;
   cursor: pointer;
-  padding: 5px 8px;
 }
 
 /* ── Badge payment_status ────────────────────────────────────────── */
@@ -2415,8 +2437,10 @@ body {
 }
 .app-nav__more {
   flex: 0 0 auto;
-  width: 52px;
+  width: 44px;
+  justify-content: center;
   font-size: 20px;
+  color: var(--ns-text-2);
 }
 .app-menu {
   position: absolute;
@@ -2479,6 +2503,153 @@ body {
     flex: 1 1 0;
     min-width: 0;
   }
+}
+
+/* ══ Dashboard 3 cột (Stage 6.10) ══════════════════════════════════════
+   Style mới: kẻ 0.5px, radius nhỏ. Card = KHUNG RỖNG (layout thẻ thiết kế sau). */
+
+/* Controls portal lên thanh trên cùng (search nhỏ + làm mới). */
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+.topbar-actions > * + * {
+  margin-left: 8px;
+}
+.topbar-actions__search {
+  flex: 0 1 190px;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 0.5px solid var(--ns-border-2);
+  border-radius: 6px;
+}
+.topbar-actions__refresh {
+  flex: 0 0 auto;
+  height: 30px;
+  padding: 0 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: var(--ns-text-2);
+  background: transparent;
+  border: 0.5px solid var(--ns-border-2);
+  border-radius: 6px;
+  cursor: pointer;
+}
+.topbar-actions__refresh:disabled {
+  opacity: 0.5;
+}
+
+/* Dòng thống kê 1 dòng mảnh (Ở tiệm · Chưa thu · Đã thu · Nợ · … Cập nhật HH:MM). */
+.board-stats {
+  display: flex;
+  align-items: center;
+  padding: 8px 4px;
+  border-bottom: 0.5px solid var(--ns-border);
+  font-size: 12px;
+  color: var(--ns-text-2);
+}
+.board-stats > * + * {
+  margin-left: 8px;
+}
+.board-stats b {
+  font-size: 13px;
+  color: var(--ink);
+}
+.board-stats__warn {
+  color: var(--ns-warn);
+}
+.board-stats__success {
+  color: var(--ns-success);
+}
+.board-stats__dot {
+  color: var(--ns-border-2);
+}
+.board-stats__spacer {
+  flex: 1 1 auto;
+}
+.board-stats__updated {
+  font-size: 11px;
+  color: var(--ns-text-3);
+}
+
+/* 3 cột ĐỀU NHAU (flex:1), KHÔNG cuộn ngang. */
+.board3 {
+  display: flex;
+  align-items: flex-start;
+  padding: 10px 0;
+}
+.board3 > * + * {
+  margin-left: 8px;
+}
+.board3__col {
+  flex: 1 1 0;
+  min-width: 0;
+  background: var(--surface);
+  border: 0.5px solid var(--ns-border);
+  border-radius: 8px;
+  padding: 8px;
+}
+.board3__col-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  padding: 0 2px;
+}
+.board3__col-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.board3__col-count {
+  font-size: 11px;
+  color: var(--ns-text-3);
+  background: var(--bg);
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+/* Lưới thẻ: fallback FLEX-WRAP cho Chrome cũ Sunmi (<57). */
+.board3__cards {
+  display: flex;
+  flex-wrap: wrap;
+  margin: -3px;
+  min-height: 8px;
+}
+.board3__cards > * {
+  flex: 1 1 120px;
+  margin: 3px;
+}
+/* Chrome ≥57: grid auto-fit — cột đông tự dàn nhiều cột con, vị trí cột cố định. */
+@supports (display: grid) {
+  .board3__cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-gap: 6px;
+    gap: 6px;
+    margin: 0;
+  }
+  .board3__cards > * {
+    margin: 0;
+  }
+}
+/* CARD = KHUNG RỖNG (52px), click → chi tiết đơn. Nội dung thẻ thiết kế stage sau. */
+.board3__card-ph {
+  height: 52px;
+  border: 0.5px solid var(--ns-border);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.board3__card-ph:active {
+  background: var(--bg);
 }
 
 /* ── Modal bắt buộc (giao + thanh toán) ───────────────────────────── */

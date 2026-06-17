@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { BranchProvider } from './context/BranchContext'
+import { TopbarSlotProvider } from './context/TopbarSlotContext'
 import Board from './pages/Board'
 import BranchesManage from './pages/BranchesManage'
 import CashBook from './pages/CashBook'
@@ -21,7 +22,9 @@ function Protected({ children }) {
   return (
     <ProtectedRoute>
       <BranchProvider>
-        <Layout>{children}</Layout>
+        <TopbarSlotProvider>
+          <Layout>{children}</Layout>
+        </TopbarSlotProvider>
       </BranchProvider>
     </ProtectedRoute>
   )
