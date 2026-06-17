@@ -1439,49 +1439,54 @@ body {
 }
 
 /* ── Nhãn liên 2 (mẫu cố định, 80mm nhiệt, monospace) — Stage 6.9 ──────────── */
+/* Nhãn liên 2 v5 (Stage 6.9.6): ĐẬM + TO hơn, KHÔNG viền ngoài, không gạch ngang
+   header. Trạng thái IN HOA; UNPAID có khung (cảnh giác khi giao), PAID không. */
 .lbl {
   width: 72mm;
   margin: 0 auto;
   background: #fff;
-  border: 1px solid #000;
-  padding: 14px 14px 18px;
+  padding: 8px 10px 14px; /* padding-bottom 14px: giảm giấy trắng đáy. TINH CHỈNH
+                             SAU TEST MÁY: một phần đáy là leader gap (xoay 180°). */
   font-family: 'Courier New', monospace;
   color: #000;
+  font-weight: 700; /* thân đậm */
 }
 .lbl__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1.5px solid #000;
-  padding-bottom: 8px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
 }
 .lbl__code {
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.1;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
 }
 .lbl__num {
   flex: none;
   margin-left: 8px;
   text-align: center;
-  border: 2px solid #000;
+  border: 3px solid #000;
   padding: 2px 10px;
-  font-size: 30px;
-  font-weight: 700;
+  font-size: 28px;
+  font-weight: 800;
   line-height: 1;
 }
 .lbl__pay {
   text-align: center;
-  border: 2px solid #000;
-  padding: 5px;
-  margin-bottom: 10px;
-  font-size: 16px;
-  font-weight: 700;
+  margin-bottom: 12px;
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: 0.5px;
+}
+.lbl__pay--unpaid {
+  border: 3px solid #000;
+  padding: 6px 4px;
 }
 .lbl__info {
-  font-size: 14px;
-  line-height: 1.85;
+  font-size: 17px;
+  line-height: 1.7;
+  font-weight: 700;
 }
 .lbl__nameRow {
   display: flex;
@@ -1490,25 +1495,22 @@ body {
 }
 .lbl__recv {
   margin-left: 8px;
-  color: #333;
+  font-weight: 600;
 }
-.lbl__deliv {
-  font-size: 16px;
-}
-.lbl__deliv .lbl__k,
-.lbl__deliv .lbl__v {
-  font-weight: 700;
+.lbl__time {
+  font-size: 21px;
+  font-weight: 800;
+  margin-top: 4px;
 }
 .lbl__note {
-  border-top: 1px dashed #000;
-  margin-top: 8px;
-  padding-top: 6px;
-  font-size: 13px;
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
 }
-.lbl__blank {
-  border-bottom: 1px solid #000;
-  height: 18px;
-  margin-top: 12px;
+.lbl__dots {
+  margin-top: 8px;
+  font-size: 17px;
+  letter-spacing: 2px;
 }
 
 /* ── Modal in liên 2 chủ động (Stage 6.9) ─────────────────────────────────── */

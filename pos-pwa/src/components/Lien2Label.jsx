@@ -5,36 +5,37 @@ import { formatLabelDateTime, formatLabelTime } from '../lib/datetime'
 // builder): khổ 80mm in nhiệt, monospace, chữ to, KHÔNG bảng món/QR/logo.
 // Ngày in CHÍNH XÁC "DD/MM HH:MM" (không "Hôm nay/Ngày mai").
 //
-// Trạng thái thanh toán: paid → "Đã thanh toán / Paid"; còn lại (unpaid/partial/
-// debt/refunded) → "Chưa thanh toán / Unpaid". (Nhãn túi chỉ cần phân biệt đã thu
-// đủ hay chưa; nợ/thu một phần đều coi là CHƯA thanh toán.)
+// Trạng thái thanh toán (IN HOA): paid → "ĐÃ THANH TOÁN / PAID"; còn lại (unpaid/
+// partial/debt/refunded) → "CHƯA THANH TOÁN / UNPAID". Nhãn túi chỉ cần phân biệt đã
+// thu đủ hay chưa; nợ/thu một phần đều coi là CHƯA thanh toán.
 export const lien2PayText = (status) =>
-  status === 'paid' ? 'Đã thanh toán / Paid' : 'Chưa thanh toán / Unpaid'
+  status === 'paid' ? 'ĐÃ THANH TOÁN / PAID' : 'CHƯA THANH TOÁN / UNPAID'
 
 // Thân nhãn (KHÔNG portal) — tách để in nhiều nhãn + screenshot. seq = {n,total}
-// khi đánh số; null = không số (ẩn ô số túi, mã đơn chiếm full ngang).
+// khi đánh số; null = không số (ẩn ô số túi, mã đơn chiếm full ngang). Style v5
+// (Stage 6.9.6): đậm hơn, to hơn; UNPAID có khung (cảnh giác khi giao), PAID không.
 export function Lien2LabelBody({ order, seq = null }) {
   const note = (order.notes || '').trim()
+  const paid = order.payment_status === 'paid'
   return (
     <div className="lbl">
       <div className="lbl__head">
         <div className="lbl__code">{order.order_code}</div>
         {seq && <div className="lbl__num">{seq.n}/{seq.total}</div>}
       </div>
-      <div className="lbl__pay">{lien2PayText(order.payment_status)}</div>
+      <div className={`lbl__pay ${paid ? '' : 'lbl__pay--unpaid'}`}>{lien2PayText(order.payment_status)}</div>
       <div className="lbl__info">
-        {/* Name (trái) + giờ nhận HH:MM (phải) cùng 1 dòng — Stage 6.9.1 */}
+        {/* Name (trái) + giờ nhận HH:MM (phải) cùng 1 dòng */}
         <div className="lbl__nameRow">
-          <span>Name: <b>{order.customer_name || 'Khách vãng lai'}</b></span>
+          <span>Name: {order.customer_name || 'Khách vãng lai'}</span>
           <span className="lbl__recv">{formatLabelTime(order.created_at)}</span>
         </div>
-        {/* Giờ giao: dòng riêng, nổi bật, GIỮ ngày + giờ (giao có thể qua ngày) */}
-        <div className="lbl__deliv">
-          <span className="lbl__k">Giao/Delivery time:</span> <span className="lbl__v">{formatLabelDateTime(order.pickup_at)}</span>
-        </div>
+        {/* Giờ giao: "Time: DD/MM HH:MM" — TO + ĐẬM nhất (quan trọng khi giao) */}
+        <div className="lbl__time">Time: {formatLabelDateTime(order.pickup_at)}</div>
       </div>
       {note && <div className="lbl__note">Ghi chú: {note}</div>}
-      <div className="lbl__blank" />
+      {/* Dòng ghi tay dạng dấu chấm */}
+      <div className="lbl__dots">................................</div>
     </div>
   )
 }
