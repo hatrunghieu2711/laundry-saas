@@ -1467,7 +1467,7 @@ body {
 @media print {
   .lbl__cutline {
     border-top: 2px solid #000; /* vạch mốc CÓ MỰC ngay mép cắt */
-    margin-bottom: 26px;        /* khe mã đơn ↔ vạch (~24-30px tiêu chí) */
+    margin-bottom: 13px;        /* khe mã đơn ↔ vạch — giảm 1/2 (6.9.11: 26→13) */
   }
 }
 .lbl__head {
