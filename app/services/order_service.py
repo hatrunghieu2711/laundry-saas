@@ -137,13 +137,18 @@ async def _resolve_adjustment(
 
 
 def _apply_search(stmt, q: str | None):
-    """Lọc gần đúng theo mã đơn HOẶC tên khách (ILIKE). outerjoin customers
-    vì đơn khách lẻ không có customer_id."""
+    """Lọc gần đúng theo mã đơn HOẶC tên khách HOẶC SĐT (ILIKE). outerjoin
+    customers vì đơn khách lẻ không có customer_id. (Stage 6.11: thêm phone cho
+    tab Tra cứu — 1 ô search match cả 3 trường.)"""
     if not q or not q.strip():
         return stmt
     like = f"%{q.strip()}%"
     return stmt.outerjoin(Customer, Order.customer_id == Customer.id).where(
-        or_(Order.order_code.ilike(like), Customer.full_name.ilike(like))
+        or_(
+            Order.order_code.ilike(like),
+            Customer.full_name.ilike(like),
+            Customer.phone.ilike(like),
+        )
     )
 
 

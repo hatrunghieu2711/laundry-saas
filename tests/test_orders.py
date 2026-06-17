@@ -292,6 +292,28 @@ async def test_board_search_q(client: AsyncClient, octx: dict):
     assert r.json()["summary"]["total_orders"] == 1
 
 
+# ── Stage 6.11: search q cũng match SĐT khách (tab Tra cứu) ──────────────────
+async def test_list_search_q_by_phone(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    async with SessionFactory() as db:
+        cust = Customer(
+            tenant_id=octx["owner"]["tenant_id"],
+            full_name="Lê Văn Cường",
+            phone="0912345678",
+        )
+        db.add(cust)
+        await db.commit()
+        cust_id = str(cust.id)
+    o1 = (await _create_order(client, t, _ITEMS, customer_id=cust_id)).json()
+    await _create_order(client, t, _ITEMS)  # khách lẻ (không SĐT)
+
+    # tìm theo phần SĐT (ILIKE substring)
+    r = await client.get(f"{ORDERS}?q=12345", headers=auth_headers(t))
+    assert r.status_code == 200
+    assert r.json()["total"] == 1
+    assert r.json()["items"][0]["id"] == o1["id"]
+
+
 # ── cancel (soft delete) ────────────────────────────────────────────────────
 async def test_cancel_from_created(client: AsyncClient, octx: dict):
     oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]

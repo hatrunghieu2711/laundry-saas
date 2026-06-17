@@ -4,11 +4,12 @@ import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import { useTopbarSlot } from '../context/TopbarSlotContext'
 
-// Nav chính: + Tạo đơn · Đơn hàng · Ca · ☰ (menu). (Tab "Tra cứu" thêm ở Stage 6.11.)
+// Nav chính: + Tạo đơn · Đơn hàng · Ca · Tra cứu · ☰ (menu).
 const NAV = [
   { to: '/orders/new', label: '＋ Tạo đơn', end: false },
   { to: '/board', label: 'Đơn hàng', end: false },
   { to: '/', label: 'Ca', end: true },
+  { to: '/search', label: 'Tra cứu', end: false },
 ]
 // Mục trong menu ☰ (chừa chỗ thêm sau).
 const MENU = [

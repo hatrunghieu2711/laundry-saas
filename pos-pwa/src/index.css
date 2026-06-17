@@ -2652,6 +2652,109 @@ body {
   background: var(--bg);
 }
 
+/* ══ Tab Tra cứu (Stage 6.11) ══════════════════════════════════════════
+   Tìm mọi đơn theo mã/tên/SĐT, phân trang. Style mới (0.5px, radius nhỏ). */
+.tra {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 10px 0;
+}
+.tra__search {
+  display: block;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  font-size: 15px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 0.5px solid var(--ns-border-2);
+  border-radius: 8px;
+}
+.tra__filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 10px;
+}
+.tra__filters > * {
+  margin: 4px 6px 0 0;
+}
+.tra__status {
+  height: 38px;
+  padding: 0 8px;
+  font-size: 14px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 0.5px solid var(--ns-border-2);
+  border-radius: 8px;
+}
+.tra__hint {
+  text-align: center;
+  color: var(--ns-text-2);
+  margin: 24px 0;
+}
+.tra__count {
+  font-size: 12px;
+  color: var(--ns-text-3);
+  margin: 12px 2px 6px;
+}
+.tra__list {
+  display: flex;
+  flex-direction: column;
+}
+.tra__list > * + * {
+  margin-top: 8px;
+}
+.tra__row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 0.5px solid var(--ns-border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.tra__row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.tra__code {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--ink);
+}
+.tra__amount {
+  font-weight: 700;
+  color: var(--ink);
+}
+.tra__row-mid {
+  display: flex;
+  align-items: center;
+  margin-top: 4px;
+}
+.tra__row-mid > * + * {
+  margin-left: 8px;
+}
+.tra__os {
+  font-size: 13px;
+  color: var(--ns-text-2);
+}
+.tra__row-cust {
+  margin-top: 4px;
+  font-size: 14px;
+  color: var(--ink);
+}
+.tra__row-dates {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ns-text-3);
+}
+
 /* ── Modal bắt buộc (giao + thanh toán) ───────────────────────────── */
 .modal-overlay {
   position: fixed;
