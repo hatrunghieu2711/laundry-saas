@@ -2621,14 +2621,14 @@ body {
   min-height: 8px;
 }
 .board3__cards > * {
-  flex: 1 1 120px;
+  flex: 1 1 160px;
   margin: 3px;
 }
 /* Chrome ≥57: grid auto-fit — cột đông tự dàn nhiều cột con, vị trí cột cố định. */
 @supports (display: grid) {
   .board3__cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     grid-gap: 6px;
     gap: 6px;
     margin: 0;
@@ -2637,48 +2637,52 @@ body {
     margin: 0;
   }
 }
-/* Thẻ đơn (Stage 6.12): nội dung gọn + viền trái theo TT + nút thao tác ← → ☰. */
+/* Thẻ đơn Kanban — MẪU CHUẨN (Stage 6.14). Viền trái: xanh=đã thu / đỏ=chưa thu đủ.
+   Icon: SVG inline (kiểu Tabler) — KHÔNG CDN/webfont (hợp PWA offline trên Sunmi). */
 .board3__card {
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border: 0.5px solid var(--ns-border);
   border-left: 3px solid var(--ns-border-2);
-  border-radius: 6px;
-  position: relative;
+  border-radius: 0 8px 8px 0;
   overflow: hidden;
 }
+.board3__card--paid { border-left-color: #0f6e56; }
+.board3__card--owe { border-left-color: #a32d2d; }
+.board3__card--ref { border-left-color: #9ca3af; }
 .board3__main {
-  position: relative;
   display: block;
   width: 100%;
   text-align: left;
   background: none;
   border: none;
-  padding: 7px 8px 5px;
+  padding: 11px 13px 9px;
   cursor: pointer;
-}
-.board3__late {
-  position: absolute;
-  top: 0;
-  right: 0;
-  background: #dc2626;
-  color: #fff;
-  font-size: 9px;
-  font-weight: 800;
-  letter-spacing: 0.3px;
-  padding: 1px 5px;
-  border-bottom-left-radius: 6px;
 }
 .board3__l1 {
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
+  margin-bottom: 7px;
 }
-.board3__code { font-weight: 700; font-size: 13px; color: var(--ink); }
+.board3__codegrp { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.board3__code { font-weight: 600; font-size: 16px; color: var(--ink); white-space: nowrap; }
+.board3__flag {
+  display: flex;
+  align-items: center;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ns-warn);
+}
+.board3__flag-ic { width: 17px; height: 17px; display: block; }
 .board3__cust {
-  margin-left: 6px;
-  font-size: 11px;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 8px;
+  text-align: right;
+  font-size: 13px;
   color: var(--ns-text-2);
   white-space: nowrap;
   overflow: hidden;
@@ -2688,38 +2692,53 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 3px;
+  gap: 8px;
+  margin-bottom: 7px;
 }
-.board3__total { font-weight: 700; font-size: 12px; color: var(--ink); }
-.board3__l3 {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-top: 3px;
+.board3__total { font-weight: 600; font-size: 15px; color: var(--ink); }
+/* badge thanh toán (màu mẫu chuẩn) */
+.bps { font-size: 12px; padding: 2px 8px; border-radius: 8px; white-space: nowrap; }
+.bps--paid { background: #e1f5ee; color: #0f6e56; }
+.bps--unpaid { background: #fcebeb; color: #a32d2d; }
+.bps--partial { background: #faeeda; color: #854f0b; }
+.bps--debt { background: #ede9fe; color: #6d28d9; }
+.bps--refunded { background: #eef0f2; color: #4b5563; }
+.board3__l3 { display: flex; align-items: center; gap: 6px; }
+.board3__time { font-size: 14px; font-weight: 600; color: var(--ink); }
+.board3__time.is-late { color: #a32d2d; }
+.board3__latetag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: #fcebeb;
+  color: #a32d2d;
 }
-.board3__pickup { font-size: 11px; color: var(--ns-text-3); white-space: nowrap; }
-.board3__pickup.is-overdue { color: #dc2626; font-weight: 700; }
-.board3__note { font-size: 12px; margin-left: 4px; }
+/* dải nút thao tác (icon SVG), cao 34px */
 .board3__actions {
   display: flex;
   align-items: stretch;
   border-top: 0.5px solid var(--ns-border);
 }
-.kbtn {
+.board3__act {
   flex: 1;
-  min-height: 32px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   border-right: 0.5px solid var(--ns-border);
-  font-size: 15px;
-  color: var(--ns-text-2);
   cursor: pointer;
+  color: var(--ns-text-2);
 }
-.kbtn:last-child { border-right: none; }
-.kbtn--fwd { color: var(--ns-accent); font-weight: 800; }
-.kbtn:disabled { opacity: 0.32; cursor: default; }
-/* badge NỢ (tím) trên thẻ */
-.ps--debt-no { background: #ede9fe; color: #6d28d9; }
+.board3__act:last-child { border-right: none; }
+.board3__act--next { color: var(--ink); }
+.board3__act:disabled { opacity: 0.3; cursor: not-allowed; }
+.ic { width: 21px; height: 21px; display: block; }
+.board3__act--menu .ic { width: 19px; height: 19px; }
+/* popup ghi chú */
+.note-modal__text { white-space: pre-wrap; color: var(--ink); margin: 0 0 16px; line-height: 1.5; }
 
 /* Toast tiếng Việt (transient) */
 .toast {

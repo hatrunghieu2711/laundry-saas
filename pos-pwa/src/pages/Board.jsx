@@ -19,20 +19,42 @@ const COLUMNS = [
   { key: 'processing', label: 'Đang xử lý', statuses: ['washing', 'drying'] },
   { key: 'ready', label: 'Sẵn sàng', statuses: ['ready'] },
 ]
-// Màu viền trái theo trạng thái thanh toán (tín hiệu mạnh). Badge hiện nhãn.
-const BORDER = {
-  unpaid: 'bl--unpaid', partial: 'bl--partial', paid: 'bl--paid',
-  debt: 'bl--debt', refunded: 'bl--refunded',
+// Badge thanh toán (mẫu chuẩn 6.14).
+const BADGE = {
+  paid: { label: 'Đã thu', cls: 'bps--paid' },
+  unpaid: { label: 'Chưa thu', cls: 'bps--unpaid' },
+  partial: { label: 'Thu 1 phần', cls: 'bps--partial' },
+  debt: { label: 'Ghi nợ', cls: 'bps--debt' },
+  refunded: { label: 'Đã hoàn', cls: 'bps--refunded' },
 }
-// Badge gọn trên thẻ (debt = "NỢ" tím để nổi bật).
-const PS_BADGE = {
-  unpaid: { label: 'Chưa thu', cls: 'ps--unpaid' },
-  partial: { label: 'Thu 1 phần', cls: 'ps--partial' },
-  paid: { label: 'Đã thu', cls: 'ps--paid' },
-  debt: { label: 'NỢ', cls: 'ps--debt-no' },
-  refunded: { label: 'Hoàn', cls: 'ps--refunded' },
-}
+// Viền trái: xanh khi ĐÃ THU đủ; đỏ khi còn nợ tiền (unpaid/partial/debt); xám = hoàn.
+const cardMod = (ps) =>
+  ps === 'paid' ? 'board3__card--paid' : ps === 'refunded' ? 'board3__card--ref' : 'board3__card--owe'
 const REFRESH_MS = 30000
+
+// Icon SVG inline (kiểu Tabler) — KHÔNG phụ thuộc CDN/webfont, hợp PWA offline Sunmi.
+const ICON_PATHS = {
+  'arrow-left': 'M5 12h14 M5 12l6 6 M5 12l6 -6',
+  'arrow-right': 'M5 12h14 M13 6l6 6 M13 18l6 -6',
+  menu: 'M4 6h16 M4 12h16 M4 18h16',
+  note: 'M5 4h8l5 5v11H5z M13 4v5h5',
+}
+function Icon({ name, className = 'ic' }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <path d={ICON_PATHS[name]} />
+    </svg>
+  )
+}
 
 // Di chuyển 1 thẻ giữa các mảng cột (cập nhật lạc quan).
 function moveCard(board, orderId, from, to) {
@@ -67,6 +89,7 @@ export default function Board() {
   const [debtReason, setDebtReason] = useState('')
   const [payBusy, setPayBusy] = useState(false)
   const [printData, setPrintData] = useState(null) // {order, paid}
+  const [noteModal, setNoteModal] = useState(null) // {code, notes} — popup ghi chú
   const toastTimer = useRef(null)
 
   const showToast = useCallback((msg) => {
@@ -324,40 +347,61 @@ export default function Board() {
             </div>
             <div className="board3__cards">
               {col.items.map((o) => {
-                const ps = PS_BADGE[o.payment_status] || { label: o.payment_status, cls: '' }
+                const badge = BADGE[o.payment_status] || { label: o.payment_status, cls: '' }
+                const goDetail = () => navigate(`/orders/${o.id}`)
                 return (
-                  <div key={o.id} className={`board3__card ${BORDER[o.payment_status] || ''}`}>
-                    <button className="board3__main" onClick={() => navigate(`/orders/${o.id}`)}>
-                      {o.is_overdue && <span className="board3__late">TRỄ</span>}
+                  <div key={o.id} className={`board3__card ${cardMod(o.payment_status)}`}>
+                    <div
+                      className="board3__main"
+                      role="button"
+                      tabIndex={0}
+                      onClick={goDetail}
+                      onKeyDown={(e) => { if (e.key === 'Enter') goDetail() }}
+                    >
                       <div className="board3__l1">
-                        <span className="board3__code">{o.order_code}</span>
+                        <span className="board3__codegrp">
+                          <span className="board3__code">{o.order_code}</span>
+                          {o.notes ? (
+                            <button
+                              className="board3__flag"
+                              aria-label="Xem ghi chú"
+                              onClick={(e) => { e.stopPropagation(); setNoteModal({ code: o.order_code, notes: o.notes }) }}
+                            >
+                              <Icon name="note" className="board3__flag-ic" />
+                            </button>
+                          ) : null}
+                        </span>
                         <span className="board3__cust">{o.customer_name || 'Khách lẻ'}</span>
                       </div>
                       <div className="board3__l2">
                         <span className="board3__total">{formatVND(o.total_amount)}</span>
-                        <span className={`badge-ps badge-ps--xs ${ps.cls}`}>{ps.label}</span>
+                        <span className={`bps ${badge.cls}`}>{badge.label}</span>
                       </div>
                       <div className="board3__l3">
-                        <span className={`board3__pickup ${o.is_overdue ? 'is-overdue' : ''}`}>
-                          🕒 {formatPickupShort(o.pickup_at)}
+                        <span className={`board3__time ${o.is_overdue ? 'is-late' : ''}`}>
+                          {formatPickupShort(o.pickup_at)}
                         </span>
-                        {o.notes ? <span className="board3__note" title={o.notes}>📝</span> : null}
+                        {o.is_overdue && <span className="board3__latetag">TRỄ</span>}
                       </div>
-                    </button>
+                    </div>
                     <div className="board3__actions">
                       <button
-                        className="kbtn"
+                        className="board3__act"
                         disabled={!PREV_STATUS[o.order_status] || busyId === o.id}
                         onClick={() => move(o, 'back')}
                         aria-label="Lùi trạng thái"
-                      >←</button>
+                      ><Icon name="arrow-left" /></button>
                       <button
-                        className="kbtn kbtn--fwd"
+                        className="board3__act board3__act--next"
                         disabled={busyId === o.id}
                         onClick={() => move(o, 'fwd')}
                         aria-label={`Sang ${ORDER_STATUS[NEXT_STATUS[o.order_status]] || ''}`}
-                      >→</button>
-                      <button className="kbtn" onClick={() => openSheet(o)} aria-label="Thao tác khác">☰</button>
+                      ><Icon name="arrow-right" /></button>
+                      <button
+                        className="board3__act board3__act--menu"
+                        onClick={() => openSheet(o)}
+                        aria-label="Thao tác khác"
+                      ><Icon name="menu" /></button>
                     </div>
                   </div>
                 )
@@ -368,6 +412,17 @@ export default function Board() {
       </div>
 
       {toast && <div className="toast" role="status">{toast}</div>}
+
+      {/* ── Popup ghi chú (bấm icon note trên thẻ) ── */}
+      {noteModal && (
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setNoteModal(null)}>
+          <div className="modal note-modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal__title">Ghi chú · {noteModal.code}</h3>
+            <p className="note-modal__text">{noteModal.notes}</p>
+            <button className="btn btn--ghost btn--block" onClick={() => setNoteModal(null)}>Đóng</button>
+          </div>
+        </div>
+      )}
 
       {/* ── Bottom sheet ☰: 3 thao tác ── */}
       {sheet && (
