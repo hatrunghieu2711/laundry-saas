@@ -1442,12 +1442,16 @@ body {
 /* Nhãn liên 2 v5 (Stage 6.9.6): ĐẬM + TO hơn, KHÔNG viền ngoài, không gạch ngang
    header. Trạng thái IN HOA; UNPAID có khung (cảnh giác khi giao), PAID không. */
 .lbl {
-  width: 72mm;
+  width: 76mm;
   margin: 0 auto;
   background: #fff;
-  padding: 8px 10px 14px; /* padding-bottom 14px: giảm giấy trắng đáy. TINH CHỈNH
-                             SAU TEST MÁY: một phần đáy là leader gap (xoay 180°). */
-  font-family: 'Courier New', monospace;
+  /* v6 padding (TINH CHỈNH SAU TEST MÁY THẬT):
+     - top 22px: khi IN xoay 180° → mã đơn ở ĐẦU nhãn, tránh máy cắt SÁT mép.
+     - bottom 28px: vùng nhân viên VIẾT TAY (thay dòng dấu chấm) + hứng leader gap khi xoay.
+     - ngang 6px: lề mỏng, nội dung rộng gần hết khổ → bớt trắng 2 bên. */
+  padding: 22px 6px 28px;
+  /* FONT GIỐNG BILL (.rcp) — sans-serif thường, KHÔNG monospace nữa. */
+  font-family: 'Segoe UI', system-ui, sans-serif;
   color: #000;
   font-weight: 700; /* thân đậm */
 }
@@ -1455,7 +1459,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 .lbl__code {
   font-size: 34px;
@@ -1475,17 +1479,19 @@ body {
 .lbl__pay {
   text-align: center;
   margin-bottom: 12px;
-  font-size: 22px;
+  font-size: 16px; /* khít "CHƯA THANH TOÁN / UNPAID" (chuỗi dài nhất) GỌN 1 DÒNG ở 80mm.
+                      Đo headless (font fallback rộng) 18/17px tràn → 16px vừa khít; máy thật
+                      font Roboto hẹp hơn nên dư. Nếu in thật vẫn tràn → giảm 15px. */
   font-weight: 800;
-  letter-spacing: 0.5px;
+  white-space: nowrap; /* ÉP 1 DÒNG — không xuống dòng */
 }
 .lbl__pay--unpaid {
   border: 3px solid #000;
-  padding: 6px 4px;
+  padding: 6px 2px;
 }
 .lbl__info {
-  font-size: 17px;
-  line-height: 1.7;
+  font-size: 18px;
+  line-height: 1.6;
   font-weight: 700;
 }
 .lbl__nameRow {
@@ -1498,19 +1504,14 @@ body {
   font-weight: 600;
 }
 .lbl__time {
-  font-size: 21px;
+  font-size: 22px;
   font-weight: 800;
   margin-top: 4px;
 }
 .lbl__note {
   margin-top: 10px;
-  font-size: 16px;
-  font-weight: 700;
-}
-.lbl__dots {
-  margin-top: 8px;
   font-size: 17px;
-  letter-spacing: 2px;
+  font-weight: 700;
 }
 
 /* ── Modal in liên 2 chủ động (Stage 6.9) ─────────────────────────────────── */

@@ -34,8 +34,7 @@ export function Lien2LabelBody({ order, seq = null }) {
         <div className="lbl__time">Time: {formatLabelDateTime(order.pickup_at)}</div>
       </div>
       {note && <div className="lbl__note">Ghi chú: {note}</div>}
-      {/* Dòng ghi tay dạng dấu chấm */}
-      <div className="lbl__dots">................................</div>
+      {/* Vùng viết tay = khoảng trắng padding-bottom của .lbl (v6) — bỏ dòng dấu chấm. */}
     </div>
   )
 }
