@@ -1401,35 +1401,37 @@ body {
   body {
     background: #fff;
   }
+  /* Mặc định (OrderDetail / Board — in 1 lần, không qua hàng đợi): hiện bill. */
   .print-receipt {
     display: block !important;
+  }
+  .print-lien2 {
+    display: none !important;
   }
   .rcp {
     width: 72mm;
     margin: 0 auto;
-    page: billpg; /* bill 1 trang liên tục, không vắt 2 trang (6.9.3) */
+    page: billpg; /* bill 1 trang liên tục, không bị cap ~1056px (6.9.3) */
   }
-  /* Liên 2 (Stage 6.9): nhãn KÈM BILL (.print-receipt--label) cắt sau bill.
-     break-after:always trên bill + break-before trên nhãn = 1 chỗ ngắt DUY NHẤT
-     (bill ↔ nhãn) cho máy cắt rời; KHÔNG ngắt trong lòng bill/nhãn. */
-  .print-receipt--label {
-    page-break-before: always;
-    break-before: page;
-  }
-  /* In CHỦ ĐỘNG nhiều nhãn: body.print-mode-lien2 → ẩn bill, chỉ hiện .print-lien2. */
-  body.print-mode-lien2 .print-receipt {
-    display: none !important;
-  }
-  body.print-mode-lien2 .print-lien2 {
+  /* HÀNG ĐỢI IN TUẦN TỰ (Stage 6.9.4): mỗi mảnh = 1 job riêng → CHỈ job đang in
+     hiển thị (job khác display:none) để máy cắt rời + không in lẫn bill↔nhãn.
+     Body class do usePrintQueue bật: print-job-bill / print-job-lien2. */
+  body.print-job-bill .print-receipt {
     display: block !important;
   }
-  .print-lien2 .lbl-page + .lbl-page {
-    page-break-before: always; /* cắt giữa các nhãn — CẦN TEST tự cắt trên Sunmi */
+  body.print-job-bill .print-lien2 {
+    display: none !important;
   }
-  /* CẦN TEST SUNMI: rotate 180 — xoay TỪNG nhãn liên 2 khi in để leader gap (~1cm
-     đầu mỗi tờ) rơi vào vùng dòng kẻ ghi tay (đáy thiết kế). transform-origin
-     center → không lệch mép. CHỈ nhãn (.lbl), KHÔNG đụng bill khách (.rcp). */
-  .print-receipt--label .lbl,
+  body.print-job-lien2 .print-receipt {
+    display: none !important;
+  }
+  body.print-job-lien2 .print-lien2 {
+    display: block !important;
+  }
+  /* CẦN TEST SUNMI: rotate 180 — xoay nhãn liên 2 khi in để leader gap (~1cm đầu
+     tờ) rơi vào vùng dòng kẻ ghi tay (đáy). transform-origin center → không lệch
+     mép. CHỈ nhãn (.lbl), KHÔNG đụng bill (.rcp). Mỗi nhãn giờ là 1 job riêng nên
+     KHÔNG cần page-break giữa các nhãn nữa. */
   .print-lien2 .lbl {
     transform: rotate(180deg);
     transform-origin: center center;

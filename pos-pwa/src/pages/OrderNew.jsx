@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import Receipt from '../components/Receipt'
-import { Lien2BillLabel } from '../components/Lien2Label'
+import { Lien2PrintLayer } from '../components/Lien2Label'
 import Lien2PrintButton from '../components/Lien2PrintButton'
+import { usePrintQueue } from '../lib/printQueue'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import {
@@ -134,6 +135,8 @@ export default function OrderNew() {
     }
   }, [])
   const printReady = receiptConfig !== null && logoReady
+  // Hàng đợi in tuần tự (Stage 6.9.4): bill + liên 2 = các job RIÊNG → máy cắt rời.
+  const { active: printJob, printing: printingQueue, run: runPrint } = usePrintQueue()
 
   const checkShift = useCallback(async () => {
     setError('')
@@ -448,41 +451,32 @@ export default function OrderNew() {
     setPayWarn('')
   }
 
-  // Tạo đơn xong → IN NGAY (bỏ màn trung gian, như bấm "In phiếu"). In 1 lần/đơn.
-  // CHỜ receipt_config + logo nạp xong (printReady) → in ĐÚNG mẫu tenant, không
-  // nhầm mẫu mặc định (Stage 6.8.1). setPrinted SAU khi gọi in → lưới an toàn chỉ
-  // hiện sau khi in, không nháy trước.
+  // Tạo đơn xong (auto_print BẬT) → in TUẦN TỰ 2 JOB RIÊNG: BILL rồi LIÊN 2 (1 nhãn
+  // không số) → máy Sunmi cắt rời 2 tờ (Stage 6.9.4). In 1 lần/đơn (printedRef).
+  // CHỜ printReady (config+logo) → in đúng mẫu tenant (6.8.1). Xong → printed=true
+  // (hiện màn tóm tắt; KHÔNG auto về đơn mới — để dùng nút In lại/In liên 2).
   useEffect(() => {
-    if (!created || autoPrint !== true || !printReady) return undefined // tenant tắt → KHÔNG tự in
-    if (printedRef.current === created.id) return undefined
+    if (!created || autoPrint !== true || !printReady) return // tenant tắt → KHÔNG tự in
+    if (printedRef.current === created.id) return
     printedRef.current = created.id
-    const raf = requestAnimationFrame(() => {
-      window.print()
-      setPrinted(true)
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [created, autoPrint, printReady])
-
-  // In xong / đóng hộp thoại in → tự về màn Tạo đơn mới.
-  useEffect(() => {
-    if (!created) return undefined
-    const onAfterPrint = () => startNew()
-    window.addEventListener('afterprint', onAfterPrint)
-    return () => window.removeEventListener('afterprint', onAfterPrint)
-  }, [created])
+    runPrint([{ mode: 'bill' }, { mode: 'lien2', seq: null }], () => setPrinted(true))
+  }, [created, autoPrint, printReady, runPrint])
 
   // ── sau khi tạo đơn: render Bill (portal) NGAY + in thẳng (đúng mẫu tenant).
   //    Trước khi in chỉ hiện 1 dòng "đang chuẩn bị/in" (calm) — KHÔNG nháy lưới
   //    an toàn. Sau khi đã gọi in (printed) mới hiện nút (dự phòng nếu máy không
   //    bắn 'afterprint'). Mã đơn nằm trên bill. Stage 6.8.1. ──
   if (created) {
-    // Auto-print BẬT mà CHƯA in xong → màn chờ calm (không nháy lưới an toàn).
-    const waiting = autoPrint !== false && !printed
+    // Đang chạy hàng đợi in (hoặc auto_print BẬT chưa in xong) → màn chờ calm,
+    // KHÔNG nháy lưới an toàn. Xong / auto_print TẮT → màn tóm tắt.
+    const showSummary = !printingQueue && (printed || autoPrint === false)
+    // In lại/In phiếu: in BILL rồi LIÊN 2 (1 nhãn không số) — 2 job riêng, máy cắt rời.
+    const printBillAndLabel = () => runPrint([{ mode: 'bill' }, { mode: 'lien2', seq: null }])
     return (
       <div className="ordernew">
-        {waiting ? (
+        {!showSummary ? (
           <div className="ordok ordok--wait">
-            <p className="shift__hint">{printReady ? 'Đang in phiếu…' : 'Đang chuẩn bị phiếu in…'}</p>
+            <p className="shift__hint">{printingQueue ? 'Đang in phiếu…' : 'Đang chuẩn bị phiếu in…'}</p>
           </div>
         ) : (
           <div className="ordok">
@@ -499,7 +493,7 @@ export default function OrderNew() {
             </div>
             {payWarn && <div className="alert alert--error">{payWarn}</div>}
             <div className="ordok__actions">
-              <button className="btn btn--ghost ordok__print" onClick={() => window.print()}>
+              <button className="btn btn--ghost ordok__print" onClick={printBillAndLabel}>
                 {printed ? 'In lại' : 'In phiếu'}
               </button>
               <Lien2PrintButton order={created} className="btn btn--ghost ordok__lien2" />
@@ -508,13 +502,15 @@ export default function OrderNew() {
               </button>
             </div>
             <p className="ordok__hint">
-              {autoPrint === false ? 'Bấm In phiếu nếu khách cần bill.' : 'In xong sẽ tự về đơn mới.'}
+              {autoPrint === false
+                ? 'Bấm In phiếu nếu khách cần bill.'
+                : 'Đã in bill + liên 2 (cắt rời). In lại nếu cần, hoặc Tạo đơn mới.'}
             </p>
           </div>
         )}
         <Receipt config={receiptConfig} order={created} paid={paidInfo.amount} method={paidInfo.method} />
-        {/* Liên 2 (Stage 6.9): 1 nhãn KHÔNG SỐ in KÈM bill (cùng 1 lần in). */}
-        <Lien2BillLabel order={created} />
+        {/* LIÊN 2: chỉ render khi job liên 2 đang in (auto kèm bill / In lại) — 1 nhãn/lần. */}
+        {printJob?.mode === 'lien2' && <Lien2PrintLayer order={created} seq={printJob.seq} />}
       </div>
     )
   }

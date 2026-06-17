@@ -39,13 +39,15 @@ export function Lien2LabelBody({ order, seq = null }) {
   )
 }
 
-// Nhãn KÈM BILL (chế độ a): 1 nhãn KHÔNG SỐ, dùng class .print-receipt nên in
-// chung 1 lần với bill (page-break tự cắt giữa bill và nhãn). Render cạnh <Receipt>.
-export function Lien2BillLabel({ order }) {
+// Lớp in nhãn liên 2 (Stage 6.9.4) — portal ra <body> (NGOÀI #root, vì #root bị
+// display:none khi in). Render 1 nhãn ĐANG in của hàng đợi. Dùng cho cả auto-print
+// (OrderNew) lẫn in chủ động (Lien2PrintButton). Body class print-job-lien2 quyết
+// định hiển thị (xem index.css @media print).
+export function Lien2PrintLayer({ order, seq = null }) {
   if (!order) return null
   return createPortal(
-    <div className="print-receipt print-receipt--label">
-      <Lien2LabelBody order={order} seq={null} />
+    <div className="print-lien2">
+      <div className="lbl-page"><Lien2LabelBody order={order} seq={seq} /></div>
     </div>,
     document.body,
   )
