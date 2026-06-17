@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom'
 import { formatLabelDateTime, formatLabelTime } from '../lib/datetime'
+import { formatVND } from '../lib/format'
 
 // NHÃN LIÊN 2 (dán túi đồ — nội bộ, Stage 6.9). Mẫu CỐ ĐỊNH mọi tenant (không
 // builder): khổ 80mm in nhiệt, monospace, chữ to, KHÔNG bảng món/QR/logo.
@@ -30,6 +31,8 @@ export function Lien2LabelBody({ order, seq = null }) {
         {seq && <div className="lbl__num">{seq.n}/{seq.total}</div>}
       </div>
       <div className={`lbl__pay ${paid ? '' : 'lbl__pay--unpaid'}`}>{lien2PayText(order.payment_status)}</div>
+      {/* Số tiền — CHỈ khi CHƯA thanh toán (paid thì đã thu, không cần) */}
+      {!paid && <div className="lbl__amt">{formatVND(order.total_amount)}</div>}
       <div className="lbl__info">
         {/* Name (trái) + giờ nhận HH:MM (phải) cùng 1 dòng */}
         <div className="lbl__nameRow">

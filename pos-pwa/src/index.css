@@ -1507,6 +1507,13 @@ body {
   border: 3px solid #000;
   padding: 6px 2px;
 }
+/* Số tiền (CHỈ đơn chưa thanh toán) — ngay dưới trạng thái; nhỏ hơn Time (23px), đậm, giữa. */
+.lbl__amt {
+  margin-bottom: 8px; /* khe xuống dòng dưới; khe trên do .lbl__pay margin-bottom lo */
+  text-align: center;
+  font-size: 20px;
+  font-weight: 800;
+}
 .lbl__info {
   font-size: 18px;
   line-height: 1.3; /* v9: giảm 1.6→1.3 cho nhãn ngắn hơn */
