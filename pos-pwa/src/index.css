@@ -2672,9 +2672,11 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 8px;
   margin-bottom: 9px;
 }
+/* flex gap KHÔNG chạy Chrome <84 (máy POS Sunmi Chrome 56) → fallback margin. Tuy có
+   space-between, vẫn cần margin để mã đơn (khi dài, ellipsis co lại) KHÔNG chạm nhãn tiền. */
+.board3__l1 > * + * { margin-left: 8px; }
 /* Mã đơn: khi thiếu chỗ, CẮT phần ĐẦU giữ phần ĐUÔI ("…0053") — direction:rtl đẩy
    ellipsis ra trước; đuôi mã (phần phân biệt) luôn nhìn được. Chỉ cắt khi thật sự thiếu. */
 .board3__code {
@@ -2699,8 +2701,10 @@ body {
 .board3__money--paid { background: var(--ns-success-bg); color: var(--ns-success); }
 .board3__money--unpaid { background: var(--ns-danger-bg); color: var(--ns-danger); }
 /* Dòng 2: [icon ship][icon ghi chú] tên khách (ellipsis) | giờ giao (màu theo độ gấp). */
-.board3__l2 { display: flex; align-items: center; gap: 8px; }
-.board3__l2left { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
+.board3__l2 { display: flex; align-items: center; }
+.board3__l2 > * + * { margin-left: 8px; } /* gap fallback Chrome <84 (POS Chrome 56) */
+.board3__l2left { display: flex; align-items: center; min-width: 0; flex: 1 1 auto; }
+.board3__l2left > * + * { margin-left: 6px; } /* gap fallback Chrome <84: icon ↔ icon ↔ tên */
 .board3__flag { flex: 0 0 auto; display: flex; align-items: center; padding: 0; background: none; border: none; cursor: pointer; }
 .board3__flag--note { color: var(--ns-warn); }
 .board3__flag--ship { color: var(--ns-text-2); }
@@ -2766,7 +2770,6 @@ body {
   max-width: 90%;
   display: flex;
   align-items: center;
-  gap: 16px;
   background: rgba(26, 26, 24, 0.94);
   color: #fff;
   font-size: 14px;
@@ -2775,6 +2778,8 @@ body {
   border-radius: 8px;
   box-shadow: var(--shadow);
 }
+/* flex gap KHÔNG chạy Chrome <84 (POS Chrome 56) → fallback margin: chữ ↔ nút hành động */
+.toast > * + * { margin-left: 16px; }
 .toast__action {
   flex: 0 0 auto;
   background: none;
