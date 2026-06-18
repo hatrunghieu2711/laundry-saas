@@ -9,7 +9,6 @@ import { useTopbarSlot } from '../context/TopbarSlotContext'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
 import { formatPickupBoard } from '../lib/datetime'
-import { NEXT_STATUS, ORDER_STATUS, PREV_STATUS } from '../lib/orders'
 
 // Dashboard "Đơn hàng" (Stage 6.10 layout + 6.12 thẻ thao tác): 3 cột tại tiệm.
 //   - GỘP washing + drying → "Đang xử lý"; BỎ "Đã giao" (đã giao rời board).
@@ -156,12 +155,26 @@ export default function Board() {
     }
   }, [showToast])
 
-  // ── Đổi trạng thái (← →) ──────────────────────────────────────────────
+  // ── Đổi trạng thái theo CỘT (← →): mỗi lần bấm sang HẲN cột kế/trước ──────
+  // (Stage 6.17) Nhóm cột định nghĩa 1 nơi DUY NHẤT = COLUMNS. Nút → nhảy tới
+  // trạng thái ĐẦU của cột kế trong 1 request → đơn washing/drying ở "Đang xử lý"
+  // bấm → 1 lần là sang "Sẵn sàng" (không còn kẹt trong cột gộp).
   const move = async (o, dir) => {
-    const target = dir === 'fwd' ? NEXT_STATUS[o.order_status] : PREV_STATUS[o.order_status]
-    if (!target || busyId) return
-    if (target === 'delivered') return deliver(o)
+    if (busyId) return
+    const ci = COLUMNS.findIndex((c) => c.statuses.includes(o.order_status))
+    if (ci < 0) return
+    if (dir === 'fwd') {
+      const nextCol = COLUMNS[ci + 1]
+      if (!nextCol) return deliver(o) // hết cột tại tiệm (Sẵn sàng) → giao (pay-first)
+      return patchStatus(o, nextCol.statuses[0]) // nhảy tới ĐẦU cột kế
+    }
+    const prevCol = COLUMNS[ci - 1]
+    if (!prevCol) return // Mới nhận → không có cột trước
+    // Lùi về bước GẦN NHẤT của cột trước (trạng thái cuối của cột đó).
+    return patchStatus(o, prevCol.statuses[prevCol.statuses.length - 1])
+  }
 
+  const patchStatus = async (o, target) => {
     const from = o.order_status
     setBusyId(o.id)
     setBoard((prev) => moveCard(prev, o.id, from, target)) // optimistic
@@ -339,7 +352,7 @@ export default function Board() {
       {error && <div className="alert alert--error">{error}</div>}
 
       <div className="board3">
-        {columnItems.map((col) => (
+        {columnItems.map((col, colIdx) => (
           <section className="board3__col" key={col.key}>
             <div className="board3__col-head">
               <span className="board3__col-title">{col.label}</span>
@@ -387,15 +400,15 @@ export default function Board() {
                     <div className="board3__actions">
                       <button
                         className="board3__act"
-                        disabled={!PREV_STATUS[o.order_status] || busyId === o.id}
+                        disabled={colIdx === 0 || busyId === o.id}
                         onClick={() => move(o, 'back')}
-                        aria-label="Lùi trạng thái"
+                        aria-label={colIdx > 0 ? `Lùi về ${COLUMNS[colIdx - 1].label}` : 'Lùi'}
                       ><Icon name="arrow-left" /></button>
                       <button
                         className="board3__act board3__act--next"
                         disabled={busyId === o.id}
                         onClick={() => move(o, 'fwd')}
-                        aria-label={`Sang ${ORDER_STATUS[NEXT_STATUS[o.order_status]] || ''}`}
+                        aria-label={COLUMNS[colIdx + 1] ? `Sang ${COLUMNS[colIdx + 1].label}` : 'Giao đơn'}
                       ><Icon name="arrow-right" /></button>
                       <button
                         className="board3__act board3__act--menu"

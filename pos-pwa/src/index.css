@@ -23,6 +23,7 @@
   --ns-border-2: rgba(0, 0, 0, 0.22);
   --ns-accent: #d85a30;
   --ns-warn: #854f0b;
+  --ns-warn-bg: #fbe7d2;
   --ns-success: #0f6e56;
   --ns-success-bg: #e1f5ee;
   --ns-danger: #a32d2d;
@@ -2651,6 +2652,9 @@ body {
   border-radius: 8px;
   overflow: hidden;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  /* Thẻ lẻ KHÔNG giãn hết cột: chặn bề rộng tối đa + căn trái → mọi thẻ cùng cỡ
+     dù cột có 1 hay nhiều thẻ. */
+  max-width: 240px;
 }
 .board3__card--paid { border-left-color: var(--ns-success); }
 .board3__card--owe { border-left-color: var(--ns-danger); }
@@ -2671,7 +2675,19 @@ body {
   gap: 8px;
   margin-bottom: 9px;
 }
-.board3__code { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; font-size: 16px; color: var(--ink); white-space: nowrap; }
+/* Mã đơn: khi thiếu chỗ, CẮT phần ĐẦU giữ phần ĐUÔI ("…0053") — direction:rtl đẩy
+   ellipsis ra trước; đuôi mã (phần phân biệt) luôn nhìn được. Chỉ cắt khi thật sự thiếu. */
+.board3__code {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  direction: rtl;
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ink);
+}
 .board3__money {
   flex: 0 0 auto;
   font-size: 13px;
@@ -2698,9 +2714,22 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.board3__time { flex: 0 0 auto; font-size: 14px; font-weight: 600; white-space: nowrap; color: var(--ink); }
-.board3__time.is-soon { color: var(--ns-warn); }
-.board3__time.is-late { color: var(--ns-danger); }
+/* Giờ giao: còn xa → chữ thường (phụ), KHÔNG nhãn. Sắp tới → NHÃN cam. Quá giờ → NHÃN đỏ. */
+.board3__time { flex: 0 0 auto; font-size: 13px; font-weight: 600; white-space: nowrap; color: var(--ns-text-2); }
+.board3__time.is-soon {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--ns-warn-bg);
+  color: var(--ns-warn);
+}
+.board3__time.is-late {
+  font-size: 12px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: var(--ns-danger-bg);
+  color: var(--ns-danger);
+}
 /* dải nút thao tác (icon SVG), cao 30px */
 .board3__actions {
   display: flex;

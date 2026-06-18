@@ -159,8 +159,10 @@ def _add_tracking(db: AsyncSession, order: Order, status: str, actor: User) -> N
 def _validate_transition(order: Order, new: str) -> None:
     """Luật chuyển trạng thái (Stage 3.9 — cho LÙI có kiểm soát).
 
-    - Tiến 1 bước: created→washing→…→completed.
-    - Lùi tự do trong nhóm xử lý (created↔ready, chỉ về bước TRƯỚC).
+    - Tiến: 1 bước cho bước NGOÀI nhóm xử lý (ready→delivered→completed) HOẶC nhảy
+      tới BẤT KỲ bước trong nhóm xử lý tại tiệm [created,washing,drying,ready] trong
+      1 request (Stage 6.17 — cho nút → nhảy qua cột gộp washing+drying tới ready).
+    - Lùi tự do trong nhóm xử lý (created↔ready).
     - delivered→ready: CHỈ khi payment_status='unpaid' (chưa thu).
     - completed/cancelled: khóa vĩnh viễn (ORDER_CLOSED).
     """
@@ -175,14 +177,14 @@ def _validate_transition(order: Order, new: str) -> None:
                 409, "INVALID_STATUS_TRANSITION", "Không thể hủy đơn ở trạng thái này"
             )
         return
-    # Tiến đúng 1 bước.
+    # Tiến đúng 1 bước cho bước NGOÀI nhóm xử lý (ready→delivered, delivered→completed).
     if _FORWARD.get(current) == new:
         return
-    # Lùi trong nhóm xử lý (chỉ về bước có index nhỏ hơn).
+    # Tiến/LÙI TỰ DO trong nhóm xử lý tại tiệm [created,washing,drying,ready] — 1 request
+    # (Stage 6.17: nút → nhảy qua cột gộp washing+drying tới ready; lùi tự do như cũ).
+    # KHÔNG cho nhảy RA NGOÀI nhóm (created→delivered/completed) — rơi xuống raise cuối.
     if current in _PROCESSING and new in _PROCESSING:
-        if _PROCESSING.index(new) < _PROCESSING.index(current):
-            return
-        raise APIError(409, "INVALID_STATUS_TRANSITION", "Chuyển trạng thái không hợp lệ")
+        return
     # Lùi giao hàng: delivered→ready chỉ khi chưa thu tiền.
     if current == "delivered" and new == "ready":
         if order.payment_status != "unpaid":

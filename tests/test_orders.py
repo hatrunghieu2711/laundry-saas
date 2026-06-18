@@ -149,10 +149,30 @@ async def test_status_backward_forbidden(client: AsyncClient, octx: dict):
 
 
 async def test_status_skip_forward_forbidden(client: AsyncClient, octx: dict):
-    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
-    resp = await _set_status(client, octx["staff_token"], oid, "ready")  # created -> ready
-    assert resp.status_code == 409
-    assert resp.json()["code"] == "INVALID_STATUS_TRANSITION"
+    # Nhảy RA NGOÀI nhóm xử lý tại tiệm vẫn CẤM (không bỏ qua delivered / vào trạng thái cuối).
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    r1 = await _set_status(client, t, oid, "delivered")  # created -> delivered (bỏ qua ready)
+    assert r1.status_code == 409
+    assert r1.json()["code"] == "INVALID_STATUS_TRANSITION"
+    r2 = await _set_status(client, t, oid, "completed")  # created -> completed
+    assert r2.status_code == 409
+    assert r2.json()["code"] == "INVALID_STATUS_TRANSITION"
+
+
+async def test_forward_jump_within_processing_group_allowed(client: AsyncClient, octx: dict):
+    # Stage 6.17: nhảy TIẾN trong nhóm xử lý trong 1 request (nút → qua cột gộp washing+drying).
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await _set_status(client, t, oid, "washing")
+    r = await _set_status(client, t, oid, "ready")  # washing -> ready (nhảy qua drying)
+    assert r.status_code == 200, r.text
+    assert r.json()["order_status"] == "ready"
+    # created -> ready (nhảy nhiều bước trong nhóm) cũng OK.
+    oid2 = (await _create_order(client, t, _ITEMS)).json()["id"]
+    r2 = await _set_status(client, t, oid2, "ready")
+    assert r2.status_code == 200, r2.text
+    assert r2.json()["order_status"] == "ready"
 
 
 async def test_completed_is_terminal(client: AsyncClient, octx: dict):
