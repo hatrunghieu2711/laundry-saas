@@ -2642,28 +2642,34 @@ body {
     margin: 0;
   }
 }
-/* Thẻ đơn Kanban — MẪU CHUẨN v3 (Stage 6.16). Bo 4 góc + bóng nhẹ. Dòng 1: mã | tiền
-   (KHÔNG wrap). Dòng 2: [ship][note] tên khách | giờ giao. Màu từ TOKEN (--ns-*). */
+/* Thẻ đơn Kanban. Stage 6.25 (CHẨN ĐOÁN — TẠM): nhánh fallback Chrome<57 (POS Sunmi 56)
+   rút .board3__card xuống TỐI THIỂU để LOẠI TRỪ — viền THUẦN HARDCODE, KHÔNG var / KHÔNG
+   overflow / KHÔNG border-radius / KHÔNG box-shadow. Thẻ vuông góc, viền cứng. Mục tiêu:
+   xác định thẻ viền hardcode thuần có hiện đủ 4 cạnh trên Chrome 56 không. Nhánh
+   @supports(display:grid) BÊN DƯỚI khôi phục hình thức đầy đủ cho Chrome mới (giữ nguyên). */
 .board3__card {
   display: flex;
   flex-direction: column;
-  background: var(--surface);
-  border: 1px solid var(--ns-border); /* 0.5px → 1px: Chrome 56 (POS Sunmi) làm tròn
-                                         0.5px về 0 không đều → khung đứt đoạn/hở góc */
-  border-left: 3px solid var(--ns-border-2);
-  border-radius: 8px;
-  /* Stage 6.24: BỎ overflow:hidden — combo overflow:hidden + border-radius + box-shadow
-     tạo lớp clip bo góc gây BUG PAINT trên Chrome cũ (POS Sunmi 56): thẻ phải repaint
-     (cột nhiều thẻ, cuộn/chồng lớp) bị DROP border/shadow → thẻ giữa/cuối mất khung.
-     Viền trái là border-left THẬT (không ::before) nên bỏ overflow KHÔNG mất nó; con đều
-     nền trong suốt nên KHÔNG thò ra góc bo. border-radius vẫn bo border thật + background. */
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  /* Thẻ lẻ KHÔNG giãn hết cột: chặn bề rộng tối đa + căn trái → mọi thẻ cùng cỡ
-     dù cột có 1 hay nhiều thẻ. */
+  background: #ffffff;
+  border: 1px solid #cccccc;
+  border-left: 3px solid #cccccc;
   max-width: 240px;
 }
-.board3__card--paid { border-left-color: var(--ns-success); }
-.board3__card--owe { border-left-color: var(--ns-danger); }
+.board3__card--paid { border-left-color: #0f6e56; }
+.board3__card--owe { border-left-color: #a32d2d; }
+/* Chrome ≥57: KHÔI PHỤC hình thức v3 (màu token, bo 4 góc, bóng nhẹ). ĐẶT SAU rule base
+   để thắng cascade; Chrome 56 KHÔNG vào nhánh này → giữ bản hardcode tối thiểu ở trên. */
+@supports (display: grid) {
+  .board3__card {
+    background: var(--surface);
+    border-color: var(--ns-border);
+    border-left-color: var(--ns-border-2);
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
+  .board3__card--paid { border-left-color: var(--ns-success); }
+  .board3__card--owe { border-left-color: var(--ns-danger); }
+}
 .board3__main {
   display: block;
   width: 100%;
