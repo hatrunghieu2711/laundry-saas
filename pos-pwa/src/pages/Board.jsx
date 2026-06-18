@@ -77,10 +77,9 @@ export default function Board() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [updatedAt, setUpdatedAt] = useState(null)
-  const [autoPrint, setAutoPrint] = useState(false)
 
   const [busyId, setBusyId] = useState(null) // thẻ đang đổi trạng thái
-  const [toast, setToast] = useState('')
+  const [toast, setToast] = useState(null) // {msg, action?:{label,fn}}
   const [sheet, setSheet] = useState(null) // {order, full} — bottom sheet ☰
   const [payModal, setPayModal] = useState(null) // {order, remaining}
   const [payMethod, setPayMethod] = useState('cash')
@@ -91,10 +90,10 @@ export default function Board() {
   const [noteModal, setNoteModal] = useState(null) // {code, notes} — popup ghi chú
   const toastTimer = useRef(null)
 
-  const showToast = useCallback((msg) => {
-    setToast(msg)
+  const showToast = useCallback((msg, action = null, ms = 3000) => {
+    setToast({ msg, action })
     if (toastTimer.current) clearTimeout(toastTimer.current)
-    toastTimer.current = setTimeout(() => setToast(''), 3000)
+    toastTimer.current = setTimeout(() => setToast(null), ms)
   }, [])
 
   // debounce search → q
@@ -102,11 +101,6 @@ export default function Board() {
     const t = setTimeout(() => setQ(search.trim()), 350)
     return () => clearTimeout(t)
   }, [search])
-
-  // Cờ tự-in bill từ tenant settings (cho luồng giao‑thu).
-  useEffect(() => {
-    api.get('/settings/pos').then((s) => setAutoPrint(s.auto_print_receipt !== false)).catch(() => {})
-  }, [])
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -193,11 +187,12 @@ export default function Board() {
   const deliver = async (o) => {
     const needsPay = o.payment_status === 'unpaid' || o.payment_status === 'partial'
     if (!needsPay) {
-      // Đã xử lý tiền (paid/debt/refunded) → PATCH delivered thẳng.
+      // Đã xử lý tiền (paid/debt/refunded) → GIAO THẲNG (không popup) + toast Hoàn tác.
       setBusyId(o.id)
       try {
         await api.patch(`/orders/${o.id}/status`, { order_status: 'delivered' })
         setBoard((prev) => moveCard(prev, o.id, o.order_status, 'delivered')) // rời board
+        showToast(`Đã giao đơn ${o.order_code}`, { label: 'Hoàn tác', fn: () => undoDeliver(o) }, 5000)
       } catch (err) {
         showToast(err?.message || 'Không giao được đơn')
       } finally {
@@ -216,6 +211,19 @@ export default function Board() {
       showToast(err?.message || 'Không mở được màn thu tiền, thử lại.')
     } finally {
       setBusyId(null)
+    }
+  }
+
+  // Hoàn tác GIAO (Stage 6.18): lùi delivered→ready. Backend cho phép mọi payment_status
+  // (chỉ đổi trạng thái, KHÔNG đụng tiền). Đơn quay lại cột "Sẵn sàng".
+  const undoDeliver = async (o) => {
+    setToast(null)
+    if (toastTimer.current) clearTimeout(toastTimer.current)
+    try {
+      await api.patch(`/orders/${o.id}/status`, { order_status: 'ready' })
+      await load()
+    } catch (err) {
+      showToast(err?.message || 'Không hoàn tác được')
     }
   }
 
@@ -241,8 +249,7 @@ export default function Board() {
       return
     }
     setPayModal(null)
-    if (autoPrint) await printBill(orderId)
-    await load()
+    await load() // (Stage 6.18) BỎ tự in bill khi giao — in bill chỉ qua menu ☰.
   }
 
   const payFull = async () => {
@@ -362,6 +369,9 @@ export default function Board() {
               {col.items.map((o) => {
                 const goDetail = () => navigate(`/orders/${o.id}`)
                 const paidFull = o.payment_status === 'paid'
+                // Nhãn cam/đỏ CHỈ cho đơn CHƯA xong (created/washing/drying); đơn 'ready'
+                // (đã giặt xong) → giờ dạng text thường, không nhãn (mốc hết nghĩa "gấp").
+                const timeCls = o.order_status === 'ready' ? '' : timeUrgency(o.pickup_at)
                 return (
                   <div key={o.id} className={`board3__card ${paidFull ? 'board3__card--paid' : 'board3__card--owe'}`}>
                     <div
@@ -392,7 +402,7 @@ export default function Board() {
                           ) : null}
                           <span className="board3__cust">{o.customer_name || 'Khách lẻ'}</span>
                         </span>
-                        <span className={`board3__time ${timeUrgency(o.pickup_at)}`}>
+                        <span className={`board3__time ${timeCls}`}>
                           {formatPickupBoard(o.pickup_at)}
                         </span>
                       </div>
@@ -424,7 +434,14 @@ export default function Board() {
         ))}
       </div>
 
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && (
+        <div className="toast" role="status">
+          <span>{toast.msg}</span>
+          {toast.action && (
+            <button className="toast__action" onClick={toast.action.fn}>{toast.action.label}</button>
+          )}
+        </div>
+      )}
 
       {/* ── Popup ghi chú (bấm icon note trên thẻ) ── */}
       {noteModal && (

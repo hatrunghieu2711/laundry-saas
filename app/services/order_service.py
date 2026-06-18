@@ -163,7 +163,8 @@ def _validate_transition(order: Order, new: str) -> None:
       tới BẤT KỲ bước trong nhóm xử lý tại tiệm [created,washing,drying,ready] trong
       1 request (Stage 6.17 — cho nút → nhảy qua cột gộp washing+drying tới ready).
     - Lùi tự do trong nhóm xử lý (created↔ready).
-    - delivered→ready: CHỈ khi payment_status='unpaid' (chưa thu).
+    - delivered→ready: cho phép MỌI payment_status (Stage 6.18 — undo thao tác giao,
+      chỉ đổi trạng thái, KHÔNG đụng payments).
     - completed/cancelled: khóa vĩnh viễn (ORDER_CLOSED).
     """
     current = order.order_status
@@ -185,12 +186,10 @@ def _validate_transition(order: Order, new: str) -> None:
     # KHÔNG cho nhảy RA NGOÀI nhóm (created→delivered/completed) — rơi xuống raise cuối.
     if current in _PROCESSING and new in _PROCESSING:
         return
-    # Lùi giao hàng: delivered→ready chỉ khi chưa thu tiền.
+    # Lùi giao hàng delivered→ready (Stage 6.18): cho phép MỌI payment_status — đây là
+    # UNDO thao tác GIAO, CHỈ đổi trạng thái, KHÔNG đụng payments (đơn đã thu vẫn paid,
+    # doanh thu không đổi). Đơn paid-ở-ready vốn là trạng thái bình thường (luồng prepay).
     if current == "delivered" and new == "ready":
-        if order.payment_status != "unpaid":
-            raise APIError(
-                409, "CANNOT_REVERT_PAID_DELIVERY", "Không thể lùi đơn đã thu tiền"
-            )
         return
     raise APIError(409, "INVALID_STATUS_TRANSITION", "Chuyển trạng thái không hợp lệ")
 

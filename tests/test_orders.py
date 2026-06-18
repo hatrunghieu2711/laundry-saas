@@ -218,16 +218,19 @@ async def test_revert_delivered_unpaid_ok(client: AsyncClient, octx: dict):
     assert r.json()["order_status"] == "ready"
 
 
-async def test_revert_delivered_paid_blocked(client: AsyncClient, octx: dict):
+async def test_revert_delivered_paid_now_allowed(client: AsyncClient, octx: dict):
+    # Stage 6.18: UNDO giao — delivered→ready cho phép MỌI payment_status (chỉ đổi
+    # trạng thái, KHÔNG đụng tiền). Đơn đã thu/nợ vẫn lùi được về Sẵn sàng.
     t = octx["staff_token"]
-    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered"]:
-        await _set_status(client, t, oid, st)
     for ps in ["paid", "partial", "debt"]:
+        oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+        for st in ["washing", "drying", "ready", "delivered"]:
+            await _set_status(client, t, oid, st)
         await _set_order_db(oid, payment_status=ps)
         r = await _set_status(client, t, oid, "ready")
-        assert r.status_code == 409, f"{ps}: {r.text}"
-        assert r.json()["code"] == "CANNOT_REVERT_PAID_DELIVERY"
+        assert r.status_code == 200, f"{ps}: {r.text}"
+        assert r.json()["order_status"] == "ready"
+        assert r.json()["payment_status"] == ps  # KHÔNG đụng tiền
 
 
 async def test_revert_completed_locked(client: AsyncClient, octx: dict):
