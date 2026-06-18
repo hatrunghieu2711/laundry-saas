@@ -2652,7 +2652,11 @@ body {
                                          0.5px về 0 không đều → khung đứt đoạn/hở góc */
   border-left: 3px solid var(--ns-border-2);
   border-radius: 8px;
-  overflow: hidden;
+  /* Stage 6.24: BỎ overflow:hidden — combo overflow:hidden + border-radius + box-shadow
+     tạo lớp clip bo góc gây BUG PAINT trên Chrome cũ (POS Sunmi 56): thẻ phải repaint
+     (cột nhiều thẻ, cuộn/chồng lớp) bị DROP border/shadow → thẻ giữa/cuối mất khung.
+     Viền trái là border-left THẬT (không ::before) nên bỏ overflow KHÔNG mất nó; con đều
+     nền trong suốt nên KHÔNG thò ra góc bo. border-radius vẫn bo border thật + background. */
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
   /* Thẻ lẻ KHÔNG giãn hết cột: chặn bề rộng tối đa + căn trái → mọi thẻ cùng cỡ
      dù cột có 1 hay nhiều thẻ. */
