@@ -2618,29 +2618,37 @@ body {
   border-radius: 10px;
 }
 /* Lưới thẻ — fallback Chrome <57 (POS Sunmi Chrome 56): KHÔNG grid → xếp 2 THẺ/HÀNG bằng
-   INLINE-BLOCK (KHÔNG flex-wrap: flex-line Chrome cũ gây bug paint mất viền thẻ sau — 6.23).
-   width calc(50% - 5px); thẻ 2n thêm margin-left 10px = khe ngang; margin-bottom 10px = khe
-   dọc → 2 thẻ khít 100% (React .map KHÔNG chèn whitespace giữa thẻ). Màn hẹp → 1 thẻ/hàng
-   (media query). Nhánh @supports(grid) dưới reset về grid cho Chrome mới. */
+   FLOAT (Stage 6.27 — đổi từ inline-block của 6.26). FLOAT là kỹ thuật cũ nhất, Chrome 56
+   render border từng box hoàn hảo, gần như KHÔNG dính bug paint (an toàn hơn inline-block).
+   width calc(50% - 5px); thẻ 2n margin-left 10px = khe ngang; nth-child(odd) clear:left →
+   mỗi hàng mới bắt đầu sạch (tránh float SO LE khi thẻ cao thấp khác nhau). Clearfix ::after
+   để .board3__cards ôm đúng chiều cao float. Màn hẹp → 1 thẻ/hàng (media query). */
 .board3__cards {
   display: block;
   min-height: 8px;
 }
+.board3__cards::after { /* clearfix — ôm chiều cao các thẻ float */
+  content: "";
+  display: block;
+  clear: both;
+}
 .board3__cards > * {
-  display: inline-block;
-  vertical-align: top;
+  float: left;
   width: calc(50% - 5px);
   margin: 0 0 10px;
 }
 .board3__cards > *:nth-child(2n) {
   margin-left: 10px; /* khe ngang giữa 2 thẻ cùng hàng */
 }
+.board3__cards > *:nth-child(odd) {
+  clear: left; /* mỗi hàng mới (thẻ lẻ) xuống dòng sạch — tránh float so le */
+}
 /* Cột quá hẹp → 1 thẻ/hàng (tránh bóp méo nội dung). */
 @media (max-width: 720px) {
   .board3__cards > * { width: 100%; }
   .board3__cards > *:nth-child(2n) { margin-left: 0; }
 }
-/* Chrome ≥57: grid auto-fit; reset layout inline-block của fallback. */
+/* Chrome ≥57: grid auto-fit; reset float của fallback + bỏ clearfix (grid không cần). */
 @supports (display: grid) {
   .board3__cards {
     display: grid;
@@ -2648,31 +2656,34 @@ body {
     grid-gap: 10px;
     gap: 10px;
   }
+  .board3__cards::after { display: none; } /* bỏ clearfix → không tạo ô grid rỗng */
   .board3__cards > * {
-    display: block;
+    float: none;
     width: auto;
     margin: 0;
   }
   .board3__cards > *:nth-child(2n) { margin-left: 0; }
 }
-/* Thẻ đơn Kanban (Stage 6.26 — CHỐT fallback Chrome 56). VISUAL dùng CHUNG cả 2 nhánh:
-   border 1px 4 cạnh + border-left 3px màu + border-radius 8px + nền — màu TỪ TOKEN (var
-   chạy tốt Chrome 56). KHÔNG overflow (6.24). box-shadow CHỈ ở nhánh Chrome mới (@supports
-   grid): combo radius+shadow là thủ phạm bug paint Chrome 56 (xác nhận 6.25). display của
-   thẻ do .board3__cards > * quyết (inline-block fallback / block ở grid); con (main/actions)
-   xếp block bình thường — KHÔNG cần display:flex trên thẻ. */
+/* Thẻ đơn Kanban (Stage 6.27 — CHỐT fallback Chrome 56). VISUAL fallback: border 1px 4 cạnh
+   + border-left 3px màu (var) + nền — KHÔNG radius / KHÔNG shadow / KHÔNG overflow (thẻ VUÔNG
+   GÓC trên máy cũ — đúng cấu hình 6.25 đã xác nhận chạy: viền đủ MỌI thẻ). border-radius +
+   box-shadow CHỈ ở nhánh @supports(grid) Chrome mới (combo radius+shadow = bug paint Chrome 56).
+   Màu TỪ TOKEN (var chạy tốt Chrome 56). display thẻ do .board3__cards>* (float fallback / block
+   grid); con (main/actions) xếp block — KHÔNG cần display:flex trên thẻ. */
 .board3__card {
   background: var(--surface);
   border: 1px solid var(--ns-border);
   border-left: 3px solid var(--ns-border-2);
-  border-radius: 8px;
   max-width: 240px;
 }
 .board3__card--paid { border-left-color: var(--ns-success); }
 .board3__card--owe { border-left-color: var(--ns-danger); }
-/* Chrome ≥57: thêm bóng nhẹ (Chrome 56 KHÔNG vào nhánh này → KHÔNG shadow → tránh bug paint). */
+/* Chrome ≥57: thêm bo góc + bóng nhẹ (Chrome 56 KHÔNG vào nhánh này → vuông góc, KHÔNG shadow). */
 @supports (display: grid) {
-  .board3__card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
+  .board3__card {
+    border-radius: 8px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  }
 }
 .board3__main {
   display: block;
