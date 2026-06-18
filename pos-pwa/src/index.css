@@ -2620,36 +2620,37 @@ body {
 .board3__cards {
   display: flex;
   flex-wrap: wrap;
-  margin: -3px;
+  margin: -5px;
   min-height: 8px;
 }
 .board3__cards > * {
   flex: 1 1 160px;
-  margin: 3px;
+  margin: 5px;
 }
 /* Chrome ≥57: grid auto-fit — cột đông tự dàn nhiều cột con, vị trí cột cố định. */
 @supports (display: grid) {
   .board3__cards {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    grid-gap: 6px;
-    gap: 6px;
+    grid-gap: 10px;
+    gap: 10px;
     margin: 0;
   }
   .board3__cards > * {
     margin: 0;
   }
 }
-/* Thẻ đơn Kanban — MẪU CHUẨN CHỐT (Stage 6.15). 2 dòng nội dung + dải nút.
-   Màu lấy từ TOKEN (--ns-*), KHÔNG hardcode hex. Icon SVG inline (không CDN/webfont). */
+/* Thẻ đơn Kanban — MẪU CHUẨN v3 (Stage 6.16). Bo 4 góc + bóng nhẹ. Dòng 1: mã | tiền
+   (KHÔNG wrap). Dòng 2: [ship][note] tên khách | giờ giao. Màu từ TOKEN (--ns-*). */
 .board3__card {
   display: flex;
   flex-direction: column;
   background: var(--surface);
   border: 0.5px solid var(--ns-border);
   border-left: 3px solid var(--ns-border-2);
-  border-radius: 0 8px 8px 0;
+  border-radius: 8px;
   overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 .board3__card--paid { border-left-color: var(--ns-success); }
 .board3__card--owe { border-left-color: var(--ns-danger); }
@@ -2662,40 +2663,32 @@ body {
   padding: 11px 13px 9px;
   cursor: pointer;
 }
-/* Dòng 1: mã đơn (+ icon ghi chú / ship) | nhãn tiền (màu theo thanh toán).
-   flex-wrap + money margin-left:auto → màn rộng: 1 hàng (tiền dồn phải); thẻ quá
-   hẹp (vd 3 cột trên màn <~700px): nhãn tiền TỰ XUỐNG hàng — KHÔNG đè, KHÔNG cuộn ngang. */
+/* Dòng 1: mã đơn (trái) | nhãn tiền (phải) — LUÔN 1 hàng, không wrap, không icon. */
 .board3__l1 {
   display: flex;
-  flex-wrap: wrap;
+  justify-content: space-between;
   align-items: center;
-  gap: 2px 8px;
+  gap: 8px;
   margin-bottom: 9px;
 }
-.board3__codegrp { display: flex; align-items: center; gap: 7px; min-width: 0; }
-.board3__code { font-weight: 600; font-size: 16px; color: var(--ink); white-space: nowrap; }
-.board3__flag { display: flex; align-items: center; padding: 0; background: none; border: none; cursor: pointer; }
-.board3__flag--note { color: var(--ns-warn); }
-.board3__flag--ship { color: var(--ns-text-2); }
-.board3__flag-ic { width: 17px; height: 17px; display: block; }
+.board3__code { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; font-size: 16px; color: var(--ink); white-space: nowrap; }
 .board3__money {
   flex: 0 0 auto;
-  margin-left: auto;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 3px 10px;
+  padding: 3px 9px;
   border-radius: 8px;
   white-space: nowrap;
 }
 .board3__money--paid { background: var(--ns-success-bg); color: var(--ns-success); }
 .board3__money--unpaid { background: var(--ns-danger-bg); color: var(--ns-danger); }
-/* Dòng 2: tên khách (ellipsis) | giờ giao (màu theo độ gấp) */
-.board3__l2 {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-}
+/* Dòng 2: [icon ship][icon ghi chú] tên khách (ellipsis) | giờ giao (màu theo độ gấp). */
+.board3__l2 { display: flex; align-items: center; gap: 8px; }
+.board3__l2left { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 1 1 auto; }
+.board3__flag { flex: 0 0 auto; display: flex; align-items: center; padding: 0; background: none; border: none; cursor: pointer; }
+.board3__flag--note { color: var(--ns-warn); }
+.board3__flag--ship { color: var(--ns-text-2); }
+.board3__flag-ic { flex: 0 0 auto; width: 16px; height: 16px; display: block; }
 .board3__cust {
   flex: 1 1 auto;
   min-width: 0;
@@ -2708,7 +2701,7 @@ body {
 .board3__time { flex: 0 0 auto; font-size: 14px; font-weight: 600; white-space: nowrap; color: var(--ink); }
 .board3__time.is-soon { color: var(--ns-warn); }
 .board3__time.is-late { color: var(--ns-danger); }
-/* dải nút thao tác (icon SVG), cao 34px */
+/* dải nút thao tác (icon SVG), cao 30px */
 .board3__actions {
   display: flex;
   align-items: stretch;
@@ -2716,7 +2709,7 @@ body {
 }
 .board3__act {
   flex: 1;
-  height: 34px;
+  height: 30px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -2729,8 +2722,8 @@ body {
 .board3__act:last-child { border-right: none; }
 .board3__act--next { color: var(--ink); }
 .board3__act:disabled { opacity: 0.3; cursor: not-allowed; }
-.ic { width: 21px; height: 21px; display: block; }
-.board3__act--menu .ic { width: 19px; height: 19px; }
+.ic { width: 19px; height: 19px; display: block; }
+.board3__act--menu .ic { width: 17px; height: 17px; }
 /* popup ghi chú */
 .note-modal__text { white-space: pre-wrap; color: var(--ink); margin: 0 0 16px; line-height: 1.5; }
 

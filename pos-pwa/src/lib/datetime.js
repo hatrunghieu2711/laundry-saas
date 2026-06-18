@@ -107,6 +107,18 @@ export function formatPickupShort(value) {
   )}`
 }
 
+// Giờ giao trên THẺ KANBAN (Stage 6.16): HÔM NAY (giờ VN) → "HH:MM"; khác ngày →
+// "DD/MM HH:MM" (ngày trước, giờ sau). So "hôm nay" theo giờ VN (UTC+7).
+export function formatPickupBoard(value) {
+  if (!value) return ''
+  const inst = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(inst.getTime())) return ''
+  const w = toVnWall(inst)
+  const hhmm = `${pad(w.getUTCHours())}:${pad(w.getUTCMinutes())}`
+  if (isSameDayVn(w, nowVnWall())) return hhmm
+  return `${pad(w.getUTCDate())}/${pad(w.getUTCMonth() + 1)} ${hhmm}`
+}
+
 // "DD/MM HH:MM" từ instant thực (ISO/Date) → giờ VN. Dùng cho NHÃN liên 2 (in
 // ngày chính xác, KHÔNG "Hôm nay/Ngày mai" vì nhãn tồn tại qua ngày) — Stage 6.9.
 export function formatLabelDateTime(value) {

@@ -8,7 +8,7 @@ import { useBranch } from '../context/BranchContext'
 import { useTopbarSlot } from '../context/TopbarSlotContext'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
-import { formatPickupShort } from '../lib/datetime'
+import { formatPickupBoard } from '../lib/datetime'
 import { NEXT_STATUS, ORDER_STATUS, PREV_STATUS } from '../lib/orders'
 
 // Dashboard "Đơn hàng" (Stage 6.10 layout + 6.12 thẻ thao tác): 3 cột tại tiệm.
@@ -359,8 +359,15 @@ export default function Board() {
                       onKeyDown={(e) => { if (e.key === 'Enter') goDetail() }}
                     >
                       <div className="board3__l1">
-                        <span className="board3__codegrp">
-                          <span className="board3__code">{o.order_code}</span>
+                        <span className="board3__code">{o.order_code}</span>
+                        <span className={`board3__money ${paidFull ? 'board3__money--paid' : 'board3__money--unpaid'}`}>
+                          {formatVND(o.total_amount)}
+                        </span>
+                      </div>
+                      <div className="board3__l2">
+                        <span className="board3__l2left">
+                          {/* TODO: cờ đơn giao — làm sau khi có module giao/COD (chưa có field is_delivery) */}
+                          {o.is_delivery ? <Icon name="truck" className="board3__flag-ic board3__flag--ship" /> : null}
                           {o.notes ? (
                             <button
                               className="board3__flag board3__flag--note"
@@ -370,17 +377,10 @@ export default function Board() {
                               <Icon name="note" className="board3__flag-ic" />
                             </button>
                           ) : null}
-                          {/* TODO: cờ đơn giao — làm sau khi có module giao/COD (chưa có field is_delivery) */}
-                          {o.is_delivery ? <Icon name="truck" className="board3__flag-ic board3__flag--ship" /> : null}
+                          <span className="board3__cust">{o.customer_name || 'Khách lẻ'}</span>
                         </span>
-                        <span className={`board3__money ${paidFull ? 'board3__money--paid' : 'board3__money--unpaid'}`}>
-                          {formatVND(o.total_amount)}
-                        </span>
-                      </div>
-                      <div className="board3__l2">
-                        <span className="board3__cust">{o.customer_name || 'Khách lẻ'}</span>
                         <span className={`board3__time ${timeUrgency(o.pickup_at)}`}>
-                          {formatPickupShort(o.pickup_at)}
+                          {formatPickupBoard(o.pickup_at)}
                         </span>
                       </div>
                     </div>
