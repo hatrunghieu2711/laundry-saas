@@ -111,8 +111,6 @@ class OrderOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemOut]
-    # Chỉ set True khi giao đơn còn unpaid/partial — UI ép hỏi thanh toán.
-    requires_payment: bool = False
 
 
 class BoardOrder(BaseModel):

@@ -22,8 +22,13 @@ export default function OrderDetail() {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
-  // Giao đơn còn nợ → popup bắt buộc xử lý (thu tiền / ghi nợ), không bỏ qua được.
+  // Giao đơn (PAY-FIRST, Stage B): đơn chưa thu → popup thu tiền/ghi nợ NGAY, chưa giao;
+  // xử lý xong mới PATCH delivered. Đóng popup = không giao.
   const [deliverModal, setDeliverModal] = useState(false)
+  const [payMethod, setPayMethod] = useState('cash')
+  const [debtMode, setDebtMode] = useState(false)
+  const [debtReason, setDebtReason] = useState('')
+  const [payBusy, setPayBusy] = useState(false)
 
   // refund: idle -> form -> confirm
   const [refundStep, setRefundStep] = useState('idle')
@@ -57,42 +62,81 @@ export default function OrderDetail() {
   // payment gốc để tham chiếu khi hoàn tiền (giao dịch dương gần nhất).
   const refundable = [...payments].reverse().find((p) => toNumber(p.amount) > 0)
 
+  const openDeliverPopup = () => {
+    setError(''); setDebtMode(false); setDebtReason(''); setPayMethod('cash'); setDeliverModal(true)
+  }
+  const closeDeliver = () => {
+    setDeliverModal(false); setDebtMode(false); setDebtReason(''); setPayMethod('cash'); setError('')
+  }
+
   const advance = async () => {
+    // PAY-FIRST: bước kế là 'delivered' + đơn chưa thu đủ → mở popup thu tiền TRƯỚC (chưa PATCH).
+    if (nextStatus === 'delivered' && (order.payment_status === 'unpaid' || order.payment_status === 'partial')) {
+      openDeliverPopup()
+      return
+    }
     setBusy(true)
     setError('')
     try {
-      // Backend trả requires_payment=true khi giao đơn còn unpaid/partial.
-      const updated = await api.patch(`/orders/${id}/status`, { order_status: nextStatus })
+      await api.patch(`/orders/${id}/status`, { order_status: nextStatus })
       await load()
-      if (updated?.requires_payment) setDeliverModal(true)
     } catch (err) {
-      setError(err?.message || 'Không đổi được trạng thái')
+      // Đai an toàn (Stage B): nếu vẫn dính 409 PAYMENT_REQUIRED → mở popup thu tiền, KHÔNG nuốt lỗi.
+      if (err instanceof ApiError && err.code === 'PAYMENT_REQUIRED_BEFORE_DELIVERY') {
+        openDeliverPopup()
+      } else {
+        setError(err?.message || 'Không đổi được trạng thái')
+      }
     } finally {
       setBusy(false)
     }
   }
 
-  // Ghi nợ có chủ đích cho đơn vừa giao (payment debt = 0 trong dòng tiền).
-  const recordDebt = async () => {
-    setBusy(true)
+  // Tiền đã xử lý xong → GIỜ MỚI giao (PATCH delivered). KHÔNG nuốt lỗi.
+  const finishDeliverDetail = async () => {
+    try {
+      await api.patch(`/orders/${id}/status`, { order_status: 'delivered' })
+    } catch (err) {
+      setError(err?.message || 'Đã xử lý tiền nhưng chưa giao được — thử lại.')
+      await load()
+      return
+    }
+    closeDeliver()
+    await load()
+  }
+
+  const payFullDeliver = async () => {
+    setPayBusy(true)
     setError('')
     try {
       await api.post('/payments', {
-        order_id: id,
-        amount: 0,
-        payment_method: 'cash',
-        transaction_type: 'debt',
+        order_id: id, amount: remaining, payment_method: payMethod, transaction_type: 'payment',
       })
-      setDeliverModal(false)
-      await load()
+      await finishDeliverDetail()
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'NO_OPEN_SHIFT') {
-        setError('Cần mở ca trước khi ghi nợ.')
-      } else {
-        setError(err?.message || 'Không ghi nợ được')
-      }
+      setError(err instanceof ApiError && err.code === 'NO_OPEN_SHIFT'
+        ? 'Cần mở ca trước khi thu.' : (err?.message || 'Không thu được'))
     } finally {
-      setBusy(false)
+      setPayBusy(false)
+    }
+  }
+
+  // Ghi nợ có chủ đích (debt = 0 trong dòng tiền) + reason BẮT BUỘC → rồi mới giao.
+  const payDebtDeliver = async () => {
+    const reason = debtReason.trim()
+    if (!reason) { setError('Nhập lý do nợ.'); return }
+    setPayBusy(true)
+    setError('')
+    try {
+      await api.post('/payments', {
+        order_id: id, amount: 0, payment_method: 'cash', transaction_type: 'debt', reason,
+      })
+      await finishDeliverDetail()
+    } catch (err) {
+      setError(err instanceof ApiError && err.code === 'NO_OPEN_SHIFT'
+        ? 'Cần mở ca trước khi ghi nợ.' : (err?.message || 'Không ghi nợ được'))
+    } finally {
+      setPayBusy(false)
     }
   }
 
@@ -316,31 +360,55 @@ export default function OrderDetail() {
         </div>
       )}
 
-      {/* Popup giao + thanh toán: bắt buộc xử lý, KHÔNG đóng bỏ qua được. */}
+      {/* Popup GIAO‑THU (PAY-FIRST): xử lý tiền TRƯỚC rồi mới giao. Đóng = KHÔNG giao. */}
       {deliverModal && (
-        <div className="modal-overlay" role="dialog" aria-modal="true">
-          <div className="modal">
-            <h3 className="modal__title">⚠️ Đơn chưa thanh toán</h3>
-            <p className="modal__text">
-              Đơn đã giao nhưng <strong>chưa thu đủ tiền</strong> ({formatVND(remaining)} còn
-              lại). Phải xử lý trước khi tiếp tục:
-            </p>
-            {error && <div className="alert alert--error">{error}</div>}
-            <div className="modal__actions">
-              <button
-                className="btn btn--primary btn--xl btn--block"
-                onClick={() => navigate(`/orders/${id}/pay`)}
-              >
-                💵 Thu tiền
-              </button>
-              <button
-                className="btn btn--ghost btn--lg btn--block"
-                onClick={recordDebt}
-                disabled={busy}
-              >
-                📝 Ghi nợ (khách trả sau)
-              </button>
+        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={closeDeliver}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <h3 className="modal__title">Giao đơn {order.order_code}</h3>
+            <div className="pay-due">
+              <span>Còn phải thu</span>
+              <strong>{formatVND(remaining)}</strong>
             </div>
+            {error && <div className="alert alert--error">{error}</div>}
+            <div className="pay-methods">
+              {[['cash', '💵 Tiền mặt'], ['transfer', '🏦 Chuyển khoản']].map(([k, lbl]) => (
+                <button
+                  key={k}
+                  className={`pay-method ${payMethod === k ? 'pay-method--on' : ''}`}
+                  onClick={() => setPayMethod(k)}
+                  disabled={payBusy}
+                >{lbl}</button>
+              ))}
+            </div>
+            {debtMode && (
+              <label className="field">
+                <span>Lý do nợ (bắt buộc)</span>
+                <input
+                  className="input"
+                  value={debtReason}
+                  onChange={(e) => setDebtReason(e.target.value)}
+                  placeholder="VD: khách quen trả cuối tháng"
+                  autoFocus
+                />
+              </label>
+            )}
+            <div className="modal__actions">
+              <button className="btn btn--primary btn--xl btn--block" onClick={payFullDeliver} disabled={payBusy}>
+                {payBusy && !debtMode ? 'Đang thu…' : `Thu đủ ${formatVND(remaining)}`}
+              </button>
+              {debtMode ? (
+                <button className="btn btn--warn btn--lg btn--block" onClick={payDebtDeliver} disabled={payBusy || !debtReason.trim()}>
+                  {payBusy ? 'Đang ghi nợ…' : 'Xác nhận ghi nợ'}
+                </button>
+              ) : (
+                <button className="btn btn--ghost btn--lg btn--block" onClick={() => setDebtMode(true)} disabled={payBusy}>
+                  📝 Ghi nợ (khách trả sau)
+                </button>
+              )}
+            </div>
+            <button className="pay-dismiss" onClick={closeDeliver} disabled={payBusy}>
+              Đóng — chưa giao đơn
+            </button>
           </div>
         </div>
       )}

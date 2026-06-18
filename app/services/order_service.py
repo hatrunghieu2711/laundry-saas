@@ -180,6 +180,16 @@ def _validate_transition(order: Order, new: str) -> None:
         return
     # Tiến đúng 1 bước cho bước NGOÀI nhóm xử lý (ready→delivered, delivered→completed).
     if _FORWARD.get(current) == new:
+        # (Stage B — đai an toàn tầng DB) CHẶN CỨNG giao đơn chưa thu đủ: server KHÔNG
+        # BAO GIỜ cho đơn sang 'delivered' khi payment_status ∈ {unpaid, partial}, bất kể
+        # caller. Raise TRƯỚC khi đổi order_status (đơn giữ nguyên 'ready'). paid/debt/
+        # refunded → cho qua (debt = đã ghi nợ có chủ đích, được phép giao).
+        if new == "delivered" and order.payment_status in ("unpaid", "partial"):
+            raise APIError(
+                409,
+                "PAYMENT_REQUIRED_BEFORE_DELIVERY",
+                "Phải thu tiền (hoặc ghi nợ) trước khi giao đơn",
+            )
         return
     # Tiến/LÙI TỰ DO trong nhóm xử lý tại tiệm [created,washing,drying,ready] — 1 request
     # (Stage 6.17: nút → nhảy qua cột gộp washing+drying tới ready; lùi tự do như cũ).
@@ -363,12 +373,9 @@ async def change_status(
     await db.flush()
     _add_tracking(db, order, new_status, actor)
     await db.commit()
-    result = await _get_order(db, actor, order_id)
-    # Giao đơn nhưng chưa thu đủ -> báo UI ép hỏi thanh toán (KHÔNG chặn cứng:
-    # ghi nợ có chủ đích là hợp lệ, lúc đó payment_status='debt' nên không cờ).
-    if new_status == "delivered" and result.payment_status in ("unpaid", "partial"):
-        result.requires_payment = True
-    return result
+    # (Stage B) Bỏ cờ requires_payment: việc chặn giao-chưa-thu đã do _validate_transition
+    # lo TRƯỚC commit (409 PAYMENT_REQUIRED_BEFORE_DELIVERY) — không còn 2 cơ chế song song.
+    return await _get_order(db, actor, order_id)
 
 
 async def cancel_order(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Order:

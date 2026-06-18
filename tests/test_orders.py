@@ -101,6 +101,17 @@ async def _set_status(client: AsyncClient, token: str, oid: str, status: str):
                               headers=auth_headers(token))
 
 
+async def _advance_to_delivered(client: AsyncClient, token: str, oid: str, *, ps: str = "paid"):
+    """Stage B: đưa đơn tới 'delivered' ĐÚNG LUẬT — thu/ghi-nợ TRƯỚC rồi mới giao
+    (server chặn cứng giao đơn unpaid/partial). ps='paid' (mặc định) hoặc 'debt'."""
+    for st in ["washing", "drying", "ready"]:
+        await _set_status(client, token, oid, st)
+    await _set_order_db(oid, payment_status=ps)
+    r = await _set_status(client, token, oid, "delivered")
+    assert r.status_code == 200, r.text
+    return r
+
+
 # ── tạo đơn ─────────────────────────────────────────────────────────────────
 async def test_create_order_code_total_and_log(client: AsyncClient, octx: dict):
     r1 = await _create_order(client, octx["staff_token"], _ITEMS)
@@ -130,20 +141,26 @@ async def test_total_ignores_client_quantity_decimal(client: AsyncClient, octx: 
 
 # ── transition trạng thái ───────────────────────────────────────────────────
 async def test_status_full_forward_flow(client: AsyncClient, octx: dict):
-    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered", "completed"]:
-        resp = await _set_status(client, octx["staff_token"], oid, st)
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready"]:
+        resp = await _set_status(client, t, oid, st)
         assert resp.status_code == 200, resp.text
         assert resp.json()["order_status"] == st
-    # 1 (created) + 5 transition = 6 dòng log.
+    await _set_order_db(oid, payment_status="paid")  # Stage B: thu đủ trước khi giao
+    for st in ["delivered", "completed"]:
+        resp = await _set_status(client, t, oid, st)
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["order_status"] == st
+    # 1 (created) + 5 transition = 6 dòng log (set payment_status qua DB không ghi log).
     assert await _log_count(oid) == 6
 
 
 async def test_status_backward_forbidden(client: AsyncClient, octx: dict):
-    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered"]:
-        await _set_status(client, octx["staff_token"], oid, st)
-    resp = await _set_status(client, octx["staff_token"], oid, "washing")
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await _advance_to_delivered(client, t, oid)
+    resp = await _set_status(client, t, oid, "washing")  # delivered -> washing: cấm
     assert resp.status_code == 409
     assert resp.json()["code"] == "INVALID_STATUS_TRANSITION"
 
@@ -176,10 +193,11 @@ async def test_forward_jump_within_processing_group_allowed(client: AsyncClient,
 
 
 async def test_completed_is_terminal(client: AsyncClient, octx: dict):
-    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered", "completed"]:
-        await _set_status(client, octx["staff_token"], oid, st)
-    resp = await _set_status(client, octx["staff_token"], oid, "washing")
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await _advance_to_delivered(client, t, oid)
+    await _set_status(client, t, oid, "completed")
+    resp = await _set_status(client, t, oid, "washing")
     assert resp.status_code == 409
     assert resp.json()["code"] == "ORDER_CLOSED"
 
@@ -208,25 +226,17 @@ async def test_revert_multistep_back_allowed(client: AsyncClient, octx: dict):
     assert r.json()["order_status"] == "created"
 
 
-async def test_revert_delivered_unpaid_ok(client: AsyncClient, octx: dict):
-    t = octx["staff_token"]
-    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered"]:
-        await _set_status(client, t, oid, st)
-    r = await _set_status(client, t, oid, "ready")  # delivered chưa thu -> lùi OK
-    assert r.status_code == 200, r.text
-    assert r.json()["order_status"] == "ready"
+# (Stage B) BỎ test_revert_delivered_unpaid_ok: không còn tình huống "delivered + unpaid"
+# (server chặn cứng giao đơn chưa thu) → đơn delivered luôn paid/debt; undo xét ở test dưới.
 
 
 async def test_revert_delivered_paid_now_allowed(client: AsyncClient, octx: dict):
     # Stage 6.18: UNDO giao — delivered→ready cho phép MỌI payment_status (chỉ đổi
-    # trạng thái, KHÔNG đụng tiền). Đơn đã thu/nợ vẫn lùi được về Sẵn sàng.
+    # trạng thái, KHÔNG đụng tiền). (Stage B: chỉ đơn paid/debt mới giao được nên chỉ xét 2.)
     t = octx["staff_token"]
-    for ps in ["paid", "partial", "debt"]:
+    for ps in ["paid", "debt"]:
         oid = (await _create_order(client, t, _ITEMS)).json()["id"]
-        for st in ["washing", "drying", "ready", "delivered"]:
-            await _set_status(client, t, oid, st)
-        await _set_order_db(oid, payment_status=ps)
+        await _advance_to_delivered(client, t, oid, ps=ps)  # thu/ghi-nợ trước rồi giao
         r = await _set_status(client, t, oid, "ready")
         assert r.status_code == 200, f"{ps}: {r.text}"
         assert r.json()["order_status"] == "ready"
@@ -236,8 +246,8 @@ async def test_revert_delivered_paid_now_allowed(client: AsyncClient, octx: dict
 async def test_revert_completed_locked(client: AsyncClient, octx: dict):
     t = octx["staff_token"]
     oid = (await _create_order(client, t, _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered", "completed"]:
-        await _set_status(client, t, oid, st)
+    await _advance_to_delivered(client, t, oid)
+    await _set_status(client, t, oid, "completed")
     r = await _set_status(client, t, oid, "ready")
     assert r.status_code == 409
     assert r.json()["code"] == "ORDER_CLOSED"
@@ -350,10 +360,10 @@ async def test_cancel_from_created(client: AsyncClient, octx: dict):
 
 
 async def test_cancel_after_delivered_forbidden(client: AsyncClient, octx: dict):
-    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered"]:
-        await _set_status(client, octx["staff_token"], oid, st)
-    resp = await client.delete(f"{ORDERS}/{oid}", headers=auth_headers(octx["staff_token"]))
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    await _advance_to_delivered(client, t, oid)
+    resp = await client.delete(f"{ORDERS}/{oid}", headers=auth_headers(t))
     assert resp.status_code == 409
     assert resp.json()["code"] == "INVALID_STATUS_TRANSITION"
 
@@ -484,7 +494,6 @@ async def test_pickup_at_in_past_rejected(client: AsyncClient, octx: dict):
 async def test_order_out_returns_pickup_at(client: AsyncClient, octx: dict):
     body = (await _create_order(client, octx["staff_token"], _ITEMS)).json()
     assert "pickup_at" in body and body["pickup_at"] is not None
-    assert body["requires_payment"] is False
 
 
 async def test_put_pickup_at_edit_and_lock(client: AsyncClient, octx: dict):
@@ -498,49 +507,55 @@ async def test_put_pickup_at_edit_and_lock(client: AsyncClient, octx: dict):
     assert datetime.fromisoformat(r.json()["pickup_at"]) == datetime.fromisoformat(new_pickup)
 
     # đơn đã completed -> không sửa được giờ hẹn.
-    for st in ["washing", "drying", "ready", "delivered", "completed"]:
-        await _set_status(client, t, oid, st)
+    await _advance_to_delivered(client, t, oid)
+    await _set_status(client, t, oid, "completed")
     blocked = await client.put(f"{ORDERS}/{oid}", json={"pickup_at": _pickup(20)},
                                headers=auth_headers(t))
     assert blocked.status_code == 409
     assert blocked.json()["code"] == "ORDER_CLOSED"
 
 
-# ── Stage 3.7A: deliver còn nợ -> requires_payment ──────────────────────────
+# ── Stage B: CHẶN CỨNG giao đơn chưa thu (đai an toàn tầng DB) ──────────────
 async def _advance_to_ready(client: AsyncClient, t: str, oid: str) -> None:
     for st in ["washing", "drying", "ready"]:
         await _set_status(client, t, oid, st)
 
 
-async def test_deliver_unpaid_sets_requires_payment(client: AsyncClient, octx: dict):
+async def test_deliver_unpaid_blocked_409(client: AsyncClient, octx: dict):
+    # Đơn unpaid/partial → giao bị CHẶN 409; đơn VẪN ở 'ready' (không set delivered nửa vời).
     t = octx["staff_token"]
-    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
-    await _advance_to_ready(client, t, oid)
-    r = await _set_status(client, t, oid, "delivered")
-    assert r.status_code == 200, r.text
-    assert r.json()["order_status"] == "delivered"
-    assert r.json()["requires_payment"] is True
+    for ps in ["unpaid", "partial"]:
+        oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+        await _advance_to_ready(client, t, oid)
+        if ps == "partial":
+            await _set_order_db(oid, payment_status="partial")
+        r = await _set_status(client, t, oid, "delivered")
+        assert r.status_code == 409, f"{ps}: {r.text}"
+        assert r.json()["code"] == "PAYMENT_REQUIRED_BEFORE_DELIVERY"
+        # đơn KHÔNG bị set delivered — vẫn 'ready'.
+        cur = await client.get(f"{ORDERS}/{oid}", headers=auth_headers(t))
+        assert cur.json()["order_status"] == "ready", f"{ps}: đơn không được ở ready"
 
 
-async def test_deliver_paid_no_requires_payment(client: AsyncClient, octx: dict):
+async def test_deliver_paid_ok(client: AsyncClient, octx: dict):
     t = octx["staff_token"]
     oid = (await _create_order(client, t, _ITEMS)).json()["id"]
     await _advance_to_ready(client, t, oid)
     await _set_order_db(oid, payment_status="paid")
     r = await _set_status(client, t, oid, "delivered")
     assert r.status_code == 200, r.text
-    assert r.json()["requires_payment"] is False
+    assert r.json()["order_status"] == "delivered"
 
 
-async def test_deliver_debt_no_requires_payment(client: AsyncClient, octx: dict):
-    # Giao-nợ có chủ đích (payment_status='debt') -> KHÔNG ép hỏi thanh toán.
+async def test_deliver_debt_ok(client: AsyncClient, octx: dict):
+    # Giao-nợ có chủ đích (payment_status='debt') → ĐƯỢC giao (đúng thiết kế).
     t = octx["staff_token"]
     oid = (await _create_order(client, t, _ITEMS)).json()["id"]
     await _advance_to_ready(client, t, oid)
     await _set_order_db(oid, payment_status="debt")
     r = await _set_status(client, t, oid, "delivered")
     assert r.status_code == 200, r.text
-    assert r.json()["requires_payment"] is False
+    assert r.json()["order_status"] == "delivered"
 
 
 # ── Stage 3.7A: dashboard vận hành (board) ──────────────────────────────────
@@ -560,9 +575,9 @@ async def test_board_grouping_overdue_and_summary(client: AsyncClient, octx: dic
     await _set_order_db(o_overdue["id"], pickup_at=past)
     await _set_order_db(o_paid["id"], payment_status="paid")
     await _set_order_db(o_debt["id"], payment_status="debt")
-    # o_done -> completed (ẩn khỏi board); o_cancel -> cancelled (ẩn).
-    for st in ["washing", "drying", "ready", "delivered", "completed"]:
-        await _set_status(client, t, o_done["id"], st)
+    # o_done -> completed (ẩn khỏi board; Stage B: thu đủ trước khi giao); o_cancel -> cancelled.
+    await _advance_to_delivered(client, t, o_done["id"])
+    await _set_status(client, t, o_done["id"], "completed")
     await client.delete(f"{ORDERS}/{o_cancel['id']}", headers=auth_headers(t))
 
     r = await client.get(f"{ORDERS}/board", headers=auth_headers(t))
@@ -596,8 +611,7 @@ async def test_board_delivered_not_overdue(client: AsyncClient, octx: dict):
     # Đơn delivered dù quá giờ hẹn vẫn KHÔNG tính trễ (đã rời tiệm).
     t = octx["staff_token"]
     oid = (await _create_order(client, t, _ITEMS)).json()["id"]
-    for st in ["washing", "drying", "ready", "delivered"]:
-        await _set_status(client, t, oid, st)
+    await _advance_to_delivered(client, t, oid)  # Stage B: thu đủ trước khi giao
     await _set_order_db(oid, pickup_at=datetime.now(timezone.utc) - timedelta(hours=2))
 
     r = await client.get(f"{ORDERS}/board", headers=auth_headers(t))
