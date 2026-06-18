@@ -2594,7 +2594,7 @@ body {
   flex: 1 1 0;
   min-width: 0;
   background: var(--surface);
-  border: 0.5px solid var(--ns-border);
+  border: 1px solid var(--ns-border); /* 0.5px → 1px (Chrome 56 sub-pixel làm tròn về 0) */
   border-radius: 8px;
   padding: 8px;
 }
@@ -2647,7 +2647,8 @@ body {
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 0.5px solid var(--ns-border);
+  border: 1px solid var(--ns-border); /* 0.5px → 1px: Chrome 56 (POS Sunmi) làm tròn
+                                         0.5px về 0 không đều → khung đứt đoạn/hở góc */
   border-left: 3px solid var(--ns-border-2);
   border-radius: 8px;
   overflow: hidden;
@@ -2738,7 +2739,7 @@ body {
 .board3__actions {
   display: flex;
   align-items: stretch;
-  border-top: 0.5px solid var(--ns-border);
+  border-top: 1px solid var(--ns-border); /* 0.5px → 1px (Chrome 56) */
 }
 .board3__act {
   flex: 1;
@@ -2748,7 +2749,7 @@ body {
   justify-content: center;
   background: none;
   border: none;
-  border-right: 0.5px solid var(--ns-border);
+  border-right: 1px solid var(--ns-border); /* 0.5px → 1px (Chrome 56) */
   cursor: pointer;
   color: var(--ns-text-2);
 }
