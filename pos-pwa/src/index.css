@@ -2617,20 +2617,30 @@ body {
   padding: 1px 7px;
   border-radius: 10px;
 }
-/* Lưới thẻ — fallback Chrome <57 (POS Sunmi Chrome 56): KHÔNG grid → xếp thẻ bằng
-   BLOCK FLOW thường (mỗi .board3__card là block độc lập trong luồng → border 4 cạnh
-   LUÔN vẽ đủ, KHÔNG phụ thuộc vị trí trong cột). Stage 6.23: BỎ flex-wrap + margin âm
-   + flex-basis của bản cũ — Chrome 56 render combo đó LỖI (thẻ sau thẻ đầu mất khung do
-   bug paint flex-line của Chrome cũ). Block flow không dính bug flex. Thẻ có max-width
-   240px → block tự rộng ≤240px, căn trái. */
+/* Lưới thẻ — fallback Chrome <57 (POS Sunmi Chrome 56): KHÔNG grid → xếp 2 THẺ/HÀNG bằng
+   INLINE-BLOCK (KHÔNG flex-wrap: flex-line Chrome cũ gây bug paint mất viền thẻ sau — 6.23).
+   width calc(50% - 5px); thẻ 2n thêm margin-left 10px = khe ngang; margin-bottom 10px = khe
+   dọc → 2 thẻ khít 100% (React .map KHÔNG chèn whitespace giữa thẻ). Màn hẹp → 1 thẻ/hàng
+   (media query). Nhánh @supports(grid) dưới reset về grid cho Chrome mới. */
 .board3__cards {
   display: block;
   min-height: 8px;
 }
 .board3__cards > * {
-  margin: 0 0 10px; /* khe dọc giữa thẻ; nhánh grid reset margin:0 (dùng gap) */
+  display: inline-block;
+  vertical-align: top;
+  width: calc(50% - 5px);
+  margin: 0 0 10px;
 }
-/* Chrome ≥57: grid auto-fit — cột đông tự dàn nhiều cột con, vị trí cột cố định. */
+.board3__cards > *:nth-child(2n) {
+  margin-left: 10px; /* khe ngang giữa 2 thẻ cùng hàng */
+}
+/* Cột quá hẹp → 1 thẻ/hàng (tránh bóp méo nội dung). */
+@media (max-width: 720px) {
+  .board3__cards > * { width: 100%; }
+  .board3__cards > *:nth-child(2n) { margin-left: 0; }
+}
+/* Chrome ≥57: grid auto-fit; reset layout inline-block của fallback. */
 @supports (display: grid) {
   .board3__cards {
     display: grid;
@@ -2639,36 +2649,30 @@ body {
     gap: 10px;
   }
   .board3__cards > * {
+    display: block;
+    width: auto;
     margin: 0;
   }
+  .board3__cards > *:nth-child(2n) { margin-left: 0; }
 }
-/* Thẻ đơn Kanban. Stage 6.25 (CHẨN ĐOÁN — TẠM): nhánh fallback Chrome<57 (POS Sunmi 56)
-   rút .board3__card xuống TỐI THIỂU để LOẠI TRỪ — viền THUẦN HARDCODE, KHÔNG var / KHÔNG
-   overflow / KHÔNG border-radius / KHÔNG box-shadow. Thẻ vuông góc, viền cứng. Mục tiêu:
-   xác định thẻ viền hardcode thuần có hiện đủ 4 cạnh trên Chrome 56 không. Nhánh
-   @supports(display:grid) BÊN DƯỚI khôi phục hình thức đầy đủ cho Chrome mới (giữ nguyên). */
+/* Thẻ đơn Kanban (Stage 6.26 — CHỐT fallback Chrome 56). VISUAL dùng CHUNG cả 2 nhánh:
+   border 1px 4 cạnh + border-left 3px màu + border-radius 8px + nền — màu TỪ TOKEN (var
+   chạy tốt Chrome 56). KHÔNG overflow (6.24). box-shadow CHỈ ở nhánh Chrome mới (@supports
+   grid): combo radius+shadow là thủ phạm bug paint Chrome 56 (xác nhận 6.25). display của
+   thẻ do .board3__cards > * quyết (inline-block fallback / block ở grid); con (main/actions)
+   xếp block bình thường — KHÔNG cần display:flex trên thẻ. */
 .board3__card {
-  display: flex;
-  flex-direction: column;
-  background: #ffffff;
-  border: 1px solid #cccccc;
-  border-left: 3px solid #cccccc;
+  background: var(--surface);
+  border: 1px solid var(--ns-border);
+  border-left: 3px solid var(--ns-border-2);
+  border-radius: 8px;
   max-width: 240px;
 }
-.board3__card--paid { border-left-color: #0f6e56; }
-.board3__card--owe { border-left-color: #a32d2d; }
-/* Chrome ≥57: KHÔI PHỤC hình thức v3 (màu token, bo 4 góc, bóng nhẹ). ĐẶT SAU rule base
-   để thắng cascade; Chrome 56 KHÔNG vào nhánh này → giữ bản hardcode tối thiểu ở trên. */
+.board3__card--paid { border-left-color: var(--ns-success); }
+.board3__card--owe { border-left-color: var(--ns-danger); }
+/* Chrome ≥57: thêm bóng nhẹ (Chrome 56 KHÔNG vào nhánh này → KHÔNG shadow → tránh bug paint). */
 @supports (display: grid) {
-  .board3__card {
-    background: var(--surface);
-    border-color: var(--ns-border);
-    border-left-color: var(--ns-border-2);
-    border-radius: 8px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-  }
-  .board3__card--paid { border-left-color: var(--ns-success); }
-  .board3__card--owe { border-left-color: var(--ns-danger); }
+  .board3__card { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); }
 }
 .board3__main {
   display: block;
