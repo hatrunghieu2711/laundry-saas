@@ -386,15 +386,23 @@ export default function OrderNew() {
     setBusy(true)
     setError('')
     try {
-      let customerId
       const ph = phone.trim()
+      const nm = custName.trim()
+      let customerId
       if (ph) {
+        // Có SĐT: tìm theo SĐT (như cũ) → thấy dùng id; không thấy → tạo mới.
         if (custFound) customerId = custFound.id
         else {
-          const c = await api.post('/customers', { phone: ph, full_name: custName.trim() || undefined })
+          const c = await api.post('/customers', { phone: ph, full_name: nm || undefined })
           customerId = c.id
         }
+      } else if (nm) {
+        // CHỈ có TÊN, không SĐT: tạo customer chỉ-tên (phone để trống) → backend lưu
+        // hợp lệ (customers.phone nullable) → gắn customer_id, KHÔNG mất tên đã nhập.
+        const c = await api.post('/customers', { full_name: nm })
+        customerId = c.id
       }
+      // Không nhập cả SĐT lẫn tên → khách vãng lai (customer_id NULL) → "Khách lẻ".
       const body = { items: buildItems(), pickup_at: vnWallToISO(pickup) }
       if (customerId) body.customer_id = customerId
       if (note.trim()) body.notes = note.trim()
