@@ -479,6 +479,36 @@ sms_logs, notifications, inventory, machines.
 - Không file quá ~400 dòng — tách module.
 - Uvicorn chạy --workers 1 (giữ singleton cho scheduler/websocket nếu có sau này).
 
+## TƯƠNG THÍCH CHROME 56 / MÁY POS SUNMI T1-G (Android 6) — MÔI TRƯỜNG TỐI THIỂU PHẢI HỖ TRỢ
+
+Máy POS thật chạy **Chrome/WebView 56** trên Android 6 (UA `…T1-G…Chrome/56.0.2924.87`,
+~1765 lượt trong nginx access.log). Đây là MỐC TỐI THIỂU bắt buộc cho mọi UI. Bài học đã
+trả giá (stage 6.21–6.27 — sửa viền/khoảng cách thẻ Kanban /board):
+
+1. **flex `gap` KHÔNG chạy** (cần Chrome 84+) → trên flex container dùng `margin` /
+   `> * + * { margin-* }` thay cho `gap`. (Toàn app đã theo pattern `> * + *`; 6.21 vá 4 chỗ sót.)
+2. **KHÔNG có CSS Grid** (Grid từ Chrome 57) → LUÔN để layout fallback **NGOÀI** `@supports
+   (display: grid)`; nhánh grid đặt TRONG `@supports`. Chrome 56 chạy fallback, Chrome mới chạy grid.
+3. **`border-radius` + `box-shadow` CÙNG LÚC trên phần tử LỚN (card)** → **BUG PAINT**: thẻ
+   giữa/cuối cột mất/đứt viền khi repaint (cuộn/chồng lớp). **CẢ radius LẪN shadow đều dính**
+   (đã test riêng từng cái). → Khối LỚN trên Chrome 56: **KHÔNG radius, KHÔNG shadow, KHÔNG
+   `overflow:hidden`**. Chỉ thêm radius/shadow trong nhánh `@supports(display:grid)` (Chrome mới).
+   → Nhãn NHỎ (badge tiền/giờ) có `border-radius` nhưng KHÔNG shadow thì OK — giữ được.
+4. **`var()` OK** (Chrome 49+) → màu token (`--ns-*`, …) chạy tốt, KHÔNG phải nguồn lỗi viền.
+5. **Xếp NGANG nhiều thẻ: KHÔNG dùng `flex-wrap`** (bug paint flex-line — chỉ item ĐẦU mỗi
+   dòng vẽ đúng viền). Dùng **`float`** (an toàn nhất: `float:left` + `width:calc(50% - …)` +
+   `:nth-child(2n){margin-left}` + `:nth-child(odd){clear:left}` + clearfix `::after`) hoặc block.
+6. **Service worker `autoUpdate`**: mỗi lần deploy, máy POS GIỮ bản cũ tới khi xóa cache / SW
+   activate. → Sau deploy quan trọng: XÓA CACHE trên máy POS. Xác minh đã nạp bản mới bằng cách
+   so **hash file `index-*.css`** máy đang nạp với file trong `pos-pwa/dist/` (build deterministic).
+7. **KHÔNG kiểm UI bằng headless Chromium mới** — nó render nhánh grid/CSS mới, KHÔNG tái hiện
+   bug Chrome 56. Headless chỉ để verify LOGIC/cấu trúc CSS built; **máy POS thật là thước đo duy
+   nhất** cho lỗi tương thích. (Headless "PASS" nhiều lần nhưng máy thật vẫn lỗi — 6.22→6.24.)
+
+**QUY TẮC CHUNG:** mọi component MỚI chạy trên máy POS (card, popup, modal, form) phải:
+tránh `radius`+`shadow` trên khối lớn, tránh flex `gap`, tránh `flex-wrap` để xếp ngang, để
+layout fallback ngoài `@supports(grid)`. **Test trên máy POS thật trước khi coi là xong.**
+
 ## TEST
 
 - Test bắt buộc cho MỌI logic liên quan tiền: cashflow formula (parametrized),
