@@ -2617,16 +2617,18 @@ body {
   padding: 1px 7px;
   border-radius: 10px;
 }
-/* Lưới thẻ: fallback FLEX-WRAP cho Chrome cũ Sunmi (<57). */
+/* Lưới thẻ — fallback Chrome <57 (POS Sunmi Chrome 56): KHÔNG grid → xếp thẻ bằng
+   BLOCK FLOW thường (mỗi .board3__card là block độc lập trong luồng → border 4 cạnh
+   LUÔN vẽ đủ, KHÔNG phụ thuộc vị trí trong cột). Stage 6.23: BỎ flex-wrap + margin âm
+   + flex-basis của bản cũ — Chrome 56 render combo đó LỖI (thẻ sau thẻ đầu mất khung do
+   bug paint flex-line của Chrome cũ). Block flow không dính bug flex. Thẻ có max-width
+   240px → block tự rộng ≤240px, căn trái. */
 .board3__cards {
-  display: flex;
-  flex-wrap: wrap;
-  margin: -5px;
+  display: block;
   min-height: 8px;
 }
 .board3__cards > * {
-  flex: 1 1 160px;
-  margin: 5px;
+  margin: 0 0 10px; /* khe dọc giữa thẻ; nhánh grid reset margin:0 (dùng gap) */
 }
 /* Chrome ≥57: grid auto-fit — cột đông tự dàn nhiều cột con, vị trí cột cố định. */
 @supports (display: grid) {
@@ -2635,7 +2637,6 @@ body {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
     grid-gap: 10px;
     gap: 10px;
-    margin: 0;
   }
   .board3__cards > * {
     margin: 0;
