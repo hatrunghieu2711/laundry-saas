@@ -4859,17 +4859,23 @@ body {
 .history__exp {
   background: var(--bg);
   border-top: 1px solid var(--line);
-  padding: 10px 14px 12px;
+  padding: 16px 16px 18px;
 }
 /* Info cơ bản: lưới ngang wrap, khoảng cách bằng margin (KHÔNG gap). */
-.hexp__info { display: flex; flex-wrap: wrap; }
-.hexp__info > * { margin: 0 18px 8px 0; }
-.hexp__cell { display: flex; flex-direction: column; min-width: 0; }
-.hexp__lbl { font-size: 11px; color: var(--muted); margin-bottom: 1px; }
-.hexp__cell > span:last-child { font-size: 13px; color: var(--ink); }
+.hexp__info { display: flex; flex-wrap: wrap; margin-bottom: 6px; }
+.hexp__cell { display: flex; flex-direction: column; min-width: 0; margin: 0 32px 12px 0; }
+.hexp__lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+.hexp__name { font-size: 15px; font-weight: 600; color: var(--ink); }
+.hexp__phone { font-size: 14px; color: var(--ns-text-2); }
+.hexp__svc { font-size: 14px; color: var(--ink); line-height: 1.7; }   /* mỗi món 1 dòng */
+.hexp__pay { font-size: 15px; font-weight: 600; color: var(--ink); }
+.hexp__pay.is-ok { color: var(--ns-success); }
+.hexp__pay.is-due { color: var(--ns-danger); }
 
-/* Timeline NGANG 4 bước: time(trên) · chấm · tên(dưới), nối bằng ›. */
-.htl { display: flex; align-items: flex-start; margin: 8px 0 4px; }
+/* Timeline NGANG: chấm 16px + thanh nối liền 2px (KHÔNG mũi tên/gap). time(trên 13/500) ·
+   chấm · tên(dưới 13/500) · nhãn thu-nợ. Căn giữa thanh nối theo hàng chấm bằng margin-top. */
+.hexp__tlhead { font-size: 12px; color: var(--muted); margin: 8px 0 14px; }
+.htl { display: flex; align-items: flex-start; padding: 0 4px; }
 .htl__step {
   flex: 1 1 0;
   display: flex;
@@ -4878,26 +4884,34 @@ body {
   text-align: center;
   min-width: 0;
 }
-.htl__step.is-todo { opacity: .5; }
-.htl__time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.htl__step.is-todo { opacity: .45; }
+.htl__time { font-size: 13px; font-weight: 500; line-height: 18px; color: var(--muted); margin-bottom: 8px; white-space: nowrap; }
+.htl__dotrow { height: 18px; display: flex; align-items: center; justify-content: center; }
+/* Chấm 16px tròn, content-box → viền NGOÀI. done = xanh đặc + viền 3px MÀU NỀN (chiều sâu,
+   KHÔNG box-shadow vì combo radius+shadow vỡ Chrome 56). chưa tới = rỗng viền --line + mờ. */
 .htl__dot {
-  width: 11px;
-  height: 11px;
+  width: 16px; height: 16px; box-sizing: content-box;
   border-radius: 50%;
   border: 2px solid var(--line);
-  background: var(--surface);
-  margin: 4px 0;
+  background: var(--bg);
 }
-.htl__step.is-done .htl__dot { border-color: var(--ns-success); background: var(--ns-success); }
-.htl__step.is-cancel .htl__dot { border-color: var(--ns-danger); background: var(--ns-danger); }
-.htl__name { font-size: 12px; color: var(--ink); line-height: 1.25; }
-.htl__step.is-cancel .htl__name { color: var(--ns-danger); font-weight: 700; }
-.htl__sep { flex: 0 0 auto; margin-top: 14px; padding: 0 1px; color: var(--muted); font-size: 15px; }
+.htl__step.is-done .htl__dot { border: 3px solid var(--bg); background: var(--ns-success); }
+.htl__step.is-cancel .htl__dot { border: 3px solid var(--bg); background: var(--ns-danger); }
+.htl__name { font-size: 13px; font-weight: 500; color: var(--ink); line-height: 1.3; margin-top: 8px; }
+.htl__step.is-cancel .htl__name { color: var(--ns-danger); }
+.htl__sub { font-size: 11px; line-height: 1.3; }
+.htl__sub.is-ok { color: var(--ns-success); }
+.htl__sub.is-due { color: var(--ns-danger); }
+/* Thanh nối: span height 2px (KHÔNG flex gap); margin-top 26 = chiều cao time → khớp tâm chấm. */
+.htl__link { flex: 0 0 24px; display: flex; align-items: center; justify-content: center; height: 18px; margin-top: 26px; }
+.htl__bar { display: block; width: 100%; height: 2px; background: var(--line); }
+.htl__bar.is-done { background: var(--ns-success); }
+.htl__bar.is-cancel { background: var(--ns-danger); }
 
-/* Nút trong phần mở rộng: 2 nút chia đôi, cách nhau bằng margin. */
-.hexp__acts { display: flex; margin-top: 10px; }
-.hexp__acts > * + * { margin-left: 8px; }
-.hexp__acts > .btn { flex: 1 1 0; }
+/* Nút: 2 nút chia đôi, font 14, cao ~42 cho dễ bấm POS; cách nhau bằng margin. */
+.hexp__acts { display: flex; margin-top: 16px; }
+.hexp__acts > * + * { margin-left: 12px; }
+.hexp__acts > .btn { flex: 1 1 0; font-size: 14px; min-height: 42px; }
 /* Badge trạng thái (font 11, radius 4, không shadow): giao xanh / hủy đỏ / mới tạo amber / đang xử lý cam. */
 .hbadge { flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
 .hbadge--done { background: var(--ns-success-bg); color: var(--ns-success); }

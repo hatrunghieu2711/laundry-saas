@@ -12,6 +12,7 @@ import { ORDER_STATUS } from '../lib/orders'
 // bản (items/payment/phone); mở 1 hàng → lazy GET /orders/{id} (kèm tracking) dựng timeline.
 const LIMIT = 25
 const PAY_SUB = { paid: 'đã thu', debt: 'nợ', partial: 'thu 1 phần', unpaid: 'chưa thu', refunded: 'đã hoàn' }
+const PAY_LABEL = { paid: 'Đã thu', debt: 'Còn nợ', partial: 'Thu một phần', unpaid: 'Chưa thu', refunded: 'Đã hoàn' }
 
 function timeRange(key) {
   const now = nowVnWall()
@@ -59,7 +60,7 @@ function buildTimeline(order) {
     if (e.status === 'cancelled') m.cancelled = e.at
   }
   const steps = [
-    { label: 'Nhận đơn', at: m.created, sub: PAY_SUB[order.payment_status] },
+    { label: 'Nhận đơn', at: m.created, sub: PAY_SUB[order.payment_status], subOk: order.payment_status === 'paid' },
     { label: 'Đang xử lý', at: m.proc },
     { label: 'Sẵn sàng', at: m.ready },
   ]
@@ -228,50 +229,58 @@ export default function History() {
                   <div className="history__exp">
                     {det?.loading && <p className="history__hint">Đang tải chi tiết…</p>}
                     {det?.error && <div className="alert alert--error">{det.error}</div>}
-                    {det?.order && (
-                      <>
-                        <div className="hexp__info">
-                          <div className="hexp__cell">
-                            <span className="hexp__lbl">Khách</span>
-                            <span>
-                              {det.order.customer_name || 'Khách lẻ'}
-                              {det.order.customer_phone ? ` · ${det.order.customer_phone}` : ''}
-                            </span>
+                    {det?.order && (() => {
+                      const od = det.order
+                      const ps = od.payment_status
+                      const payTone = ps === 'paid' ? 'is-ok' : ps === 'refunded' ? '' : 'is-due'
+                      return (
+                        <>
+                          <div className="hexp__info">
+                            <div className="hexp__cell">
+                              <span className="hexp__lbl">Khách hàng</span>
+                              <span className="hexp__name">{od.customer_name || 'Khách lẻ'}</span>
+                              {od.customer_phone && <span className="hexp__phone">{od.customer_phone}</span>}
+                            </div>
+                            <div className="hexp__cell">
+                              <span className="hexp__lbl">Dịch vụ</span>
+                              {(od.items || []).map((it) => (
+                                <span className="hexp__svc" key={it.id}>{it.service_name} ×{Number(it.quantity)}</span>
+                              ))}
+                              {(!od.items || od.items.length === 0) && <span className="hexp__svc">—</span>}
+                            </div>
+                            <div className="hexp__cell">
+                              <span className="hexp__lbl">Thanh toán</span>
+                              <span className={`hexp__pay ${payTone}`}>{PAY_LABEL[ps] || ps} {formatVND(od.total_amount)}</span>
+                            </div>
                           </div>
-                          <div className="hexp__cell">
-                            <span className="hexp__lbl">Dịch vụ</span>
-                            <span>
-                              {(det.order.items || [])
-                                .map((it) => `${it.service_name} ×${Number(it.quantity)}`)
-                                .join(', ') || '—'}
-                            </span>
-                          </div>
-                          <div className="hexp__cell">
-                            <span className="hexp__lbl">Thanh toán</span>
-                            <span>{PAY_SUB[det.order.payment_status] || det.order.payment_status} · {formatVND(det.order.total_amount)}</span>
-                          </div>
-                        </div>
 
-                        {/* Timeline ngang 4 bước */}
-                        <div className="htl">
-                          {buildTimeline(det.order).map((s, i, arr) => (
-                            <Fragment key={s.label}>
-                              <div className={`htl__step ${s.at ? 'is-done' : 'is-todo'} ${s.danger ? 'is-cancel' : ''}`}>
-                                <span className="htl__time">{s.at ? formatPickupBoard(s.at) : '—'}</span>
-                                <span className="htl__dot" />
-                                <span className="htl__name">{s.label}{s.sub ? ` (${s.sub})` : ''}</span>
-                              </div>
-                              {i < arr.length - 1 && <span className="htl__sep">›</span>}
-                            </Fragment>
-                          ))}
-                        </div>
+                          {/* Timeline ngang 4 bước — chấm 16px + thanh nối liền (KHÔNG mũi tên). */}
+                          <div className="hexp__tlhead">Nhật ký thời gian</div>
+                          <div className="htl">
+                            {buildTimeline(od).map((s, i) => (
+                              <Fragment key={s.label}>
+                                {i > 0 && (
+                                  <div className="htl__link">
+                                    <span className={`htl__bar ${s.at ? (s.danger ? 'is-cancel' : 'is-done') : ''}`} />
+                                  </div>
+                                )}
+                                <div className={`htl__step ${s.at ? 'is-done' : 'is-todo'} ${s.danger ? 'is-cancel' : ''}`}>
+                                  <span className="htl__time">{s.at ? formatPickupBoard(s.at) : '—'}</span>
+                                  <span className="htl__dotrow"><span className="htl__dot" /></span>
+                                  <span className="htl__name">{s.label}</span>
+                                  {s.sub && <span className={`htl__sub ${s.subOk ? 'is-ok' : 'is-due'}`}>{s.sub}</span>}
+                                </div>
+                              </Fragment>
+                            ))}
+                          </div>
 
-                        <div className="hexp__acts">
-                          <button className="btn btn--ghost btn--sm" onClick={() => window.print()}>In lại bill</button>
-                          <button className="btn btn--ghost btn--sm" onClick={() => navigate(`/orders/${o.id}`)}>Xem chi tiết đầy đủ</button>
-                        </div>
-                      </>
-                    )}
+                          <div className="hexp__acts">
+                            <button className="btn btn--ghost" onClick={() => window.print()}>In lại bill</button>
+                            <button className="btn btn--ghost" onClick={() => navigate(`/orders/${o.id}`)}>Xem chi tiết đầy đủ</button>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 )}
               </div>
