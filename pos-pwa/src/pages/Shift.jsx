@@ -319,7 +319,7 @@ export default function Shift() {
           <div className="shift__head">
             <div className="badge badge--open">● Ca đang mở</div>
             <button className="btn btn--ghost btn--sm" onClick={refresh} disabled={refreshing}>
-              {refreshing ? '…' : '🔄 Làm mới'}
+              {refreshing ? '…' : 'Làm mới'}
             </button>
           </div>
           <dl className="kv">
@@ -338,11 +338,11 @@ export default function Shift() {
           <div className="metrics-group">
             <div className="metrics-group__title">Tiền trong ca</div>
             <div className="metric metric--hero">
-              <span className="metric__label">💵 Tiền mặt trong két</span>
+              <span className="metric__label">Tiền mặt trong két</span>
               <span className="metric__value">{metrics ? formatVND(metrics.cash_in_drawer) : '…'}</span>
             </div>
             <div className="metric">
-              <span className="metric__label">🏦 Chuyển khoản / QR</span>
+              <span className="metric__label">Chuyển khoản / QR</span>
               <span className="metric__value">{metrics ? formatVND(metrics.transfer_total) : '…'}</span>
             </div>
             <div className="metric">
@@ -355,7 +355,7 @@ export default function Shift() {
           <div className="metrics-group">
             <div className="metrics-group__title">Doanh thu</div>
             <div className="metric">
-              <span className="metric__label">📊 Doanh thu ca (dự kiến)</span>
+              <span className="metric__label">Doanh thu ca (dự kiến)</span>
               <span className="metric__value">{metrics ? formatVND(metrics.shift_revenue) : '…'}</span>
             </div>
             <div className="metric">
@@ -365,18 +365,19 @@ export default function Shift() {
           </div>
 
           <button
-            className="btn btn--primary btn--xl btn--block"
+            className="btn btn--primary btn--block shift__cta"
             onClick={() => navigate('/orders/new')}
           >
-            ＋ TẠO ĐƠN
+            + Tạo đơn
           </button>
-          <button
-            className="btn btn--ghost btn--lg btn--block"
-            style={{ marginTop: 10 }}
-            onClick={() => setView('close')}
-          >
-            ĐÓNG CA
-          </button>
+          <div className="shift__btnrow">
+            <button className="btn btn--ghost btn--sm" onClick={() => navigate('/board')}>
+              Đơn hàng
+            </button>
+            <button className="btn btn--ghost btn--sm" onClick={() => setView('close')}>
+              Đóng ca
+            </button>
+          </div>
         </div>
       )}
 

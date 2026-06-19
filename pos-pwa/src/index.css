@@ -4699,7 +4699,17 @@ body {
 .shift .metric { padding: 4px 0; }
 .shift .metric__label,
 .shift .metric__value { font-size: 13px; }
-.shift .metric--hero .metric__value { font-size: 16px; }
+/* Stage 6.30: "Tiền mặt trong két" nổi bằng TYPOGRAPHY — BỎ khung/nền/viền cam, hoà vào
+   nhóm; nổi nhờ cỡ chữ to + đậm, con số màu cam. */
+.shift .metric--hero {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0;
+  margin-bottom: 0;
+}
+.shift .metric--hero .metric__label { color: var(--ink); font-weight: 800; font-size: 14px; }
+.shift .metric--hero .metric__value { color: var(--orange); font-weight: 800; font-size: 22px; }
 .shift .diff { border-radius: 6px; }
 .shift .diff__line { font-size: 13px; padding: 3px 0; }
 .shift .diff__note { font-size: 12px; }
@@ -4707,3 +4717,14 @@ body {
 .shift .field > span { font-size: 11px; }
 .shift .input { min-height: 34px; font-size: 13px; border-width: 1px; border-radius: 4px; }
 .shift .btn { border-radius: 4px; }
+/* Stage 6.30: nút tab Ca — CTA "Tạo đơn" cam full (thấp hơn xl cũ) + hàng dưới 2 nút viền
+   50/50 (khe bằng margin, KHÔNG flex gap — Chrome 56). */
+.shift__cta {
+  min-height: 48px;
+  font-size: 17px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+.shift__btnrow { display: flex; }
+.shift__btnrow > * + * { margin-left: 10px; }
+.shift__btnrow > .btn { flex: 1 1 0; }
