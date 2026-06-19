@@ -4781,3 +4781,45 @@ body {
 .shift .cashleft--bad .cashleft__main > strong { color: var(--danger); } /* nộp chủ vượt → đỏ */
 /* Màn "chưa có ca → Mở ca": đồng bộ style mới (bỏ shadow, radius 6). */
 .shift .shift__empty { box-shadow: none; border-radius: 6px; }
+
+/* ════════ TAB LỊCH SỬ (Stage 6.38) — style mới, an toàn Chrome 56 (radius 6/4, kẻ 1px,
+   spacing bằng margin KHÔNG flex gap, không shadow). ════════ */
+.history__search { width: 100%; margin-bottom: 10px; }
+.history__filters { display: flex; margin-bottom: 8px; }
+.history__filters > * + * { margin-left: 8px; }   /* khe ngang bằng margin (không gap) */
+.history__filters > .chip { flex: 1 1 0; justify-content: center; }
+.history__hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
+.history__count { font-size: 12px; color: var(--muted); margin: 8px 0 6px; }
+.history__list { display: block; }
+.history__list > * + * { margin-top: 8px; }
+.history__row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+}
+.history__r1 { display: flex; align-items: baseline; justify-content: space-between; }
+.history__r1 > * + * { margin-left: 8px; }
+.history__code { font-weight: 700; font-size: 15px; color: var(--ink); }
+.history__amount { font-weight: 700; white-space: nowrap; }
+.history__r2 { display: flex; align-items: center; margin-top: 4px; }
+.history__r2 > * + * { margin-left: 8px; }
+.history__cust {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--ns-text-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.history__time { flex: 0 0 auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
+/* Badge trạng thái (radius 4, không shadow): giao xanh / hủy đỏ-xám / đang xử lý cam. */
+.hbadge { flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.hbadge--done { background: var(--ns-success-bg); color: var(--ns-success); }
+.hbadge--cancel { background: var(--bg); color: var(--ns-danger); }
+.hbadge--proc { background: var(--ns-warn-bg); color: var(--ns-warn); }

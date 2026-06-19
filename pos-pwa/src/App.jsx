@@ -11,7 +11,7 @@ import Login from './pages/Login'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
 import OrderPay from './pages/OrderPay'
-import OrderSearch from './pages/OrderSearch'
+import History from './pages/History'
 import PriceRulesManage from './pages/PriceRulesManage'
 import ReceiptSettings from './pages/ReceiptSettings'
 import Reports from './pages/Reports'
@@ -40,7 +40,9 @@ export default function App() {
       <Route path="/cashbook" element={<Protected><CashBook /></Protected>} />
       {/* "Đơn hàng" gộp vào /board (Stage 3.9) — /orders cũ redirect. */}
       <Route path="/orders" element={<Navigate to="/board" replace />} />
-      <Route path="/search" element={<Protected><OrderSearch /></Protected>} />
+      {/* "Tra cứu" gộp vào "Lịch sử" (Stage 6.38) — /search cũ redirect. */}
+      <Route path="/history" element={<Protected><History /></Protected>} />
+      <Route path="/search" element={<Navigate to="/history" replace />} />
       <Route path="/orders/new" element={<Protected><OrderNew /></Protected>} />
       <Route path="/orders/:id" element={<Protected><OrderDetail /></Protected>} />
       <Route path="/orders/:id/pay" element={<Protected><OrderPay /></Protected>} />
