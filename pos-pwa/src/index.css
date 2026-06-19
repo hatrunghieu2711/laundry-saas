@@ -4743,18 +4743,25 @@ body {
 .shift .diff--ok .diff__line--total strong { color: #15803d; }
 .shift .diff--warn .diff__line--total strong { color: #b45309; }
 .shift .diff--danger .diff__line--total strong { color: var(--danger); }
-/* "Tiền để lại ca sau": BỎ khung/nền/viền cam → nổi bằng typography (con số cam, đậm). */
+/* "Tiền để lại ca sau" (Stage 6.32): BỎ khung; TÁCH 2 dòng — dòng chính (nhãn + CON SỐ
+   to/đậm/cam) + dòng phụ nhỏ (phép tính, màu --muted). Mắt thấy ngay số để lại. */
 .shift .cashleft {
+  display: block;
   background: none;
   border: none;
   border-radius: 0;
   padding: 4px 0;
   margin-top: 8px;
-  color: var(--ink);
-  font-weight: 700;
 }
-.shift .cashleft strong { color: var(--orange); font-weight: 800; font-size: 18px; }
-.shift .cashleft--bad { background: none; color: var(--ink); }
-.shift .cashleft--bad strong { color: var(--danger); } /* nộp chủ vượt thực đếm → số đỏ cảnh báo */
+.shift .cashleft > * + * { margin-left: 0; } /* huỷ margin-left ngang của base khi xếp DỌC */
+.shift .cashleft__main {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+.shift .cashleft__main > span { color: var(--ink); font-weight: 700; }
+.shift .cashleft__main > strong { color: var(--orange); font-weight: 800; font-size: 20px; }
+.shift .cashleft__calc { margin-top: 2px; font-size: 12px; color: var(--muted); }
+.shift .cashleft--bad .cashleft__main > strong { color: var(--danger); } /* nộp chủ vượt → đỏ */
 /* Màn "chưa có ca → Mở ca": đồng bộ style mới (bỏ shadow, radius 6). */
 .shift .shift__empty { box-shadow: none; border-radius: 6px; }

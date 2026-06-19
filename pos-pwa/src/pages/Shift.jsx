@@ -72,6 +72,7 @@ export default function Shift() {
   const [openSuggestion, setOpenSuggestion] = useState(0) // gợi ý đầu ca (Stage 6.2)
   const [actual, setActual] = useState('')
   const [handover, setHandover] = useState('') // rút nộp chủ (Stage 6.2)
+  const [diffReason, setDiffReason] = useState('') // lý do lệch tiền (Stage 6.32; bắt buộc khi lệch≠0)
   const [closed, setClosed] = useState(null)
   const [handoverBoard, setHandoverBoard] = useState(null) // tình hình bàn giao cho phiếu
   const [printSlip, setPrintSlip] = useState(null) // 'handover' | 'report'
@@ -171,12 +172,21 @@ export default function Shift() {
       setError('Tiền nộp chủ không được vượt quá tiền thực đếm.')
       return
     }
+    // Có lệch tiền (thực đếm ≠ dự kiến) → BẮT BUỘC lý do (chống bỏ qua lệch quỹ).
+    const diff = toNumber(actual) - expected
+    if (diff !== 0 && !diffReason.trim()) {
+      setError('Vui lòng nhập lý do lệch tiền.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
       const res = await api.post(`/shifts/${shift.id}/close`, {
         closing_cash_actual: toNumber(actual),
         handover_to_owner: handoverNum,
+        // Stage 6.32: gửi lý do lệch (forward-compat). BACKEND CHƯA có cột cash_diff_reason
+        // → hiện bị BỎ QUA (chưa lưu) cho tới khi thêm cột+schema+service. Báo để xử riêng.
+        cash_diff_reason: diff !== 0 ? diffReason.trim() : null,
       })
       // Tình hình bàn giao (cho biên bản): đơn đang xử lý / trễ hẹn / còn nợ.
       let board = null
@@ -435,11 +445,24 @@ export default function Shift() {
               </strong>
             </div>
             {level === 'ok' && <p className="diff__note">Khớp két 👍</p>}
-            {level === 'warn' && <p className="diff__note">Lệch nhỏ — kiểm tra lại tiền.</p>}
-            {level === 'danger' && (
-              <p className="diff__note">⚠️ Lệch lớn! Đếm lại trước khi xác nhận.</p>
+            {(level === 'warn' || level === 'danger') && (
+              <p className="diff__note">⚠️ Lệch tiền, kiểm đếm lại trước khi xác nhận</p>
             )}
           </div>
+
+          {/* Lý do lệch tiền — BẮT BUỘC khi chênh lệch ≠ 0 (Stage 6.32). Khớp két → không hiện. */}
+          {(level === 'warn' || level === 'danger') && (
+            <label className="field">
+              <span>Lý do lệch tiền (bắt buộc)</span>
+              <textarea
+                className="input"
+                rows={2}
+                value={diffReason}
+                onChange={(e) => setDiffReason(e.target.value)}
+                placeholder="VD: thối nhầm cho khách / chưa ghi 1 khoản chi…"
+              />
+            </label>
+          )}
 
           {/* Rút tiền nộp chủ (Stage 6.2) — lấy ra khỏi két SAU đối soát. */}
           <label className="field">
@@ -447,12 +470,15 @@ export default function Shift() {
             <MoneyInput value={handover} onChange={setHandover} />
           </label>
           <div className={`cashleft ${handoverInvalid ? 'cashleft--bad' : ''}`}>
-            <span>Tiền để lại ca sau</span>
-            <strong>
-              {actual === ''
-                ? '—'
-                : `${formatVND(actualNum)} − ${formatVND(handoverNum)} = ${formatVND(cashLeft)}`}
-            </strong>
+            <div className="cashleft__main">
+              <span>Tiền để lại ca sau</span>
+              <strong>{actual === '' ? '—' : formatVND(cashLeft)}</strong>
+            </div>
+            {actual !== '' && (
+              <div className="cashleft__calc">
+                {formatVND(actualNum)} − {formatVND(handoverNum)}
+              </div>
+            )}
           </div>
           {handoverInvalid && (
             <p className="diff__note">⚠️ Tiền nộp chủ vượt quá tiền thực đếm.</p>
