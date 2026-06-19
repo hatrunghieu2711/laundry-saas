@@ -4710,7 +4710,6 @@ body {
 }
 .shift .metric--hero .metric__label { color: var(--ink); font-weight: 800; font-size: 14px; }
 .shift .metric--hero .metric__value { color: var(--orange); font-weight: 800; font-size: 22px; }
-.shift .diff { border-radius: 6px; }
 .shift .diff__line { font-size: 13px; padding: 3px 0; }
 .shift .diff__note { font-size: 12px; }
 .shift .field { margin-bottom: 12px; }
@@ -4728,3 +4727,34 @@ body {
 .shift__btnrow { display: flex; }
 .shift__btnrow > * + * { margin-left: 10px; }
 .shift__btnrow > .btn { flex: 1 1 0; }
+/* Stage 6.31 — màn ĐÓNG CA: khối đối soát "Dự kiến/Thực đếm/Chênh lệch" dùng KẺ 1px thay
+   khung-màu; GIỮ tín hiệu lệch bằng MÀU CHỮ ở dòng Chênh lệch + note (không mất cảnh báo
+   sai số/gian lận). Gọn chiều cao. */
+.shift .diff {
+  background: none;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 8px 0;
+  margin: 12px 0;
+}
+.shift .diff__line--total { font-size: 15px; padding-top: 6px; }
+.shift .diff--ok .diff__line--total strong { color: #15803d; }
+.shift .diff--warn .diff__line--total strong { color: #b45309; }
+.shift .diff--danger .diff__line--total strong { color: var(--danger); }
+/* "Tiền để lại ca sau": BỎ khung/nền/viền cam → nổi bằng typography (con số cam, đậm). */
+.shift .cashleft {
+  background: none;
+  border: none;
+  border-radius: 0;
+  padding: 4px 0;
+  margin-top: 8px;
+  color: var(--ink);
+  font-weight: 700;
+}
+.shift .cashleft strong { color: var(--orange); font-weight: 800; font-size: 18px; }
+.shift .cashleft--bad { background: none; color: var(--ink); }
+.shift .cashleft--bad strong { color: var(--danger); } /* nộp chủ vượt thực đếm → số đỏ cảnh báo */
+/* Màn "chưa có ca → Mở ca": đồng bộ style mới (bỏ shadow, radius 6). */
+.shift .shift__empty { box-shadow: none; border-radius: 6px; }
