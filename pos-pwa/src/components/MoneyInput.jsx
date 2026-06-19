@@ -14,7 +14,7 @@ export default function MoneyInput({ value, onChange, ...rest }) {
     <div className="money-input">
       <input
         className="input input--money"
-        type="text"
+        type="tel"
         inputMode="numeric"
         autoComplete="off"
         value={display}

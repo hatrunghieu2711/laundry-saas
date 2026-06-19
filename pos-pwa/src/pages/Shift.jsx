@@ -167,6 +167,11 @@ export default function Shift() {
 
   const submitClose = async (e) => {
     e.preventDefault()
+    // Rút nộp chủ BẮT BUỘC nhập chủ động (kể cả 0) — phân biệt "đã xác nhận 0" với "quên điền".
+    if (handover === '') {
+      setError('Vui lòng nhập số tiền nộp chủ (nhập 0 nếu không rút).')
+      return
+    }
     const handoverNum = toNumber(handover)
     if (handoverNum > toNumber(actual)) {
       setError('Tiền nộp chủ không được vượt quá tiền thực đếm.')
@@ -468,6 +473,7 @@ export default function Shift() {
           <label className="field">
             <span>Rút nộp chủ (tiền lấy ra khỏi két)</span>
             <MoneyInput value={handover} onChange={setHandover} />
+            <span className="field-note">Nhập 0 nếu không rút tiền nộp chủ</span>
           </label>
           <div className={`cashleft ${handoverInvalid ? 'cashleft--bad' : ''}`}>
             <div className="cashleft__main">
