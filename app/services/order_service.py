@@ -378,9 +378,59 @@ async def change_status(
     return await _get_order(db, actor, order_id)
 
 
-async def cancel_order(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Order:
-    """DELETE = soft cancel. Áp dụng đúng luật transition (delivered/completed -> 409)."""
-    return await change_status(db, actor, order_id, "cancelled")
+async def cancel_order(
+    db: AsyncSession,
+    actor: User,
+    order_id: uuid.UUID,
+    *,
+    cancel_reason: str | None = None,
+    refund_amount: Decimal = Decimal(0),
+) -> Order:
+    """Hủy đơn (Stage 6.28) — SỔ LUÔN CÂN: doanh thu của đơn hủy = tiền THỰC GIỮ LẠI =
+    (đã thu − đã hoàn). cancel_reason BẮT BUỘC (thiếu → 422 CANCEL_REASON_REQUIRED).
+    refund_amount (>=0, <= số đã thu net) → hoàn TIỀN MẶT ra két qua 1 payment cancel_paid
+    (âm) NGUYÊN TỬ cùng việc đổi trạng thái (tránh refund-mà-chưa-hủy / double refund)."""
+    order = await _get_order(db, actor, order_id)
+    # 1) Luật trạng thái: chỉ hủy đơn TRƯỚC delivered (delivered/completed/cancelled → 409).
+    _validate_transition(order, "cancelled")
+    # 2) Lý do BẮT BUỘC.
+    if not (cancel_reason and cancel_reason.strip()):
+        raise APIError(422, "CANCEL_REASON_REQUIRED", "Hủy đơn bắt buộc có lý do")
+    reason = cancel_reason.strip()
+    refund_amount = (refund_amount or Decimal(0)).quantize(Decimal(1), rounding=ROUND_HALF_UP)
+    if refund_amount < 0:
+        raise APIError(422, "INVALID_AMOUNT", "refund_amount không được âm")
+    # 3) Hoàn KHÔNG vượt số ĐÃ THU (net hiện giữ) của đơn. Đơn chưa thu (net=0) → refund=0.
+    paid_sum = await db.scalar(
+        select(func.coalesce(func.sum(Payment.amount), Decimal(0))).where(
+            Payment.order_id == order.id
+        )
+    ) or Decimal(0)
+    if refund_amount > paid_sum:
+        raise APIError(422, "REFUND_EXCEEDS_PAID", "Số tiền hoàn vượt quá số đã thu của đơn")
+    # 4) Hoàn tiền mặt (nếu có) qua cancel_paid (âm) — CÙNG transaction với đổi trạng thái.
+    if refund_amount > 0:
+        ref = await db.scalar(
+            select(Payment)
+            .where(Payment.order_id == order.id, Payment.amount > 0)
+            .order_by(Payment.created_at.desc())
+        )
+        # paid_sum >= refund_amount > 0 ⇒ chắc chắn tồn tại payment dương để tham chiếu.
+        from app.services import payment_service  # lazy import — tránh vòng import
+
+        await payment_service._record_payment(
+            db, actor, order,
+            amount=refund_amount, payment_method="cash", transaction_type="cancel_paid",
+            reason=reason, reference_payment_id=ref.id,
+        )
+    # 5) Đổi trạng thái + lưu lý do/hoàn.
+    order.order_status = "cancelled"
+    order.cancel_reason = reason
+    order.refund_amount = refund_amount
+    await db.flush()
+    _add_tracking(db, order, "cancelled", actor)
+    await db.commit()
+    return await _get_order(db, actor, order.id)
 
 
 # ── update (notes/customer/total) ───────────────────────────────────────────

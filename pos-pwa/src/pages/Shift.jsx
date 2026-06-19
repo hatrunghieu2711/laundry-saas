@@ -355,7 +355,7 @@ export default function Shift() {
           <div className="metrics-group">
             <div className="metrics-group__title">Doanh thu</div>
             <div className="metric">
-              <span className="metric__label">📊 Doanh thu ca</span>
+              <span className="metric__label">📊 Doanh thu ca (dự kiến)</span>
               <span className="metric__value">{metrics ? formatVND(metrics.shift_revenue) : '…'}</span>
             </div>
             <div className="metric">

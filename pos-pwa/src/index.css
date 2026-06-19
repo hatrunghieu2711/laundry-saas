@@ -2844,6 +2844,7 @@ body {
 }
 .sheet__item:disabled { color: var(--ns-text-3); }
 .sheet__item:active { background: var(--bg); }
+.sheet__item--danger { color: var(--danger); font-weight: 700; } /* Hủy đơn (6.28) — đỏ, căn trái */
 .sheet__cancel { color: var(--danger); text-align: center; margin-top: 4px; }
 
 /* Popup giao‑thanh‑toán */

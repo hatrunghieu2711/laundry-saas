@@ -85,6 +85,15 @@ class OrderStatusUpdate(BaseModel):
     order_status: OrderStatus
 
 
+class OrderCancel(BaseModel):
+    """Hủy đơn (Stage 6.28). cancel_reason BẮT BUỘC — để optional ở schema, service
+    raise 422 CANCEL_REASON_REQUIRED nếu thiếu/rỗng (mã lỗi rõ cho UI). refund_amount =
+    số tiền hoàn cho khách (>=0, <= số đã thu của đơn), hoàn TIỀN MẶT ra két."""
+
+    cancel_reason: str | None = Field(default=None, max_length=500)
+    refund_amount: Decimal = Field(default=Decimal(0), ge=0)
+
+
 class OrderOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -106,6 +115,8 @@ class OrderOut(BaseModel):
     order_status: str
     pickup_at: datetime
     notes: str | None
+    cancel_reason: str | None
+    refund_amount: Decimal
     created_by: uuid.UUID
     created_by_name: str | None
     created_at: datetime

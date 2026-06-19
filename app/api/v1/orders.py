@@ -10,6 +10,7 @@ from app.models.user import User
 from app.schemas.common import Page
 from app.schemas.order import (
     OrderBoard,
+    OrderCancel,
     OrderCreate,
     OrderItemIn,
     OrderOut,
@@ -85,9 +86,15 @@ async def change_status(
     return await order_service.change_status(db, actor, order_id, payload.order_status)
 
 
-@router.delete("/{order_id}", response_model=OrderOut)
-async def cancel_order(order_id: uuid.UUID, actor: OrderActor, db: DbSession) -> OrderOut:
-    return await order_service.cancel_order(db, actor, order_id)
+@router.post("/{order_id}/cancel", response_model=OrderOut)
+async def cancel_order(
+    order_id: uuid.UUID, payload: OrderCancel, actor: OrderActor, db: DbSession
+) -> OrderOut:
+    """Hủy đơn (Stage 6.28): lý do bắt buộc + hoàn tiền (tuỳ chọn) → sổ luôn cân."""
+    return await order_service.cancel_order(
+        db, actor, order_id,
+        cancel_reason=payload.cancel_reason, refund_amount=payload.refund_amount,
+    )
 
 
 @router.post("/{order_id}/items", response_model=OrderOut, status_code=status.HTTP_201_CREATED)

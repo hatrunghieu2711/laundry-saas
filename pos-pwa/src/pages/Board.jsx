@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import Receipt from '../components/Receipt'
 import Lien2PrintButton from '../components/Lien2PrintButton'
+import CancelOrderModal from '../components/CancelOrderModal'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import { useTopbarSlot } from '../context/TopbarSlotContext'
@@ -88,6 +89,7 @@ export default function Board() {
   const [payBusy, setPayBusy] = useState(false)
   const [printData, setPrintData] = useState(null) // {order, paid}
   const [noteModal, setNoteModal] = useState(null) // {code, notes} — popup ghi chú
+  const [cancelModal, setCancelModal] = useState(null) // order cần hủy (Stage 6.28)
   const toastTimer = useRef(null)
 
   const showToast = useCallback((msg, action = null, ms = 3000) => {
@@ -471,9 +473,30 @@ export default function Board() {
             {sheet.full
               ? <Lien2PrintButton order={sheet.full} className="sheet__item" />
               : <button className="sheet__item" disabled>Đang tải liên 2…</button>}
+            {['created', 'washing', 'drying', 'ready'].includes(sheet.order.order_status) && (
+              <button
+                className="sheet__item sheet__item--danger"
+                onClick={() => { const o = sheet.order; setSheet(null); setCancelModal(o) }}
+              >
+                Hủy đơn
+              </button>
+            )}
             <button className="sheet__item sheet__cancel" onClick={() => setSheet(null)}>Đóng</button>
           </div>
         </div>
+      )}
+
+      {/* ── Popup HỦY ĐƠN (Stage 6.28): lý do bắt buộc + hoàn tiền → sổ luôn cân ── */}
+      {cancelModal && (
+        <CancelOrderModal
+          order={cancelModal}
+          onClose={() => setCancelModal(null)}
+          onCancelled={(updated) => {
+            setCancelModal(null)
+            setToast({ msg: `Đã hủy đơn ${updated.order_code}` })
+            load()
+          }}
+        />
       )}
 
       {/* ── Popup GIAO‑THANH‑TOÁN (không nút "Bỏ qua"; đóng = không giao) ── */}

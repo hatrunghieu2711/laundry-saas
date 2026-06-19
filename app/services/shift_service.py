@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -275,14 +275,30 @@ async def shift_summary(db: AsyncSession, actor: User, shift_id: uuid.UUID) -> d
     ).one()
 
     # Doanh thu theo ca TẠO đơn: created_at ∈ [opened_at, closed_at|now], cùng branch.
-    rev_q = select(
-        func.coalesce(func.sum(Order.total_amount), _ZERO).label("revenue"),
-        func.count().label("cnt"),
-    ).where(
-        Order.tenant_id == shift.tenant_id,
-        Order.branch_id == shift.branch_id,
-        Order.created_at >= shift.opened_at,
-        Order.order_status != "cancelled",
+    # Stage 6.28 — SỔ CÂN: đơn KHÔNG hủy đóng góp total_amount (kể cả còn nợ = dự kiến);
+    # đơn HỦY đóng góp phần GIỮ LẠI = net payments (= đã thu − đã hoàn). KHÔNG còn loại
+    # sạch đơn cancelled khỏi doanh thu. order_count vẫn CHỈ đếm đơn không hủy.
+    paid_sq = (
+        select(Payment.order_id, func.sum(Payment.amount).label("net"))
+        .group_by(Payment.order_id)
+        .subquery()
+    )
+    contrib = case(
+        (Order.order_status != "cancelled", Order.total_amount),
+        else_=func.coalesce(paid_sq.c.net, _ZERO),
+    )
+    rev_q = (
+        select(
+            func.coalesce(func.sum(contrib), _ZERO).label("revenue"),
+            func.count().filter(Order.order_status != "cancelled").label("cnt"),
+        )
+        .select_from(Order)
+        .outerjoin(paid_sq, Order.id == paid_sq.c.order_id)
+        .where(
+            Order.tenant_id == shift.tenant_id,
+            Order.branch_id == shift.branch_id,
+            Order.created_at >= shift.opened_at,
+        )
     )
     if shift.closed_at is not None:
         rev_q = rev_q.where(Order.created_at <= shift.closed_at)

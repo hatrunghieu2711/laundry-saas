@@ -6,7 +6,7 @@ import uuid
 from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.branch import Branch
@@ -145,16 +145,35 @@ async def owner_summary(
     if branch_id is not None:
         base_order_conds.append(Order.branch_id == branch_id)
 
-    # a) DOANH THU — tổng + theo ngày (+ theo chi nhánh khi xem tất cả).
+    # a) DOANH THU (Stage 6.28 — SỔ CÂN): đơn KHÔNG hủy đóng góp total_amount (kể cả còn
+    # nợ = dự kiến); đơn HỦY đóng góp phần GIỮ LẠI = net payments (đã thu − đã hoàn). Điều
+    # kiện RIÊNG (KHÔNG loại cancelled) + LEFT JOIN tổng payments theo đơn. (base_order_conds
+    # vẫn LOẠI cancelled — chỉ dùng cho mục d "nợ chưa thu" bên dưới.)
+    rev_conds = [Order.tenant_id == tenant_id]
+    if branch_id is not None:
+        rev_conds.append(Order.branch_id == branch_id)
+    paid_sq = (
+        select(Payment.order_id, func.sum(Payment.amount).label("net"))
+        .group_by(Payment.order_id).subquery()
+    )
+    contrib = case(
+        (Order.order_status != "cancelled", Order.total_amount),
+        else_=func.coalesce(paid_sq.c.net, _ZERO),
+    )
     total_revenue = await db.scalar(
-        _order_window(select(func.coalesce(func.sum(Order.total_amount), _ZERO)).where(*base_order_conds))
+        _order_window(
+            select(func.coalesce(func.sum(contrib), _ZERO))
+            .select_from(Order).outerjoin(paid_sq, Order.id == paid_sq.c.order_id)
+            .where(*rev_conds)
+        )
     ) or _ZERO
     day_col = func.date(Order.created_at).label("day")
     day_rows = (
         await db.execute(
             _order_window(
-                select(day_col, func.coalesce(func.sum(Order.total_amount), _ZERO).label("rev"))
-                .where(*base_order_conds)
+                select(day_col, func.coalesce(func.sum(contrib), _ZERO).label("rev"))
+                .select_from(Order).outerjoin(paid_sq, Order.id == paid_sq.c.order_id)
+                .where(*rev_conds)
             ).group_by(day_col).order_by(day_col)
         )
     ).all()
@@ -166,10 +185,13 @@ async def owner_summary(
                 _order_window(
                     select(
                         Order.branch_id, Branch.name,
-                        func.coalesce(func.sum(Order.total_amount), _ZERO).label("rev"),
-                    ).where(*base_order_conds)
-                ).select_from(Order).outerjoin(Branch, Order.branch_id == Branch.id)
-                .group_by(Order.branch_id, Branch.name).order_by(func.sum(Order.total_amount).desc())
+                        func.coalesce(func.sum(contrib), _ZERO).label("rev"),
+                    )
+                    .select_from(Order)
+                    .outerjoin(paid_sq, Order.id == paid_sq.c.order_id)
+                    .outerjoin(Branch, Order.branch_id == Branch.id)
+                    .where(*rev_conds)
+                ).group_by(Order.branch_id, Branch.name).order_by(func.sum(contrib).desc())
             )
         ).all()
         by_branch = [

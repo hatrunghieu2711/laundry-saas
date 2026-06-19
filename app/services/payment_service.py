@@ -80,20 +80,21 @@ async def _recompute_status(db: AsyncSession, order: Order) -> str:
     return "unpaid"
 
 
-async def create_payment(
+async def _record_payment(
     db: AsyncSession,
     actor: User,
+    order: Order,
     *,
-    order_id: uuid.UUID,
     amount: Decimal,
     payment_method: str,
     transaction_type: str,
     reason: str | None,
     reference_payment_id: uuid.UUID | None,
 ) -> Payment:
-    # Order (tenant + branch scope). 404 nếu không thuộc tenant/branch của actor.
-    order = await order_service.get_order(db, actor, order_id)
-
+    """Ghi 1 dòng payment cho `order` (ĐÃ load) + tính lại payment_status. **KHÔNG commit**
+    — để caller commit chung 1 transaction. Dùng bởi create_payment (commit ngay sau) VÀ
+    order_service.cancel_order (gộp refund + đổi trạng thái trong CÙNG transaction → nguyên
+    tử, tránh refund-mà-chưa-hủy / double refund)."""
     # Phải có ca đang OPEN tại branch của đơn.
     shift = await db.scalar(
         select(Shift).where(
@@ -149,6 +150,27 @@ async def create_payment(
 
     # Tính lại payment_status từ TỔNG payments của đơn.
     order.payment_status = await _recompute_status(db, order)
+    return payment
+
+
+async def create_payment(
+    db: AsyncSession,
+    actor: User,
+    *,
+    order_id: uuid.UUID,
+    amount: Decimal,
+    payment_method: str,
+    transaction_type: str,
+    reason: str | None,
+    reference_payment_id: uuid.UUID | None,
+) -> Payment:
+    # Order (tenant + branch scope). 404 nếu không thuộc tenant/branch của actor.
+    order = await order_service.get_order(db, actor, order_id)
+    payment = await _record_payment(
+        db, actor, order,
+        amount=amount, payment_method=payment_method, transaction_type=transaction_type,
+        reason=reason, reference_payment_id=reference_payment_id,
+    )
     await db.commit()
     return await get_payment(db, actor, payment.id)
 

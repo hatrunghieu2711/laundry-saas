@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import CancelOrderModal from '../components/CancelOrderModal'
 import MoneyInput from '../components/MoneyInput'
 import Receipt from '../components/Receipt'
 import { ApiError, api } from '../lib/api'
@@ -21,7 +22,7 @@ export default function OrderDetail() {
   const [payments, setPayments] = useState([])
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [confirmCancel, setConfirmCancel] = useState(false)
+  const [cancelModal, setCancelModal] = useState(false)
   // Giao đơn (PAY-FIRST, Stage B): đơn chưa thu → popup thu tiền/ghi nợ NGAY, chưa giao;
   // xử lý xong mới PATCH delivered. Đóng popup = không giao.
   const [deliverModal, setDeliverModal] = useState(false)
@@ -140,20 +141,6 @@ export default function OrderDetail() {
     }
   }
 
-  const doCancel = async () => {
-    setBusy(true)
-    setError('')
-    try {
-      await api.del(`/orders/${id}`)
-      setConfirmCancel(false)
-      await load()
-    } catch (err) {
-      setError(err?.message || 'Không hủy được đơn')
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const submitRefund = async () => {
     if (!refundReason.trim()) {
       setError('Nhập lý do hoàn tiền.')
@@ -240,25 +227,23 @@ export default function OrderDetail() {
             ➡️ Chuyển sang: {ORDER_STATUS[nextStatus]}
           </button>
         )}
-        {canCancel &&
-          (confirmCancel ? (
-            <div className="confirm">
-              <span>Hủy đơn này?</span>
-              <div className="row-actions">
-                <button className="btn btn--ghost" onClick={() => setConfirmCancel(false)}>
-                  Không
-                </button>
-                <button className="btn btn--danger" onClick={doCancel} disabled={busy}>
-                  Chắc chắn hủy
-                </button>
-              </div>
-            </div>
-          ) : (
-            <button className="btn btn--ghost btn--block" onClick={() => setConfirmCancel(true)}>
-              Hủy đơn
-            </button>
-          ))}
+        {canCancel && (
+          <button className="btn btn--ghost btn--block" onClick={() => setCancelModal(true)}>
+            Hủy đơn
+          </button>
+        )}
       </div>
+
+      {cancelModal && (
+        <CancelOrderModal
+          order={order}
+          onClose={() => setCancelModal(false)}
+          onCancelled={() => {
+            setCancelModal(false)
+            load()
+          }}
+        />
+      )}
 
       {/* Lịch sử dòng tiền */}
       <div className="card">

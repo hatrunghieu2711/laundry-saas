@@ -55,6 +55,11 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
     # Giờ hẹn giao cho khách (timestamptz, bắt buộc). Đơn cũ backfill ở migration.
     pickup_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Stage 6.28 — hủy đơn: lý do BẮT BUỘC (enforce ở service) + số tiền đã hoàn lúc hủy.
+    # refund_amount = tiền hoàn ra két khi hủy (đã ghi 1 payment cancel_paid âm tương ứng);
+    # phần GIỮ LẠI = (đã thu − refund_amount) chính là doanh thu của đơn hủy (sổ luôn cân).
+    cancel_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    refund_amount: Mapped[Decimal] = mapped_column(Money, nullable=False, server_default="0")
     created_by: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )

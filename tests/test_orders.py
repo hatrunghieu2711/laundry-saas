@@ -112,6 +112,32 @@ async def _advance_to_delivered(client: AsyncClient, token: str, oid: str, *, ps
     return r
 
 
+# Tổng tiền của _ITEMS = 2*30000 + 1*50000.
+_T_ITEMS = 110000
+
+
+async def _cancel(client: AsyncClient, token: str, oid: str, *, reason="Khách đổi ý", refund=None):
+    body: dict = {}
+    if reason is not None:
+        body["cancel_reason"] = reason
+    if refund is not None:
+        body["refund_amount"] = refund
+    return await client.post(f"{ORDERS}/{oid}/cancel", json=body, headers=auth_headers(token))
+
+
+async def _summary(client: AsyncClient, token: str, sid: str) -> dict:
+    r = await client.get(f"/api/v1/shifts/{sid}/summary", headers=auth_headers(token))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+async def _prepaid_order(client: AsyncClient, token: str) -> str:
+    """Đơn ĐÃ THU đủ qua prepay (cash) — cần ca đang mở."""
+    r = await _create_order(client, token, _ITEMS, prepay=True, payment_method="cash")
+    assert r.status_code == 201, r.text
+    return r.json()["id"]
+
+
 # ── tạo đơn ─────────────────────────────────────────────────────────────────
 async def test_create_order_code_total_and_log(client: AsyncClient, octx: dict):
     r1 = await _create_order(client, octx["staff_token"], _ITEMS)
@@ -256,7 +282,7 @@ async def test_revert_completed_locked(client: AsyncClient, octx: dict):
 async def test_revert_cancelled_locked(client: AsyncClient, octx: dict):
     t = octx["staff_token"]
     oid = (await _create_order(client, t, _ITEMS)).json()["id"]
-    await client.delete(f"{ORDERS}/{oid}", headers=auth_headers(t))  # -> cancelled
+    await _cancel(client, t, oid, refund=0)  # -> cancelled
     r = await _set_status(client, t, oid, "created")
     assert r.status_code == 409
     assert r.json()["code"] == "ORDER_CLOSED"
@@ -347,12 +373,13 @@ async def test_list_search_q_by_phone(client: AsyncClient, octx: dict):
     assert r.json()["items"][0]["id"] == o1["id"]
 
 
-# ── cancel (soft delete) ────────────────────────────────────────────────────
+# ── cancel (soft) — Stage 6.28: lý do bắt buộc + hoàn tiền, sổ luôn cân ──────
 async def test_cancel_from_created(client: AsyncClient, octx: dict):
     oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
-    resp = await client.delete(f"{ORDERS}/{oid}", headers=auth_headers(octx["staff_token"]))
-    assert resp.status_code == 200
+    resp = await _cancel(client, octx["staff_token"], oid, refund=0)
+    assert resp.status_code == 200, resp.text
     assert resp.json()["order_status"] == "cancelled"
+    assert resp.json()["cancel_reason"] == "Khách đổi ý"
     # Không xóa cứng.
     async with SessionFactory() as db:
         still = await db.scalar(text("SELECT count(*) FROM orders WHERE id=:i"), {"i": oid})
@@ -363,9 +390,107 @@ async def test_cancel_after_delivered_forbidden(client: AsyncClient, octx: dict)
     t = octx["staff_token"]
     oid = (await _create_order(client, t, _ITEMS)).json()["id"]
     await _advance_to_delivered(client, t, oid)
-    resp = await client.delete(f"{ORDERS}/{oid}", headers=auth_headers(t))
+    resp = await _cancel(client, t, oid, refund=0)
     assert resp.status_code == 409
     assert resp.json()["code"] == "INVALID_STATUS_TRANSITION"
+
+
+async def test_cancel_reason_required(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    # thiếu reason → 422 CANCEL_REASON_REQUIRED
+    r = await client.post(f"{ORDERS}/{oid}/cancel", json={"refund_amount": 0}, headers=auth_headers(t))
+    assert r.status_code == 422
+    assert r.json()["code"] == "CANCEL_REASON_REQUIRED"
+    # reason chỉ khoảng trắng cũng 422
+    r2 = await _cancel(client, t, oid, reason="   ", refund=0)
+    assert r2.status_code == 422
+    assert r2.json()["code"] == "CANCEL_REASON_REQUIRED"
+
+
+async def test_cancel_refund_exceeds_paid(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    await _open_shift(client, t)
+    oid = await _prepaid_order(client, t)  # đã thu _T_ITEMS
+    r = await _cancel(client, t, oid, refund=_T_ITEMS + 1)
+    assert r.status_code == 422
+    assert r.json()["code"] == "REFUND_EXCEEDS_PAID"
+
+
+async def test_cancel_unpaid_refund_forbidden(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    await _open_shift(client, t)
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]  # chưa thu
+    r = await _cancel(client, t, oid, refund=50000)
+    assert r.status_code == 422
+    assert r.json()["code"] == "REFUND_EXCEEDS_PAID"  # paid_sum=0
+
+
+# ── SỔ LUÔN CÂN: doanh thu = tiền thật giữ lại = (đã thu − đã hoàn) ──────────
+async def test_cancel_unpaid_book_balanced(client: AsyncClient, octx: dict):
+    """Chưa thu, hủy → giữ 0 → doanh thu 0, két không đổi."""
+    t = octx["staff_token"]
+    sid = await _open_shift(client, t)
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    s0 = await _summary(client, t, sid)
+    assert _num(s0["shift_revenue"]) == _T_ITEMS   # trước hủy: doanh thu dự kiến = giá trị đơn
+    assert _num(s0["total_collected"]) == 0
+    assert (await _cancel(client, t, oid, refund=0)).status_code == 200
+    s = await _summary(client, t, sid)
+    assert _num(s["shift_revenue"]) == 0           # giữ 0
+    assert _num(s["total_collected"]) == 0
+    assert _num(s["cash_in_drawer"]) == 0          # két không đổi
+    assert _num(s["shift_revenue"]) == _num(s["total_collected"])  # CÂN
+
+
+async def test_cancel_paid_refund_all_book_balanced(client: AsyncClient, octx: dict):
+    """Đã thu T, hoàn tất cả (R=T) → giữ 0 → doanh thu 0, két −T, payment refunded."""
+    t = octx["staff_token"]
+    sid = await _open_shift(client, t)
+    oid = await _prepaid_order(client, t)
+    assert _num((await _summary(client, t, sid))["cash_in_drawer"]) == _T_ITEMS
+    r = await _cancel(client, t, oid, refund=_T_ITEMS)
+    assert r.status_code == 200, r.text
+    assert r.json()["order_status"] == "cancelled"
+    assert r.json()["payment_status"] == "refunded"
+    assert _num(r.json()["refund_amount"]) == _T_ITEMS
+    s = await _summary(client, t, sid)
+    assert _num(s["shift_revenue"]) == 0
+    assert _num(s["total_collected"]) == 0
+    assert _num(s["cash_in_drawer"]) == 0          # két −T
+    assert _num(s["shift_revenue"]) == _num(s["total_collected"])
+
+
+async def test_cancel_paid_refund_partial_book_balanced(client: AsyncClient, octx: dict):
+    """Đã thu T, hoàn một phần R → giữ T−R → doanh thu T−R, két −R."""
+    t = octx["staff_token"]
+    sid = await _open_shift(client, t)
+    oid = await _prepaid_order(client, t)
+    kept = _T_ITEMS - 40000
+    r = await _cancel(client, t, oid, refund=40000)
+    assert r.status_code == 200, r.text
+    assert _num(r.json()["refund_amount"]) == 40000
+    s = await _summary(client, t, sid)
+    assert _num(s["shift_revenue"]) == kept        # 70000
+    assert _num(s["total_collected"]) == kept
+    assert _num(s["cash_in_drawer"]) == kept       # két −40000
+    assert _num(s["shift_revenue"]) == _num(s["total_collected"])
+
+
+async def test_cancel_paid_no_refund_keeps_revenue(client: AsyncClient, octx: dict):
+    """Đã thu T, không hoàn (R=0) → giữ T → doanh thu T, két không đổi."""
+    t = octx["staff_token"]
+    sid = await _open_shift(client, t)
+    oid = await _prepaid_order(client, t)
+    r = await _cancel(client, t, oid, refund=0)
+    assert r.status_code == 200, r.text
+    assert r.json()["payment_status"] == "paid"    # không hoàn → vẫn paid
+    assert _num(r.json()["refund_amount"]) == 0
+    s = await _summary(client, t, sid)
+    assert _num(s["shift_revenue"]) == _T_ITEMS    # giữ T
+    assert _num(s["total_collected"]) == _T_ITEMS
+    assert _num(s["cash_in_drawer"]) == _T_ITEMS   # két không đổi
+    assert _num(s["shift_revenue"]) == _num(s["total_collected"])
 
 
 # ── không sửa total khi đã có payment ───────────────────────────────────────
@@ -578,7 +703,7 @@ async def test_board_grouping_overdue_and_summary(client: AsyncClient, octx: dic
     # o_done -> completed (ẩn khỏi board; Stage B: thu đủ trước khi giao); o_cancel -> cancelled.
     await _advance_to_delivered(client, t, o_done["id"])
     await _set_status(client, t, o_done["id"], "completed")
-    await client.delete(f"{ORDERS}/{o_cancel['id']}", headers=auth_headers(t))
+    await _cancel(client, t, o_cancel["id"], refund=0)
 
     r = await client.get(f"{ORDERS}/board", headers=auth_headers(t))
     assert r.status_code == 200, r.text
