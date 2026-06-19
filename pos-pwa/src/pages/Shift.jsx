@@ -74,6 +74,7 @@ export default function Shift() {
   const [handover, setHandover] = useState('') // rút nộp chủ (Stage 6.2)
   const [handoverErr, setHandoverErr] = useState(false) // Stage 6.35: lỗi "rút nộp chủ trống" — hiện DƯỚI ô
   const [diffReason, setDiffReason] = useState('') // lý do lệch tiền (Stage 6.32; bắt buộc khi lệch≠0)
+  const [reasonErr, setReasonErr] = useState(false) // Stage 6.36: lỗi "thiếu lý do lệch" — hiện DƯỚI ô
   const [closed, setClosed] = useState(null)
   const [handoverBoard, setHandoverBoard] = useState(null) // tình hình bàn giao cho phiếu
   const [printSlip, setPrintSlip] = useState(null) // 'handover' | 'report'
@@ -181,7 +182,7 @@ export default function Shift() {
     // Có lệch tiền (thực đếm ≠ dự kiến) → BẮT BUỘC lý do (chống bỏ qua lệch quỹ).
     const diff = toNumber(actual) - expected
     if (diff !== 0 && !diffReason.trim()) {
-      setError('Vui lòng nhập lý do lệch tiền.')
+      setReasonErr(true) // lỗi hiện NGAY DƯỚI ô (không ở đầu màn)
       return
     }
     setBusy(true)
@@ -432,7 +433,12 @@ export default function Shift() {
 
           <label className="field">
             <span>Tiền mặt thực đếm trong két</span>
-            <MoneyInput value={actual} onChange={setActual} autoFocus required />
+            <MoneyInput
+              value={actual}
+              onChange={(v) => { setActual(v); if (reasonErr) setReasonErr(false) }}
+              autoFocus
+              required
+            />
           </label>
 
           {/* So sánh dự kiến vs thực đếm — hiện NGAY khi gõ */}
@@ -467,9 +473,12 @@ export default function Shift() {
                 className="input"
                 rows={2}
                 value={diffReason}
-                onChange={(e) => setDiffReason(e.target.value)}
+                onChange={(e) => { setDiffReason(e.target.value); if (reasonErr) setReasonErr(false) }}
                 placeholder="VD: thối nhầm cho khách / chưa ghi 1 khoản chi…"
               />
+              {reasonErr && (
+                <span className="field-note field-note--err">Vui lòng nhập lý do lệch tiền.</span>
+              )}
             </label>
           )}
 

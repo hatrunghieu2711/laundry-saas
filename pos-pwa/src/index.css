@@ -4754,6 +4754,9 @@ body {
 .shift .diff--ok .diff__line--total strong { color: #15803d; }
 .shift .diff--warn .diff__line--total strong { color: #b45309; }
 .shift .diff--danger .diff__line--total strong { color: var(--danger); }
+/* Stage 6.36: DÒNG CHỮ cảnh báo lệch → ĐỎ cho MỌI mức (warn vốn amber → ép đỏ). */
+.shift .diff--warn .diff__note,
+.shift .diff--danger .diff__note { color: var(--danger); }
 /* "Tiền để lại ca sau" (Stage 6.32): BỎ khung; TÁCH 2 dòng — dòng chính (nhãn + CON SỐ
    to/đậm/cam) + dòng phụ nhỏ (phép tính, màu --muted). Mắt thấy ngay số để lại. */
 .shift .cashleft {
