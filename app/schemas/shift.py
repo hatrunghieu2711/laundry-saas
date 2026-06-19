@@ -16,6 +16,9 @@ class ShiftClose(BaseModel):
     closing_cash_actual: Decimal = Field(ge=0)
     # Stage 6.2: rút tiền nộp chủ (>=0, mặc định 0). Validate <= actual ở service.
     handover_to_owner: Decimal = Field(default=Decimal(0), ge=0)
+    # Stage 6.33: lý do lệch tiền — BẮT BUỘC (enforce ở service: 422 nếu cash_difference≠0
+    # mà thiếu). Khớp két → cho None.
+    cash_diff_reason: str | None = Field(default=None, max_length=500)
 
 
 class OpeningSuggestion(BaseModel):
@@ -53,6 +56,7 @@ class ShiftOut(BaseModel):
     closing_cash_expected: Decimal | None
     closing_cash_actual: Decimal | None
     cash_difference: Decimal | None
+    cash_diff_reason: str | None  # Stage 6.33 — lý do lệch (khi cash_difference≠0)
     total_cash: Decimal | None
     total_transfer: Decimal | None
     total_qr: Decimal | None

@@ -60,6 +60,7 @@ class CashDiffRow(BaseModel):
     closed_at: datetime | None
     staff_name: str | None
     cash_difference: Decimal
+    cash_diff_reason: str | None = None  # Stage 6.33 — lý do lệch (chủ phân tích)
 
 
 class CashDiffGroup(BaseModel):

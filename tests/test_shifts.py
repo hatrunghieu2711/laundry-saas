@@ -9,6 +9,7 @@ from decimal import Decimal
 
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import text
 
 from app.core.database import SessionFactory
 from app.models.order import Order
@@ -155,7 +156,8 @@ async def test_close_mixed_methods(client: AsyncClient, ctx: dict):
     await _insert_payment(ctx, sid, 15000, "cod")  # order_id null -> không tính orders_count
 
     resp = await client.post(
-        _close_url(sid), json={"closing_cash_actual": 175000},
+        _close_url(sid),
+        json={"closing_cash_actual": 175000, "cash_diff_reason": "Lệch test"},  # diff 5000 → cần lý do
         headers=auth_headers(ctx["staff_a_token"]),
     )
     assert resp.status_code == 200, resp.text
@@ -217,6 +219,58 @@ async def test_can_reopen_branch_after_close(client: AsyncClient, ctx: dict):
     )
     again = await _open(client, ctx["staff_a_token"], 50000)
     assert again.status_code == 201
+
+
+# ── Stage 6.33: lý do lệch tiền BẮT BUỘC khi cash_difference ≠ 0 (đai an toàn backend) ──
+async def test_close_diff_without_reason_422(client: AsyncClient, ctx: dict):
+    """Lệch tiền mà THIẾU lý do → 422 CASH_DIFF_REASON_REQUIRED; ca VẪN mở (không đóng nửa vời)."""
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]  # no payment → expected = 100000
+    r = await client.post(
+        _close_url(sid), json={"closing_cash_actual": 150000},  # diff +50000
+        headers=auth_headers(t),
+    )
+    assert r.status_code == 422, r.text
+    assert r.json()["code"] == "CASH_DIFF_REASON_REQUIRED"
+    g = await client.get(f"{SHIFTS}/{sid}", headers=auth_headers(t))
+    assert g.json()["status"] == "open"
+    # khoảng trắng cũng tính là thiếu
+    r2 = await client.post(
+        _close_url(sid), json={"closing_cash_actual": 150000, "cash_diff_reason": "   "},
+        headers=auth_headers(t),
+    )
+    assert r2.status_code == 422
+    assert r2.json()["code"] == "CASH_DIFF_REASON_REQUIRED"
+
+
+async def test_close_diff_with_reason_saved(client: AsyncClient, ctx: dict):
+    """Lệch + có lý do → đóng OK, cash_diff_reason LƯU đúng vào DB."""
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    r = await client.post(
+        _close_url(sid),
+        json={"closing_cash_actual": 150000, "cash_diff_reason": "Thối nhầm cho khách"},
+        headers=auth_headers(t),
+    )
+    assert r.status_code == 200, r.text
+    assert _num(r.json()["cash_difference"]) == 50000
+    assert r.json()["cash_diff_reason"] == "Thối nhầm cho khách"
+    async with SessionFactory() as db:
+        val = await db.scalar(text("SELECT cash_diff_reason FROM shifts WHERE id=:i"), {"i": sid})
+    assert val == "Thối nhầm cho khách"
+
+
+async def test_close_matched_no_reason_ok(client: AsyncClient, ctx: dict):
+    """Khớp két (diff=0) → KHÔNG bắt buộc lý do, đóng bình thường."""
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    r = await client.post(
+        _close_url(sid), json={"closing_cash_actual": 100000},
+        headers=auth_headers(t),
+    )
+    assert r.status_code == 200, r.text
+    assert _num(r.json()["cash_difference"]) == 0
+    assert r.json()["cash_diff_reason"] in (None, "")
 
 
 # ── GET current / list / by id ──────────────────────────────────────────────

@@ -146,6 +146,9 @@ export function ReportsView({
                         <span className="reports__list-meta">
                           {r.staff_name || '—'} · {formatDateTime(r.closed_at)}
                         </span>
+                        {r.cash_diff_reason && (
+                          <span className="reports__list-meta">Lý do: {r.cash_diff_reason}</span>
+                        )}
                       </div>
                       <strong className={d < 0 ? 'reports__neg' : 'reports__pos'}>{signed(d)}</strong>
                     </li>

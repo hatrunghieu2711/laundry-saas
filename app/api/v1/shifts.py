@@ -83,5 +83,6 @@ async def close_shift(
     shift_id: uuid.UUID, payload: ShiftClose, actor: ShiftActor, db: DbSession
 ) -> ShiftOut:
     return await shift_service.close_shift(
-        db, actor, shift_id, payload.closing_cash_actual, payload.handover_to_owner
+        db, actor, shift_id, payload.closing_cash_actual, payload.handover_to_owner,
+        cash_diff_reason=payload.cash_diff_reason,
     )

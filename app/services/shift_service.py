@@ -121,6 +121,7 @@ async def close_shift(
     shift_id: uuid.UUID,
     closing_cash_actual: Decimal,
     handover_to_owner: Decimal = Decimal(0),
+    cash_diff_reason: str | None = None,
 ) -> Shift:
     shift = await _get_shift_in_tenant(db, actor, shift_id)
     if shift.status == "closed":
@@ -171,6 +172,15 @@ async def close_shift(
 
     # Két cuối ca = đầu ca + tiền mặt thu đơn + thu tiền mặt - chi tiền mặt.
     expected = shift.opening_cash + row.cash + ct.income - ct.expense
+    cash_difference = closing_cash_actual - expected
+    # ĐAI AN TOÀN (lớp 2 sau FE 6.32): LỆCH tiền → BẮT BUỘC lý do. Raise TRƯỚC khi đổi
+    # bất kỳ field nào (ca giữ nguyên 'open', không đóng nửa vời). Khớp két (diff=0) → cho None.
+    reason = (cash_diff_reason or "").strip()
+    if cash_difference != 0 and not reason:
+        raise APIError(
+            422, "CASH_DIFF_REASON_REQUIRED",
+            "Lệch tiền — bắt buộc nhập lý do lệch trước khi đóng ca",
+        )
     shift.total_cash = row.cash
     shift.total_transfer = row.transfer
     shift.total_qr = row.qr
@@ -180,7 +190,8 @@ async def close_shift(
     shift.orders_count = row.orders_count
     shift.closing_cash_expected = expected
     shift.closing_cash_actual = closing_cash_actual
-    shift.cash_difference = closing_cash_actual - expected
+    shift.cash_difference = cash_difference
+    shift.cash_diff_reason = reason or None
     # Rút nộp chủ: bước SAU đối soát — rút từ TIỀN THỰC ĐẾM (đã khớp), KHÔNG nằm
     # trong công thức expected (không phải chi phí, không ảnh hưởng doanh thu).
     shift.handover_to_owner = handover_to_owner

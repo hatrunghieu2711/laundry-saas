@@ -103,12 +103,14 @@ async def tctx(client: AsyncClient, owner: dict) -> dict:
     }
 
 
-async def _open_close(client, token, *, opening, actual) -> dict:
+async def _open_close(client, token, *, opening, actual, reason=None) -> dict:
     opened = await client.post("/api/v1/shifts/open", json={"opening_cash": opening},
                                headers=auth_headers(token))
     sid = opened.json()["id"]
-    return await client.post(f"/api/v1/shifts/{sid}/close",
-                             json={"closing_cash_actual": actual},
+    body = {"closing_cash_actual": actual}
+    if reason is not None:
+        body["cash_diff_reason"] = reason  # Stage 6.33: lệch tiền cần lý do
+    return await client.post(f"/api/v1/shifts/{sid}/close", json=body,
                              headers=auth_headers(token))
 
 
@@ -142,7 +144,8 @@ async def test_close_large_diff_warns(client: AsyncClient, tctx: dict, monkeypat
     monkeypatch.setattr(telegram_service, "send_message", fake_send)
 
     # expected 0, actual 200000 -> lệch 200000 > 50000 -> ⚠️.
-    resp = await _open_close(client, tctx["staff_token"], opening=0, actual=200000)
+    resp = await _open_close(client, tctx["staff_token"], opening=0, actual=200000,
+                             reason="Lệch lớn test")
     assert resp.status_code == 200
     assert len(sent) == 1
     assert "⚠️" in sent[0]

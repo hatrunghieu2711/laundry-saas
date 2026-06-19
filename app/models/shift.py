@@ -11,7 +11,7 @@ from datetime import datetime
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, text
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -44,6 +44,8 @@ class Shift(TimestampMixin, Base):
     closing_cash_expected: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     closing_cash_actual: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     cash_difference: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    # Lý do lệch tiền (Stage 6.33) — BẮT BUỘC (enforce ở service) khi cash_difference≠0.
+    cash_diff_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Aggregate — tính MỘT LẦN lúc đóng ca (ca đóng là immutable).
     total_cash: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     total_transfer: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
