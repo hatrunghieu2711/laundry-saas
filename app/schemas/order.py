@@ -124,6 +124,20 @@ class OrderOut(BaseModel):
     items: list[OrderItemOut]
 
 
+class OrderTrackingEntry(BaseModel):
+    """1 mốc đổi trạng thái (Stage 6.41) — nguồn dựng timeline ở tab Lịch sử."""
+
+    status: str
+    at: datetime
+
+
+class OrderDetailOut(OrderOut):
+    """GET /orders/{id}: OrderOut + tracking logs (timeline). List (GET /orders) vẫn dùng
+    OrderOut (không kèm tracking để khỏi N query)."""
+
+    tracking: list[OrderTrackingEntry] = []
+
+
 class BoardOrder(BaseModel):
     """Một thẻ đơn trên dashboard vận hành (rút gọn, không kèm items)."""
 

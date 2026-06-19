@@ -517,6 +517,21 @@ async def get_order(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Order
     return await _get_order(db, actor, order_id)
 
 
+async def get_order_detail(db: AsyncSession, actor: User, order_id: uuid.UUID) -> Order:
+    """get_order + tracking logs (timeline) — cho hàng mở rộng tab Lịch sử (Stage 6.41).
+    Gắn transient `order.tracking = [{status, at}]` (theo created_at tăng dần)."""
+    order = await _get_order(db, actor, order_id)
+    logs = (
+        await db.execute(
+            select(OrderTrackingLog)
+            .where(OrderTrackingLog.order_id == order.id)
+            .order_by(OrderTrackingLog.created_at.asc())
+        )
+    ).scalars().all()
+    order.tracking = [{"status": lg.status, "at": lg.created_at} for lg in logs]
+    return order
+
+
 async def get_order_by_code(db: AsyncSession, actor: User, order_code: str) -> Order:
     order = await db.scalar(
         select(Order).where(

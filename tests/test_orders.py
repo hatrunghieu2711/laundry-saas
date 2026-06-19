@@ -311,6 +311,19 @@ async def test_revert_writes_tracking_log(client: AsyncClient, octx: dict):
     assert row[1] is not None
 
 
+# ── Stage 6.41: GET /orders/{id} kèm tracking (timeline tab Lịch sử) ─────────
+async def test_get_order_includes_tracking(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    oid = (await _create_order(client, t, _ITEMS)).json()["id"]
+    for st in ["washing", "drying", "ready"]:
+        await _set_status(client, t, oid, st)
+    r = await client.get(f"{ORDERS}/{oid}", headers=auth_headers(t))
+    assert r.status_code == 200, r.text
+    tr = r.json()["tracking"]
+    assert [e["status"] for e in tr] == ["created", "washing", "drying", "ready"]
+    assert all(e["at"] for e in tr)  # mỗi mốc có thời gian
+
+
 # ── Stage 3.9: search q (mã đơn HOẶC tên khách) ─────────────────────────────
 async def test_list_search_q_by_code_and_name(client: AsyncClient, octx: dict):
     t = octx["staff_token"]

@@ -12,6 +12,7 @@ from app.schemas.order import (
     OrderBoard,
     OrderCancel,
     OrderCreate,
+    OrderDetailOut,
     OrderItemIn,
     OrderOut,
     OrderStatusUpdate,
@@ -67,9 +68,10 @@ async def get_order_by_code(order_code: str, actor: OrderActor, db: DbSession) -
     return await order_service.get_order_by_code(db, actor, order_code)
 
 
-@router.get("/{order_id}", response_model=OrderOut)
-async def get_order(order_id: uuid.UUID, actor: OrderActor, db: DbSession) -> OrderOut:
-    return await order_service.get_order(db, actor, order_id)
+@router.get("/{order_id}", response_model=OrderDetailOut)
+async def get_order(order_id: uuid.UUID, actor: OrderActor, db: DbSession) -> OrderDetailOut:
+    # Kèm tracking (timeline) cho hàng mở rộng tab Lịch sử (Stage 6.41).
+    return await order_service.get_order_detail(db, actor, order_id)
 
 
 @router.put("/{order_id}", response_model=OrderOut)

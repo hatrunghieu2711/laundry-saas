@@ -4799,6 +4799,9 @@ body {
   border: 1px solid var(--line);
   border-radius: 6px;
 }
+/* Hàng mở rộng (6.41): border trên ITEM (bọc cả dòng + phần mở rộng), không trên row. */
+.history__item { border-bottom: 1px solid var(--line); }
+.history__item:last-child { border-bottom: none; }
 .history__row {
   display: flex;
   align-items: center;
@@ -4806,12 +4809,10 @@ body {
   text-align: left;
   background: none;
   border: none;
-  border-bottom: 1px solid var(--line);
   border-radius: 0;
   padding: 9px 8px 9px 14px;
   cursor: pointer;
 }
-.history__row:last-child { border-bottom: none; }
 .history__row:active { background: var(--bg); }
 .history__code { flex: 0 0 auto; min-width: 74px; font-size: 14px; font-weight: 700; color: var(--ink); }
 .history__cust {
@@ -4850,6 +4851,53 @@ body {
   color: var(--muted);
 }
 .history__menu-svg { width: 18px; height: 18px; display: block; }
+/* Chevron mở/đóng — xoay 180° khi mở (transform OK Chrome 56). */
+.history__chev { width: 18px; height: 18px; display: block; transition: transform .15s ease; }
+.history__chev.is-open { transform: rotate(180deg); }
+
+/* Phần MỞ RỘNG: nền hơi xám, viền trên 1px (KHÔNG radius/shadow/overflow → an toàn Chrome 56). */
+.history__exp {
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  padding: 10px 14px 12px;
+}
+/* Info cơ bản: lưới ngang wrap, khoảng cách bằng margin (KHÔNG gap). */
+.hexp__info { display: flex; flex-wrap: wrap; }
+.hexp__info > * { margin: 0 18px 8px 0; }
+.hexp__cell { display: flex; flex-direction: column; min-width: 0; }
+.hexp__lbl { font-size: 11px; color: var(--muted); margin-bottom: 1px; }
+.hexp__cell > span:last-child { font-size: 13px; color: var(--ink); }
+
+/* Timeline NGANG 4 bước: time(trên) · chấm · tên(dưới), nối bằng ›. */
+.htl { display: flex; align-items: flex-start; margin: 8px 0 4px; }
+.htl__step {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  min-width: 0;
+}
+.htl__step.is-todo { opacity: .5; }
+.htl__time { font-size: 11px; color: var(--muted); white-space: nowrap; }
+.htl__dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: var(--surface);
+  margin: 4px 0;
+}
+.htl__step.is-done .htl__dot { border-color: var(--ns-success); background: var(--ns-success); }
+.htl__step.is-cancel .htl__dot { border-color: var(--ns-danger); background: var(--ns-danger); }
+.htl__name { font-size: 12px; color: var(--ink); line-height: 1.25; }
+.htl__step.is-cancel .htl__name { color: var(--ns-danger); font-weight: 700; }
+.htl__sep { flex: 0 0 auto; margin-top: 14px; padding: 0 1px; color: var(--muted); font-size: 15px; }
+
+/* Nút trong phần mở rộng: 2 nút chia đôi, cách nhau bằng margin. */
+.hexp__acts { display: flex; margin-top: 10px; }
+.hexp__acts > * + * { margin-left: 8px; }
+.hexp__acts > .btn { flex: 1 1 0; }
 /* Badge trạng thái (font 11, radius 4, không shadow): giao xanh / hủy đỏ / mới tạo amber / đang xử lý cam. */
 .hbadge { flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
 .hbadge--done { background: var(--ns-success-bg); color: var(--ns-success); }
