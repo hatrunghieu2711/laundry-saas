@@ -4782,44 +4782,64 @@ body {
 /* Màn "chưa có ca → Mở ca": đồng bộ style mới (bỏ shadow, radius 6). */
 .shift .shift__empty { box-shadow: none; border-radius: 6px; }
 
-/* ════════ TAB LỊCH SỬ (Stage 6.38) — style mới, an toàn Chrome 56 (radius 6/4, kẻ 1px,
-   spacing bằng margin KHÔNG flex gap, không shadow). ════════ */
-.history__search { width: 100%; margin-bottom: 10px; }
-.history__filters { display: flex; margin-bottom: 8px; }
-.history__filters > * + * { margin-left: 8px; }   /* khe ngang bằng margin (không gap) */
-.history__filters > .chip { flex: 1 1 0; justify-content: center; }
-.history__hint { color: var(--muted); font-size: 12px; margin: 6px 0; }
-.history__count { font-size: 12px; color: var(--muted); margin: 8px 0 6px; }
-.history__list { display: block; }
-.history__list > * + * { margin-top: 8px; }
+/* ════════ TAB LỊCH SỬ (Stage 6.38, gọn lại 6.39) — style mới, DÀY thông tin, an toàn
+   Chrome 56 (radius 6/4, kẻ 1px, spacing bằng margin KHÔNG flex gap, KHÔNG box-shadow,
+   KHÔNG overflow:hidden khối lớn). List = DANH SÁCH KẺ DÒNG gọn (1 khung, mỗi đơn kẻ 1px). */
+.history__search { width: 100%; min-height: 36px; font-size: 13px; margin-bottom: 8px; }
+.history__filters { display: flex; margin-bottom: 6px; }
+.history__filters > * + * { margin-left: 6px; }   /* khe ngang bằng margin (không gap) */
+.history__filters > .chip {
+  flex: 1 1 0;
+  justify-content: center;
+  min-height: 28px;       /* nhỏ gọn, không phải nút bự (44 → 28) */
+  padding: 0 6px;
+  border-width: 1px;
+  border-radius: 4px;     /* KHÔNG pill */
+  font-size: 12px;
+  font-weight: 600;
+}
+.history__hint { color: var(--muted); font-size: 12px; margin: 4px 0; }
+.history__count { font-size: 12px; color: var(--muted); margin: 6px 0 4px; }
+/* Khung list: 1 hộp bo 6px viền 1px; mỗi đơn kẻ 1px (không thẻ rời + radius). */
+.history__list {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
 .history__row {
   display: block;
   width: 100%;
   text-align: left;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  padding: 10px 12px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 8px 12px;
   cursor: pointer;
 }
+.history__row:last-child { border-bottom: none; }
+.history__row:active { background: var(--bg); }
 .history__r1 { display: flex; align-items: baseline; justify-content: space-between; }
 .history__r1 > * + * { margin-left: 8px; }
-.history__code { font-weight: 700; font-size: 15px; color: var(--ink); }
-.history__amount { font-weight: 700; white-space: nowrap; }
-.history__r2 { display: flex; align-items: center; margin-top: 4px; }
+.history__code { font-weight: 700; font-size: 14px; color: var(--ink); }
+.history__amount { font-weight: 700; font-size: 14px; white-space: nowrap; }
+.history__r2 { display: flex; align-items: center; margin-top: 2px; }
 .history__r2 > * + * { margin-left: 8px; }
 .history__cust {
   flex: 1 1 auto;
   min-width: 0;
-  font-size: 13px;
+  font-size: 12px;
   color: var(--ns-text-2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.history__time { flex: 0 0 auto; font-size: 12px; color: var(--muted); white-space: nowrap; }
-/* Badge trạng thái (radius 4, không shadow): giao xanh / hủy đỏ-xám / đang xử lý cam. */
-.hbadge { flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 4px; white-space: nowrap; }
+.history__time { flex: 0 0 auto; font-size: 11px; color: var(--muted); white-space: nowrap; }
+/* Badge trạng thái (font 11, radius 4, không shadow): giao xanh / hủy đỏ-xám / đang xử lý cam. */
+.hbadge { flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 4px; white-space: nowrap; }
 .hbadge--done { background: var(--ns-success-bg); color: var(--ns-success); }
 .hbadge--cancel { background: var(--bg); color: var(--ns-danger); }
 .hbadge--proc { background: var(--ns-warn-bg); color: var(--ns-warn); }
+/* Tải thêm: khoảng cách nhẹ trên nút (list không margin-bottom). */
+.history .btn--block { margin-top: 8px; }
