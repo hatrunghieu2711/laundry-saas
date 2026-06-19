@@ -62,6 +62,8 @@ class Shift(TimestampMixin, Base):
     handover_to_owner: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     cash_left_for_next: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
 
+    # Số lần MỞ LẠI ca sau khi đóng (Stage 6.37) — chủ giám sát; chi tiết ở audit_logs.
+    reopen_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="open")
     opened_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=text("now()")

@@ -4738,6 +4738,8 @@ body {
 .shift__btnrow { display: flex; }
 .shift__btnrow > * + * { margin-left: 10px; }
 .shift__btnrow > .btn { flex: 1 1 0; }
+/* Stage 6.37: nút "Mở lại ca" — viền cảnh báo (amber), không phải nút chính. */
+.shift__reopen { color: var(--ns-warn); border-color: var(--ns-warn); }
 /* Stage 6.31 — màn ĐÓNG CA: khối đối soát "Dự kiến/Thực đếm/Chênh lệch" dùng KẺ 1px thay
    khung-màu; GIỮ tín hiệu lệch bằng MÀU CHỮ ở dòng Chênh lệch + note (không mất cảnh báo
    sai số/gian lận). Gọn chiều cao. */

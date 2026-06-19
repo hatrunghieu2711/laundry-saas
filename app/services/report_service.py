@@ -216,7 +216,8 @@ async def owner_summary(
         await db.execute(
             select(
                 Shift.id, Shift.branch_id, Shift.opened_at, Shift.closed_at,
-                Shift.cash_difference, Shift.cash_diff_reason, User.full_name,
+                Shift.cash_difference, Shift.cash_diff_reason, Shift.reopen_count,
+                User.full_name,
             )
             .select_from(Shift).outerjoin(User, Shift.closed_by == User.id)
             .where(*sh_conds).order_by(Shift.closed_at.desc())
@@ -233,6 +234,7 @@ async def owner_summary(
                 "shift_id": r.id, "branch_id": r.branch_id, "opened_at": r.opened_at,
                 "closed_at": r.closed_at, "staff_name": r.full_name, "cash_difference": d,
                 "cash_diff_reason": r.cash_diff_reason,  # Stage 6.33 — chủ xem lý do lệch
+                "reopen_count": r.reopen_count or 0,     # Stage 6.37 — ca từng mở lại?
             })
     cash_diff = {"total": total_diff, "count": len(diff_rows), "matched_count": matched, "rows": diff_rows}
 

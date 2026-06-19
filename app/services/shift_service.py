@@ -24,6 +24,7 @@ from sqlalchemy.orm import selectinload
 from app.api.deps import Pagination
 from app.core.errors import APIError
 from app.models.cash_transaction import CashTransaction
+from app.models.log import AuditLog
 from app.models.order import Order
 from app.models.payment import Payment
 from app.models.shift import Shift
@@ -219,6 +220,84 @@ async def get_current_shift(
 
 async def get_shift(db: AsyncSession, actor: User, shift_id: uuid.UUID) -> Shift:
     return await _get_shift_in_tenant(db, actor, shift_id)
+
+
+async def latest_closed_shift(
+    db: AsyncSession, actor: User, branch_id: uuid.UUID | None
+) -> Shift | None:
+    """Ca ĐÓNG gần nhất của branch (cho màn 'Xem ca vừa đóng' + in lại). None nếu chưa có."""
+    branch_id = _resolve_branch(actor, branch_id)
+    return await db.scalar(
+        select(Shift)
+        .where(
+            Shift.tenant_id == actor.tenant_id,
+            Shift.branch_id == branch_id,
+            Shift.status == "closed",
+        )
+        .order_by(Shift.closed_at.desc())
+        .limit(1)
+    )
+
+
+async def reopen_shift(db: AsyncSession, actor: User, shift_id: uuid.UUID) -> Shift:
+    """MỞ LẠI ca đã đóng (Stage 6.37) — thu thêm sau khi đóng. Chỉ ca ĐÓNG GẦN NHẤT của
+    branch, và branch CHƯA có ca mở khác. ĐẢO trạng thái về 'open' + XÓA số chốt; GIỮ
+    opening_cash + mọi payment/cash_transaction (sổ tiền BẤT BIẾN). Ghi audit_logs (ai/lúc
+    nào/ca nào) + tăng reopen_count. Đóng lại → close_shift tính mới gồm cả khoản thu thêm."""
+    shift = await _get_shift_in_tenant(db, actor, shift_id)
+    if shift.status != "closed":
+        raise APIError(409, "SHIFT_NOT_CLOSED", "Ca chưa đóng, không thể mở lại")
+    # Branch chưa có ca mở khác (giữ one_open_shift_per_branch).
+    if await _get_open_shift(db, actor.tenant_id, shift.branch_id) is not None:
+        raise APIError(409, "SHIFT_ALREADY_OPEN", "Chi nhánh đã có ca đang mở")
+    # Chỉ mở lại được ca ĐÓNG GẦN NHẤT của branch.
+    latest = await db.scalar(
+        select(Shift.id)
+        .where(
+            Shift.tenant_id == actor.tenant_id,
+            Shift.branch_id == shift.branch_id,
+            Shift.status == "closed",
+        )
+        .order_by(Shift.closed_at.desc())
+        .limit(1)
+    )
+    if latest != shift.id:
+        raise APIError(409, "CANNOT_REOPEN_NOT_LATEST", "Chỉ mở lại được ca đóng gần nhất")
+
+    # Đảo về 'open': xóa số chốt (KHÔNG đụng payment/cash_transaction — sổ tiền bất biến).
+    shift.status = "open"
+    shift.closed_at = None
+    shift.closed_by = None
+    shift.closing_cash_expected = None
+    shift.closing_cash_actual = None
+    shift.cash_difference = None
+    shift.cash_diff_reason = None
+    shift.handover_to_owner = None
+    shift.cash_left_for_next = None
+    shift.total_cash = None
+    shift.total_transfer = None
+    shift.total_qr = None
+    shift.total_cod = None
+    shift.total_income = None
+    shift.total_expense = None
+    shift.orders_count = None
+    shift.reopen_count = (shift.reopen_count or 0) + 1
+    # Dấu vết bắt buộc cho chủ: ai/lúc nào/ca nào (audit_logs immutable).
+    db.add(AuditLog(
+        tenant_id=actor.tenant_id,
+        user_id=actor.id,
+        action="shift.reopen",
+        entity_type="shift",
+        entity_id=shift.id,
+        new_data_json={"reopen_count": shift.reopen_count},
+    ))
+    try:
+        await db.commit()
+    except IntegrityError as exc:
+        # Chốt cuối: race với một ca khác mở cùng lúc (partial unique index).
+        await db.rollback()
+        raise APIError(409, "SHIFT_ALREADY_OPEN", "Chi nhánh đã có ca đang mở") from exc
+    return await get_shift(db, actor, shift.id)
 
 
 async def opening_suggestion(

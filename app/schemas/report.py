@@ -61,6 +61,7 @@ class CashDiffRow(BaseModel):
     staff_name: str | None
     cash_difference: Decimal
     cash_diff_reason: str | None = None  # Stage 6.33 — lý do lệch (chủ phân tích)
+    reopen_count: int = 0  # Stage 6.37 — ca này từng mở lại bao nhiêu lần
 
 
 class CashDiffGroup(BaseModel):

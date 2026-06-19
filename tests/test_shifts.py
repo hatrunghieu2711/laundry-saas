@@ -273,6 +273,97 @@ async def test_close_matched_no_reason_ok(client: AsyncClient, ctx: dict):
     assert r.json()["cash_diff_reason"] in (None, "")
 
 
+# ── Stage 6.37: MỞ LẠI CA (reopen) — thu thêm sau khi đã đóng ───────────────
+def _reopen_url(shift_id: str) -> str:
+    return f"{SHIFTS}/{shift_id}/reopen"
+
+
+async def test_reopen_then_collect_more_and_reclose(client: AsyncClient, ctx: dict):
+    """Đóng → reopen (chốt bị xóa, payment GIỮ) → thu thêm → đóng lại: sổ cân gồm khoản mới."""
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    o1 = await _insert_order(ctx, "B1-RO1")
+    await _insert_payment(ctx, sid, 50000, "cash", order_id=o1)
+    r1 = await client.post(_close_url(sid), json={"closing_cash_actual": 150000}, headers=auth_headers(t))
+    assert r1.status_code == 200, r1.text  # expected 150000, diff 0
+
+    rr = await client.post(_reopen_url(sid), headers=auth_headers(t))
+    assert rr.status_code == 200, rr.text
+    b = rr.json()
+    assert b["status"] == "open"
+    assert b["closed_at"] is None and b["closing_cash_actual"] is None
+    assert b["cash_difference"] is None and b["cash_diff_reason"] is None
+    assert b["handover_to_owner"] is None and b["cash_left_for_next"] is None
+    assert b["reopen_count"] == 1
+    # Payment cũ GIỮ nguyên (sổ tiền bất biến): summary vẫn thấy 50000 đã thu.
+    s = await client.get(f"{SHIFTS}/{sid}/summary", headers=auth_headers(t))
+    assert _num(s.json()["total_collected"]) == 50000
+
+    # Thu thêm 30000 rồi đóng lại.
+    o2 = await _insert_order(ctx, "B1-RO2")
+    await _insert_payment(ctx, sid, 30000, "cash", order_id=o2)
+    r2 = await client.post(_close_url(sid), json={"closing_cash_actual": 180000}, headers=auth_headers(t))
+    assert r2.status_code == 200, r2.text
+    assert _num(r2.json()["total_cash"]) == 80000             # 50000 + 30000 (gồm khoản mới)
+    assert _num(r2.json()["closing_cash_expected"]) == 180000  # 100000 + 80000
+    assert _num(r2.json()["cash_difference"]) == 0             # sổ cân
+    assert r2.json()["reopen_count"] == 1                      # giữ đếm reopen
+
+
+async def test_reopen_open_shift_409(client: AsyncClient, ctx: dict):
+    """Ca CHƯA đóng → không mở lại được."""
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    rr = await client.post(_reopen_url(sid), headers=auth_headers(t))
+    assert rr.status_code == 409
+    assert rr.json()["code"] == "SHIFT_NOT_CLOSED"
+
+
+async def test_reopen_blocked_when_other_open(client: AsyncClient, ctx: dict):
+    """Đã có ca mới mở trên branch → không mở lại ca cũ (one_open_shift_per_branch)."""
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    await client.post(_close_url(sid), json={"closing_cash_actual": 100000}, headers=auth_headers(t))
+    await _open(client, t, 100000)  # ca mới mở
+    rr = await client.post(_reopen_url(sid), headers=auth_headers(t))
+    assert rr.status_code == 409
+    assert rr.json()["code"] == "SHIFT_ALREADY_OPEN"
+
+
+async def test_reopen_blocked_not_latest(client: AsyncClient, ctx: dict):
+    """Chỉ mở lại được ca ĐÓNG GẦN NHẤT."""
+    t = ctx["staff_a_token"]
+    s1 = (await _open(client, t, 100000)).json()["id"]
+    await client.post(_close_url(s1), json={"closing_cash_actual": 100000}, headers=auth_headers(t))
+    s2 = (await _open(client, t, 100000)).json()["id"]
+    await client.post(_close_url(s2), json={"closing_cash_actual": 100000}, headers=auth_headers(t))
+    rr = await client.post(_reopen_url(s1), headers=auth_headers(t))  # s1 không phải đóng gần nhất
+    assert rr.status_code == 409
+    assert rr.json()["code"] == "CANNOT_REOPEN_NOT_LATEST"
+
+
+async def test_reopen_writes_audit_log(client: AsyncClient, ctx: dict):
+    """Reopen ghi audit_logs (ai/lúc nào/ca nào)."""
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    await client.post(_close_url(sid), json={"closing_cash_actual": 100000}, headers=auth_headers(t))
+    await client.post(_reopen_url(sid), headers=auth_headers(t))
+    async with SessionFactory() as db:
+        row = (
+            await db.execute(
+                text(
+                    "SELECT action, user_id, entity_type FROM audit_logs "
+                    "WHERE entity_id=:i AND action='shift.reopen'"
+                ),
+                {"i": sid},
+            )
+        ).first()
+    assert row is not None
+    assert row[0] == "shift.reopen"
+    assert row[1] is not None          # ai (user) — có ghi
+    assert row[2] == "shift"
+
+
 # ── GET current / list / by id ──────────────────────────────────────────────
 async def test_get_current(client: AsyncClient, ctx: dict):
     opened = await _open(client, ctx["staff_a_token"], 100000)

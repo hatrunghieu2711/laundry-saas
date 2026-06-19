@@ -66,6 +66,7 @@ class ShiftOut(BaseModel):
     orders_count: int | None
     handover_to_owner: Decimal | None  # Stage 6.2
     cash_left_for_next: Decimal | None  # Stage 6.2
+    reopen_count: int = 0  # Stage 6.37 — số lần mở lại ca
     status: str
     opened_at: datetime
     closed_at: datetime | None

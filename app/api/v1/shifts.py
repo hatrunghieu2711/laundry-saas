@@ -1,7 +1,8 @@
 """Shift endpoints: mở/đóng ca + reconciliation.
 
 - owner/manager/staff được mở/đóng ca (owner phải chỉ định branch_id).
-- Không có endpoint reopen: ca đã closed là bất biến.
+- Mở lại ca (Stage 6.37): POST /{id}/reopen — chỉ ca ĐÓNG GẦN NHẤT, branch chưa có ca mở;
+  đảo trạng thái + ghi audit_logs (sổ tiền GIỮ nguyên).
 """
 import uuid
 from datetime import datetime
@@ -10,6 +11,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, status
 
 from app.api.deps import DbSession, PageParams, require_role
+from app.core.errors import APIError
 from app.models.user import User
 from app.schemas.common import Page
 from app.schemas.shift import (
@@ -67,6 +69,20 @@ async def list_shifts(
     return Page[ShiftOut](items=items, total=total, limit=page.limit, offset=page.offset)
 
 
+# Khai báo /latest-closed TRƯỚC /{shift_id} để không bị nuốt vào path param.
+@router.get("/latest-closed", response_model=ShiftOut)
+async def latest_closed_shift(
+    actor: ShiftActor,
+    db: DbSession,
+    branch_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> ShiftOut:
+    """Ca ĐÓNG gần nhất của branch — cho màn 'Xem ca vừa đóng' + in lại (đọc từ DB)."""
+    shift = await shift_service.latest_closed_shift(db, actor, branch_id)
+    if shift is None:
+        raise APIError(404, "NO_CLOSED_SHIFT", "Chưa có ca đóng nào")
+    return await shift_service.get_shift(db, actor, shift.id)
+
+
 @router.get("/{shift_id}", response_model=ShiftOut)
 async def get_shift(shift_id: uuid.UUID, actor: ShiftActor, db: DbSession) -> ShiftOut:
     return await shift_service.get_shift(db, actor, shift_id)
@@ -86,3 +102,9 @@ async def close_shift(
         db, actor, shift_id, payload.closing_cash_actual, payload.handover_to_owner,
         cash_diff_reason=payload.cash_diff_reason,
     )
+
+
+@router.post("/{shift_id}/reopen", response_model=ShiftOut)
+async def reopen_shift(shift_id: uuid.UUID, actor: ShiftActor, db: DbSession) -> ShiftOut:
+    """Mở lại ca đã đóng để thu thêm (Stage 6.37). Ghi audit_logs; sổ tiền GIỮ nguyên."""
+    return await shift_service.reopen_shift(db, actor, shift_id)

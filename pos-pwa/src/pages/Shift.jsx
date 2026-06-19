@@ -78,6 +78,8 @@ export default function Shift() {
   const [closed, setClosed] = useState(null)
   const [handoverBoard, setHandoverBoard] = useState(null) // tình hình bàn giao cho phiếu
   const [printSlip, setPrintSlip] = useState(null) // 'handover' | 'report'
+  const [lastClosed, setLastClosed] = useState(null) // Stage 6.37: ca đóng gần nhất (xem/in lại từ DB)
+  const [reopenAsk, setReopenAsk] = useState(false)  // Stage 6.37: popup xác nhận mở lại ca
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -90,13 +92,14 @@ export default function Shift() {
     setError('')
     setSummary(null)
     setMetrics(null)
+    setLastClosed(null)
     if (isOwner && !branchId) {
       setShift(undefined)
       return
     }
     setShift(undefined)
+    const q = isOwner ? `?branch_id=${branchId}` : ''
     try {
-      const q = isOwner ? `?branch_id=${branchId}` : ''
       const s = await api.get(`/shifts/current${q}`)
       setShift(s)
       const [cs, m] = await Promise.all([
@@ -108,6 +111,13 @@ export default function Shift() {
     } catch (err) {
       if (err instanceof ApiError && err.status === 404) {
         setShift(null) // chưa có ca mở
+        // Có ca đóng gần nhất? → cho xem/in lại + mở lại (đọc từ DB, không phải state tạm).
+        try {
+          const lc = await api.get(`/shifts/latest-closed${q}`)
+          setLastClosed(lc)
+        } catch {
+          setLastClosed(null)
+        }
       } else {
         setShift(null)
         setError(err?.message || 'Không tải được ca hiện tại')
@@ -235,6 +245,33 @@ export default function Shift() {
     await loadCurrent()
   }
 
+  // Stage 6.37: xem lại ca vừa đóng (đọc từ DB) → in lại biên nhận bất cứ lúc nào.
+  const viewLastClosed = () => {
+    if (!lastClosed) return
+    setHandoverBoard(null) // bảng bàn giao là snapshot lúc đóng (không lưu) → để trống khi xem lại
+    setClosed(lastClosed)
+    setView('result')
+  }
+
+  // Stage 6.37: mở lại ca (đã xác nhận ở popup) → ca về 'open', thu thêm rồi đóng lại.
+  const doReopen = async () => {
+    if (!closed) return
+    setBusy(true)
+    setError('')
+    try {
+      await api.post(`/shifts/${closed.id}/reopen`)
+      setReopenAsk(false)
+      setClosed(null)
+      setView('main')
+      await loadCurrent()
+    } catch (err) {
+      setReopenAsk(false)
+      setError(err instanceof ApiError ? err.message : 'Không mở lại được ca')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   // Làm mới chỉ số realtime (không reset cả màn, tránh nháy).
   const refresh = async () => {
     if (!shift) return
@@ -284,11 +321,37 @@ export default function Shift() {
           onBack={backToMain}
           onPrintHandover={() => setPrintSlip('handover')}
           onPrintReport={() => setPrintSlip('report')}
+          onReopen={() => setReopenAsk(true)}
         />
       )}
 
       {/* Portal in phiếu giao ca (ẩn trên màn, hiện khi @media print). */}
       <ShiftSlip kind={printSlip} shift={closed} branchName={branchName} board={handoverBoard} />
+
+      {/* ── Popup xác nhận MỞ LẠI CA (Stage 6.37) ── */}
+      {reopenAsk && (
+        <div className="modal-overlay modal-overlay--top" role="dialog" aria-modal="true">
+          <div className="panel panel--modal">
+            <div className="panel__head"><span className="panel__title">Mở lại ca</span></div>
+            <div className="panel__body">
+              <div className="panel__group">
+                <p className="panel__hint">
+                  Mở lại ca để thu thêm? Số chốt cũ sẽ được tính lại khi đóng lại. Thao tác
+                  này được GHI LOG (ai, lúc nào).
+                </p>
+              </div>
+            </div>
+            <div className="panel__foot">
+              <button className="btn btn--ghost" onClick={() => setReopenAsk(false)} disabled={busy}>
+                Đóng
+              </button>
+              <button className="btn btn--warn" onClick={doReopen} disabled={busy}>
+                {busy ? 'Đang mở…' : 'Mở lại ca'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── ĐANG TẢI ── */}
       {view === 'main' && shift === undefined && branchId && (
@@ -303,6 +366,15 @@ export default function Shift() {
           <button className="btn btn--primary btn--xl btn--block" onClick={startOpen}>
             MỞ CA
           </button>
+          {lastClosed && (
+            <button
+              className="btn btn--ghost btn--block"
+              style={{ marginTop: 10 }}
+              onClick={viewLastClosed}
+            >
+              Xem ca vừa đóng
+            </button>
+          )}
         </div>
       )}
 
@@ -525,13 +597,16 @@ export default function Shift() {
 }
 
 // Màn kết quả sau khi đóng ca.
-function ResultCard({ closed, onBack, onPrintHandover, onPrintReport }) {
+function ResultCard({ closed, onBack, onPrintHandover, onPrintReport, onReopen }) {
   const diff = toNumber(closed.cash_difference)
   const level = diffLevel(diff)
   const handover = toNumber(closed.handover_to_owner)
   return (
     <div className="card">
       <h2 className="card__title">Đã đóng ca ✅</h2>
+      {closed.reopen_count > 0 && (
+        <p className="field-note field-note--err">Ca này đã mở lại {closed.reopen_count} lần</p>
+      )}
       <div className="summary">
         <div className="summary__row summary__row--head">
           <span>Số đơn</span>
@@ -579,11 +654,16 @@ function ResultCard({ closed, onBack, onPrintHandover, onPrintReport }) {
 
       <div className="row-actions" style={{ marginTop: 12 }}>
         {handover > 0 && (
-          <button className="btn btn--ghost btn--lg" onClick={onPrintHandover}>🧾 In biên nhận nộp chủ</button>
+          <button className="btn btn--ghost btn--lg" onClick={onPrintHandover}>In biên nhận nộp chủ</button>
         )}
-        <button className="btn btn--ghost btn--lg" onClick={onPrintReport}>🧾 In biên bản giao ca</button>
+        <button className="btn btn--ghost btn--lg" onClick={onPrintReport}>In biên bản giao ca</button>
       </div>
 
+      {onReopen && (
+        <button className="btn btn--ghost btn--block shift__reopen" style={{ marginTop: 10 }} onClick={onReopen}>
+          Mở lại ca
+        </button>
+      )}
       <button className="btn btn--primary btn--xl btn--block" style={{ marginTop: 10 }} onClick={onBack}>
         Về trang ca
       </button>
