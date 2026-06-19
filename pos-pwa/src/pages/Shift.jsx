@@ -72,6 +72,7 @@ export default function Shift() {
   const [openSuggestion, setOpenSuggestion] = useState(0) // gợi ý đầu ca (Stage 6.2)
   const [actual, setActual] = useState('')
   const [handover, setHandover] = useState('') // rút nộp chủ (Stage 6.2)
+  const [handoverErr, setHandoverErr] = useState(false) // Stage 6.35: lỗi "rút nộp chủ trống" — hiện DƯỚI ô
   const [diffReason, setDiffReason] = useState('') // lý do lệch tiền (Stage 6.32; bắt buộc khi lệch≠0)
   const [closed, setClosed] = useState(null)
   const [handoverBoard, setHandoverBoard] = useState(null) // tình hình bàn giao cho phiếu
@@ -167,9 +168,9 @@ export default function Shift() {
 
   const submitClose = async (e) => {
     e.preventDefault()
-    // Rút nộp chủ BẮT BUỘC nhập chủ động (kể cả 0) — phân biệt "đã xác nhận 0" với "quên điền".
+    // Rút nộp chủ BẮT BUỘC nhập chủ động (kể cả 0). Lỗi hiện NGAY DƯỚI Ô (không ở đầu màn).
     if (handover === '') {
-      setError('Vui lòng nhập số tiền nộp chủ (nhập 0 nếu không rút).')
+      setHandoverErr(true)
       return
     }
     const handoverNum = toNumber(handover)
@@ -406,12 +407,15 @@ export default function Shift() {
               <span>Đã thu trong ca</span>
               <span>{summary ? `${summary.ordersCount} đơn` : '…'}</span>
             </div>
-            {METHODS.map(([k, label]) => (
-              <div className="summary__row" key={k}>
-                <span>{label}</span>
-                <span>{summary ? formatVND(summary.totals[k]) : '…'}</span>
-              </div>
-            ))}
+            {/* Stage 6.35: bỏ COD (chưa có chức năng); gộp Chuyển khoản + QR thành 1 dòng. */}
+            <div className="summary__row">
+              <span>Tiền mặt</span>
+              <span>{summary ? formatVND(summary.totals.cash) : '…'}</span>
+            </div>
+            <div className="summary__row">
+              <span>Chuyển khoản & QR</span>
+              <span>{summary ? formatVND(summary.totals.transfer + summary.totals.qr) : '…'}</span>
+            </div>
             {summary && summary.incomeCash > 0 && (
               <div className="summary__row">
                 <span>＋ Thu khác (tiền mặt)</span>
@@ -472,8 +476,15 @@ export default function Shift() {
           {/* Rút tiền nộp chủ (Stage 6.2) — lấy ra khỏi két SAU đối soát. */}
           <label className="field">
             <span>Rút nộp chủ (tiền lấy ra khỏi két)</span>
-            <MoneyInput value={handover} onChange={setHandover} />
-            <span className="field-note">Nhập 0 nếu không rút tiền nộp chủ</span>
+            <MoneyInput
+              value={handover}
+              onChange={(v) => { setHandover(v); if (handoverErr) setHandoverErr(false) }}
+            />
+            <span className={`field-note ${handoverErr ? 'field-note--err' : ''}`}>
+              {handoverErr
+                ? 'Vui lòng nhập số tiền nộp chủ (nhập 0 nếu không rút).'
+                : 'Nhập 0 nếu không rút tiền nộp chủ.'}
+            </span>
           </label>
           <div className={`cashleft ${handoverInvalid ? 'cashleft--bad' : ''}`}>
             <div className="cashleft__main">

@@ -116,6 +116,11 @@ body {
   font-weight: 400;
   color: var(--muted);
 }
+/* Stage 6.35: cùng dòng ghi chú chuyển ĐỎ khi có lỗi (vd rút nộp chủ trống). */
+.field .field-note--err {
+  color: var(--danger);
+  font-weight: 600;
+}
 .input {
   min-height: var(--tap);
   padding: 0 14px;
@@ -4682,19 +4687,19 @@ body {
   border-radius: 6px;
   box-shadow: none;
   border: 1px solid var(--line);
-  padding: 14px;
+  padding: 12px; /* Stage 6.35: gọn chiều cao (14→12) */
 }
-.shift .card__title { font-size: 15px; margin-bottom: 10px; }
+.shift .card__title { font-size: 15px; margin-bottom: 8px; }
 .shift .summary {
   background: none;
   border: none;
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   border-radius: 0;
-  padding: 8px 0;
-  margin-bottom: 12px;
+  padding: 6px 0;
+  margin-bottom: 8px;
 }
-.shift .summary__row { font-size: 13px; padding: 4px 0; }
+.shift .summary__row { font-size: 13px; padding: 3px 0; }
 .shift .metrics-group {
   border-radius: 6px;
   border: 1px solid var(--line);
@@ -4718,7 +4723,7 @@ body {
 .shift .metric--hero .metric__value { color: var(--orange); font-weight: 800; font-size: 22px; }
 .shift .diff__line { font-size: 13px; padding: 3px 0; }
 .shift .diff__note { font-size: 12px; }
-.shift .field { margin-bottom: 12px; }
+.shift .field { margin-bottom: 8px; } /* Stage 6.35: gọn (12→8) */
 .shift .field > span { font-size: 11px; }
 .shift .input { min-height: 34px; font-size: 13px; border-width: 1px; border-radius: 4px; }
 .shift .btn { border-radius: 4px; }
@@ -4742,8 +4747,8 @@ body {
   border-top: 1px solid var(--line);
   border-bottom: 1px solid var(--line);
   border-radius: 0;
-  padding: 8px 0;
-  margin: 12px 0;
+  padding: 6px 0;
+  margin: 8px 0;
 }
 .shift .diff__line--total { font-size: 15px; padding-top: 6px; }
 .shift .diff--ok .diff__line--total strong { color: #15803d; }
