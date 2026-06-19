@@ -4590,3 +4590,120 @@ body {
   font-size: 12px;
   color: var(--muted);
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   STYLE MỚI — BỘ CLASS CHUNG `.panel` (Stage 6.29) — quy ước cfm, DÙNG LẠI toàn app.
+   An toàn Chrome 56: radius 6 (panel) / 4 (control); KHÔNG box-shadow; kẻ 1px var(--line);
+   spacing bằng `> * + * { margin }` (KHÔNG flex gap); border 1px (KHÔNG 0.5px).
+   Token: var(--line) kẻ · var(--orange)/--orange-dark nhấn · var(--muted) phụ ·
+   var(--danger) lỗi · var(--surface)/--bg nền. KHÔNG dùng --ns-* (palette thẻ board) hay
+   var(--radius)=14px (cũ) — ghi đè rõ 6/4px.
+   ════════════════════════════════════════════════════════════════════════════ */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden; /* bo theo border THẬT (radius KHÔNG kèm shadow → an toàn Chrome 56) */
+  display: flex;
+  flex-direction: column;
+}
+.panel__head { /* tiêu đề trái + (tuỳ) nút phải; kẻ dưới 1px */
+  flex: none;
+  display: flex;
+  align-items: center;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.panel__head > * + * { margin-left: 8px; }
+.panel__title { font-size: 14px; font-weight: 500; }
+.panel__spacer { flex: 1; }
+.panel__body { flex: 1 1 auto; min-height: 0; overflow-y: auto; } /* cuộn nội bộ khi bàn phím ảo */
+.panel__group { padding: 12px 14px; }
+.panel__group > * + * { margin-top: 9px; }
+.panel__group + .panel__group { border-top: 1px solid var(--line); } /* phân nhóm bằng kẻ 1px */
+.panel__group-title {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.panel__row { /* dòng nhãn — giá trị (chỉ số/tổng kết) */
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.panel__row > * + * { margin-left: 8px; }
+.panel__row--strong { font-size: 15px; font-weight: 700; }
+.panel__foot { /* thanh nút đáy; kẻ trên 1px */
+  flex: none;
+  display: flex;
+  border-top: 1px solid var(--line);
+  padding: 8px 14px;
+}
+.panel__foot > * + * { margin-left: 8px; }
+.panel__foot > .btn { flex: 1 1 0; } /* nút đáy chia đều */
+.panel__hint { /* dòng nhắc (không chặn) — cam, nền nhạt */
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.panel__hint--danger { background: var(--danger-soft); color: var(--danger); }
+/* CONTROL gọn trong panel (mirror cfm): radius 4; input cao 34 font 13; label 11; nút cao 38. */
+.panel .input,
+.panel .chip,
+.panel .seg__btn,
+.panel .method-btn,
+.panel .btn {
+  border-radius: 4px;
+}
+.panel .input { min-height: 34px; font-size: 13px; border-width: 1px; }
+.panel .field { margin-bottom: 0; }
+.panel .field > span { font-size: 11px; margin-bottom: 1px; }
+.panel .btn { min-height: 38px; font-size: 13px; }
+/* Panel dùng làm MODAL: rộng + cao tối đa theo viewport (bàn phím ảo → .panel__body cuộn). */
+.panel--modal { width: 100%; max-width: 440px; max-height: calc(100vh - 20px); }
+
+/* ── Tab Ca (Shift): áp QUY ƯỚC panel qua page-scope `.shift` — KHÔNG đổi cấu trúc JSX
+   (giữ nguyên logic mở/đóng ca + đối soát tài chính). radius 6, BỎ shadow, font nhỏ,
+   kẻ 1px thay hộp bo to + bóng; gọn chiều cao. (Stage 6.29) ── */
+.shift .card {
+  border-radius: 6px;
+  box-shadow: none;
+  border: 1px solid var(--line);
+  padding: 14px;
+}
+.shift .card__title { font-size: 15px; margin-bottom: 10px; }
+.shift .summary {
+  background: none;
+  border: none;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 8px 0;
+  margin-bottom: 12px;
+}
+.shift .summary__row { font-size: 13px; padding: 4px 0; }
+.shift .metrics-group {
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  padding: 10px 12px;
+  margin-top: 12px;
+}
+.shift .metrics-group__title { font-size: 11px; margin-bottom: 6px; }
+.shift .metric { padding: 4px 0; }
+.shift .metric__label,
+.shift .metric__value { font-size: 13px; }
+.shift .metric--hero .metric__value { font-size: 16px; }
+.shift .diff { border-radius: 6px; }
+.shift .diff__line { font-size: 13px; padding: 3px 0; }
+.shift .diff__note { font-size: 12px; }
+.shift .field { margin-bottom: 12px; }
+.shift .field > span { font-size: 11px; }
+.shift .input { min-height: 34px; font-size: 13px; border-width: 1px; border-radius: 4px; }
+.shift .btn { border-radius: 4px; }
