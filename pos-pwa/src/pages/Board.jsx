@@ -371,7 +371,10 @@ export default function Board() {
             </div>
             <div className="board3__cards">
               {col.items.map((o) => {
-                const goDetail = () => navigate(`/orders/${o.id}`)
+                // Bấm THÂN thẻ → mở popup ☰ (6.54), KHÔNG sang /orders/:id. ← → ☰ nằm ở
+                // board3__actions (ANH EM với board3__main) nên không lan; nút note bên trong
+                // đã stopPropagation. Vào chi tiết qua nút "Chi tiết" trong popup.
+                const openCard = () => openSheet(o)
                 const paidFull = o.payment_status === 'paid'
                 // Nhãn cam/đỏ CHỈ cho đơn CHƯA xong (created/washing/drying); đơn 'ready'
                 // (đã giặt xong) → giờ dạng text thường, không nhãn (mốc hết nghĩa "gấp").
@@ -382,8 +385,8 @@ export default function Board() {
                       className="board3__main"
                       role="button"
                       tabIndex={0}
-                      onClick={goDetail}
-                      onKeyDown={(e) => { if (e.key === 'Enter') goDetail() }}
+                      onClick={openCard}
+                      onKeyDown={(e) => { if (e.key === 'Enter') openCard() }}
                     >
                       <div className="board3__l1">
                         <span className="board3__code">{o.order_code}</span>
