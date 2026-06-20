@@ -3912,7 +3912,14 @@ body {
 }
 .svc-manage__star {
   margin-right: 4px;
+  display: inline-flex;
+  align-items: center;
 }
+/* 6.68: icon inline SVG thay emoji ở các màn quản lý. */
+.svc-manage__star svg { width: 13px; height: 13px; color: var(--orange); }
+.ic-star { width: 16px; height: 16px; display: block; }
+.qty-btn svg { width: 14px; height: 14px; display: block; margin: 0 auto; }
+.udot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 5px; vertical-align: middle; }
 .svc-manage__cat {
   font-size: 12px;
   font-weight: 700;

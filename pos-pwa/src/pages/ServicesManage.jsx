@@ -186,7 +186,7 @@ export default function ServicesManage() {
       {error && <div className="alert alert--error">{error}</div>}
 
       {form && (
-        <div className="card svc-form">
+        <div className="shift__card svc-form">
           <h3 className="card__title">{form.id ? 'Sửa dịch vụ' : 'Dịch vụ mới'}</h3>
 
           <label className="field">
@@ -215,7 +215,7 @@ export default function ServicesManage() {
               ))}
             </select>
             <Link className="svc-form__link" to="/categories">
-              ⚙ Quản lý danh mục
+              Quản lý danh mục
             </Link>
           </label>
 
@@ -225,7 +225,7 @@ export default function ServicesManage() {
               checked={form.is_favorite}
               onChange={(e) => setField('is_favorite', e.target.checked)}
             />
-            ⭐ Hay chọn (hiện ở tab đầu khi tạo đơn)
+            Hay chọn (hiện ở tab đầu khi tạo đơn)
           </label>
 
           <label className="field">
@@ -324,7 +324,7 @@ export default function ServicesManage() {
                     onClick={() => removeTier(i)}
                     disabled={form.tiers.length <= 1}
                   >
-                    ✕
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12 M6 18L18 6" /></svg>
                   </button>
                 </div>
               ))}
@@ -364,7 +364,7 @@ export default function ServicesManage() {
             <div className={`svc-manage ${svc.is_active ? '' : 'svc-manage--off'}`} key={svc.id}>
               <div className="svc-manage__info">
                 <span className="svc-manage__name">
-                  {svc.is_favorite && <span className="svc-manage__star" title="Hay chọn">⭐</span>}
+                  {svc.is_favorite && <span className="svc-manage__star" title="Hay chọn"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" aria-hidden="true"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg></span>}
                   {svc.name}
                   {svc.category && (
                     <span className="svc-manage__cat">
@@ -385,7 +385,7 @@ export default function ServicesManage() {
                       onClick={() => toggleFavorite(svc)}
                       title='Bật/tắt "Hay chọn"'
                     >
-                      {svc.is_favorite ? '★' : '☆'}
+                      <svg className="ic-star" viewBox="0 0 24 24" fill={svc.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg>
                     </button>
                     <button className="btn btn--ghost btn--sm" onClick={() => setForm(toForm(svc))}>
                       Sửa

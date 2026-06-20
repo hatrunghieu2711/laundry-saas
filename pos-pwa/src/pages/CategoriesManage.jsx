@@ -106,7 +106,7 @@ export default function CategoriesManage() {
       {error && <div className="alert alert--error">{error}</div>}
 
       {form && (
-        <div className="card svc-form">
+        <div className="shift__card svc-form">
           <h3 className="card__title">{form.id ? 'Sửa danh mục' : 'Danh mục mới'}</h3>
 
           <label className="field">

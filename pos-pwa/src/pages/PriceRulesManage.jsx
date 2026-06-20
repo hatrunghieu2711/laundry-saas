@@ -143,7 +143,7 @@ export default function PriceRulesManage() {
       </p>
 
       {/* Form tạo / sửa */}
-      <div className="card">
+      <div className="shift__card">
         <h3 className="card__title">{editing ? 'Sửa quy tắc' : 'Thêm quy tắc'}</h3>
         <div className="rule-form">
           <div className="seg">

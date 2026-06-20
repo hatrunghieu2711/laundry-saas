@@ -203,10 +203,10 @@ export default function UsersManage() {
               <span className={`role-badge role-badge--${u.role}`}>{ROLE_LABEL[u.role] || u.role}</span>
               <div className="cat-manage__name" style={{ flex: 1, minWidth: 0 }}>
                 <strong>{u.full_name}</strong>
-                {u.in_open_shift && <span className="user-inshift"> 🟢 đang trong ca</span>}
+                {u.in_open_shift && <span className="user-inshift"><span className="udot" />đang trong ca</span>}
                 <div className="shift__hint" style={{ margin: '2px 0 0' }}>
                   @{u.phone} · {u.branch_name || (u.branch_id ? '—' : 'Toàn chuỗi')}
-                  {u.status === 'suspended' && ' · 🔒 Đã khóa'}
+                  {u.status === 'suspended' && ' · Đã khóa'}
                   {u.status === 'inactive' && ' · Đã xóa'}
                 </div>
               </div>

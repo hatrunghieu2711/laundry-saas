@@ -77,7 +77,7 @@ export default function CancelOrderModal({ order, onClose, onCancelled }) {
 
         <div className="panel__body">
           <div className="panel__group">
-            <p className="panel__hint panel__hint--danger">⚠️ Hủy đơn KHÔNG hoàn tác được.</p>
+            <p className="panel__hint panel__hint--danger">Hủy đơn KHÔNG hoàn tác được.</p>
 
             <label className="field">
               <span>Lý do hủy (bắt buộc)</span>
