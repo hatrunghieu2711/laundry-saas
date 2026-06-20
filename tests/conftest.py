@@ -55,6 +55,11 @@ if not _TEST_DB_NAME.endswith("_test"):
 
 # Trỏ app + alembic sang DB test TRƯỚC khi import app.core.* (engine build 1 lần).
 os.environ["DATABASE_URL"] = _TEST_URL
+# ⚠️ CHỐT AN TOÀN (RLS R1): alembic/env.py nay ƯU TIÊN MIGRATION_DATABASE_URL. Nếu biến này
+# tồn tại trong môi trường (vd .env prod trỏ user owner `laundry`) mà test KHÔNG override →
+# `alembic upgrade head` của test sẽ migrate NHẦM vào DB PROD. Ép nó về DB `_test` (đã được
+# SAFETY CHECK ở trên xác nhận tên kết thúc '_test') → test KHÔNG BAO GIỜ chạm prod.
+os.environ["MIGRATION_DATABASE_URL"] = _TEST_URL
 
 from app.core.config import get_settings  # noqa: E402
 
@@ -88,8 +93,8 @@ async def _ensure_test_db() -> None:
 def _provision_test_db() -> None:
     """Tạo DB test + migrate lên head (idempotent, mỗi session một lần).
 
-    alembic env.py đọc DATABASE_URL (đã trỏ DB test) nên migrate đúng DB test —
-    cùng một migration chạy được trên cả DB sản xuất lẫn DB test."""
+    alembic env.py đọc MIGRATION_DATABASE_URL (đã ép về DB test ở trên) nên migrate
+    đúng DB test — cùng một migration chạy được trên cả DB sản xuất lẫn DB test."""
     asyncio.run(_ensure_test_db())
     subprocess.run(
         ["alembic", "upgrade", "head"],

@@ -43,6 +43,9 @@ async def _admin_exec(sql: str) -> None:
 def _alembic_to(rev: str, url: str) -> None:
     env = os.environ.copy()
     env["DATABASE_URL"] = url
+    # RLS R1: env.py ƯU TIÊN MIGRATION_DATABASE_URL → phải ép biến này về scratch DB,
+    # nếu không alembic sẽ migrate nhầm vào laundry_test (do conftest set sẵn).
+    env["MIGRATION_DATABASE_URL"] = url
     subprocess.run(
         ["alembic", "upgrade", rev], check=True, cwd=_PROJECT_ROOT, env=env
     )

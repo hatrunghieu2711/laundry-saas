@@ -1,5 +1,6 @@
 """Alembic environment — async (asyncpg). Nạp URL & target_metadata từ app."""
 import asyncio
+import os
 from logging.config import fileConfig
 
 from alembic import context
@@ -14,8 +15,13 @@ from app import models  # noqa: F401,E402
 
 config = context.config
 
-# Nạp DSN từ settings (.env) thay vì hardcode trong alembic.ini.
-config.set_main_option("sqlalchemy.url", get_settings().database_url)
+# Connection MIGRATION tách khỏi app (RLS R1): ưu tiên MIGRATION_DATABASE_URL
+# (user OWNER `laundry` — bypass RLS, sở hữu bảng → migrate không vướng policy);
+# fallback DATABASE_URL khi chưa tách (app dùng `laundry_app` sau R1, bị RLS chặn).
+# ⚠️ Test PHẢI override MIGRATION_DATABASE_URL về DB `_test` (xem conftest) — nếu không,
+#    biến này (vd .env prod) sẽ khiến test migrate NHẦM vào DB prod.
+migration_url = os.environ.get("MIGRATION_DATABASE_URL") or get_settings().database_url
+config.set_main_option("sqlalchemy.url", migration_url)
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
