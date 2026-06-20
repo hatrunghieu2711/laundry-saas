@@ -70,6 +70,9 @@ export default function Shift() {
   const [view, setView] = useState('main') // main | open | close | result
   const [opening, setOpening] = useState('')
   const [openSuggestion, setOpenSuggestion] = useState(0) // gợi ý đầu ca (Stage 6.2)
+  const [openHasPrev, setOpenHasPrev] = useState(false)   // có ca trước → đối chiếu (6.55)
+  const [openReason, setOpenReason] = useState('')        // lý do lệch đầu ca
+  const [openReasonErr, setOpenReasonErr] = useState(false) // lỗi thiếu lý do → hiện DƯỚI ô
   const [actual, setActual] = useState('')
   const [handover, setHandover] = useState('') // rút nộp chủ (Stage 6.2)
   const [handoverErr, setHandoverErr] = useState(false) // Stage 6.35: lỗi "rút nộp chủ trống" — hiện DƯỚI ô
@@ -132,14 +135,17 @@ export default function Shift() {
   // Mở form mở ca: lấy gợi ý đầu ca = tiền để lại ca trước (đếm lại rồi xác nhận).
   const startOpen = async () => {
     setError('')
+    setOpenReason(''); setOpenReasonErr(false)
     try {
       const q = isOwner ? `?branch_id=${branchId}` : ''
       const s = await api.get(`/shifts/opening-suggestion${q}`)
       const sug = toNumber(s.suggested_opening_cash)
       setOpenSuggestion(sug)
+      setOpenHasPrev(!!s.has_previous)
       setOpening(sug > 0 ? String(sug) : '')
     } catch {
       setOpenSuggestion(0)
+      setOpenHasPrev(false)
     }
     setView('open')
   }
@@ -156,19 +162,29 @@ export default function Shift() {
 
   const submitOpen = async (e) => {
     e.preventDefault()
+    // Lệch đầu ca (so tiền để lại ca trước) → BẮT lý do (đai an toàn FE; backend cũng enforce).
+    const openDiff = openHasPrev && toNumber(opening) !== openSuggestion
+    if (openDiff && !openReason.trim()) {
+      setOpenReasonErr(true)
+      return
+    }
     setBusy(true)
     setError('')
+    setOpenReasonErr(false)
     try {
       const body = { opening_cash: toNumber(opening) }
       if (isOwner) body.branch_id = branchId
+      if (openDiff) body.opening_diff_reason = openReason.trim()
       await api.post('/shifts/open', body)
-      setOpening('')
+      setOpening(''); setOpenReason('')
       setView('main')
       await loadCurrent()
     } catch (err) {
       if (err instanceof ApiError && err.code === 'SHIFT_ALREADY_OPEN') {
         setError('Chi nhánh đang có ca mở.')
         await loadCurrent()
+      } else if (err instanceof ApiError && err.code === 'OPENING_DIFF_REASON_REQUIRED') {
+        setOpenReasonErr(true) // hiện lỗi DƯỚI ô lý do, không ở đầu màn
       } else {
         setError(err?.message || 'Không mở được ca, thử lại.')
       }
@@ -391,6 +407,23 @@ export default function Shift() {
             <span>Tiền mặt đầu ca trong két</span>
             <MoneyInput value={opening} onChange={setOpening} autoFocus required />
           </label>
+          {openHasPrev && opening !== '' && toNumber(opening) !== openSuggestion && (
+            <>
+              <p className="shift__warn">
+                ⚠️ Lệch {formatVND(toNumber(opening) - openSuggestion)} so với tiền để lại ca trước ({formatVND(openSuggestion)}). Đếm lại trước khi xác nhận.
+              </p>
+              <label className="field">
+                <span>Lý do lệch (bắt buộc)</span>
+                <input
+                  className="input"
+                  value={openReason}
+                  onChange={(e) => { setOpenReason(e.target.value); setOpenReasonErr(false) }}
+                  placeholder="VD: bù quỹ đầu ca / thiếu chưa rõ…"
+                />
+                {openReasonErr && <span className="field-note field-note--err">Bắt buộc nhập lý do khi tiền đầu ca lệch.</span>}
+              </label>
+            </>
+          )}
           <div className="row-actions">
             <button type="button" className="btn btn--ghost" onClick={() => setView('main')}>
               Hủy

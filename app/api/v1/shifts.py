@@ -6,6 +6,7 @@
 """
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, status
@@ -31,7 +32,9 @@ ShiftActor = Annotated[User, Depends(require_role("owner", "manager", "staff"))]
 
 @router.post("/open", response_model=ShiftOut, status_code=status.HTTP_201_CREATED)
 async def open_shift(payload: ShiftOpen, actor: ShiftActor, db: DbSession) -> ShiftOut:
-    return await shift_service.open_shift(db, actor, payload.opening_cash, payload.branch_id)
+    return await shift_service.open_shift(
+        db, actor, payload.opening_cash, payload.branch_id, payload.opening_diff_reason
+    )
 
 
 @router.get("/current", response_model=ShiftOut)
@@ -49,9 +52,15 @@ async def opening_suggestion(
     db: DbSession,
     branch_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> OpeningSuggestion:
-    """Gợi ý đầu ca = tiền để lại của ca đóng gần nhất (nhân viên đếm lại)."""
-    amount = await shift_service.opening_suggestion(db, actor, branch_id)
-    return OpeningSuggestion(suggested_opening_cash=amount)
+    """Gợi ý đầu ca = tiền để lại của ca đóng gần nhất (nhân viên đếm lại). has_previous
+    cho FE biết có ca trước để đối chiếu/bắt lý do lệch hay không (ca đầu → False)."""
+    last = await shift_service.latest_closed_shift(db, actor, branch_id)
+    if last is None:
+        return OpeningSuggestion(suggested_opening_cash=Decimal(0), has_previous=False)
+    return OpeningSuggestion(
+        suggested_opening_cash=last.cash_left_for_next or Decimal(0),
+        has_previous=True,
+    )
 
 
 @router.get("", response_model=Page[ShiftOut])

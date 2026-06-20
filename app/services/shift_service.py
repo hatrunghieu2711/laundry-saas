@@ -64,7 +64,11 @@ async def _get_open_shift(
 
 
 async def open_shift(
-    db: AsyncSession, actor: User, opening_cash: Decimal, branch_id: uuid.UUID | None
+    db: AsyncSession,
+    actor: User,
+    opening_cash: Decimal,
+    branch_id: uuid.UUID | None,
+    opening_diff_reason: str | None = None,
 ) -> Shift:
     branch_id = _resolve_branch(actor, branch_id)
     # Xác minh branch thuộc tenant (và tồn tại) — reuse branch_service.
@@ -73,11 +77,43 @@ async def open_shift(
     if await _get_open_shift(db, actor.tenant_id, branch_id) is not None:
         raise APIError(409, "SHIFT_ALREADY_OPEN", "Chi nhánh đã có ca đang mở")
 
+    # ĐỐI CHIẾU ĐẦU CA (Stage 6.55 — vá thất thoát không dấu vết): so opening_cash với tiền
+    # ĐỂ LẠI ca ĐÓNG gần nhất cùng branch (cash_left_for_next). Lệch → BẮT lý do (422,
+    # nhất quán cash_diff_reason lúc đóng) + lưu opening_diff có dấu. Ca ĐẦU (chưa có ca
+    # đóng) → MIỄN đối chiếu (last_closed is None → nhập tự do).
+    last_closed = await db.scalar(
+        select(Shift)
+        .where(
+            Shift.tenant_id == actor.tenant_id,
+            Shift.branch_id == branch_id,
+            Shift.status == "closed",
+        )
+        .order_by(Shift.closed_at.desc())
+        .limit(1)
+    )
+    opening_diff = None
+    diff_reason = None
+    if last_closed is not None:
+        suggestion = last_closed.cash_left_for_next or Decimal(0)
+        diff = opening_cash - suggestion
+        if diff != 0:
+            reason = (opening_diff_reason or "").strip()
+            if not reason:
+                raise APIError(
+                    422,
+                    "OPENING_DIFF_REASON_REQUIRED",
+                    "Tiền đầu ca lệch tiền để lại ca trước — bắt buộc nhập lý do",
+                )
+            opening_diff = diff
+            diff_reason = reason
+
     shift = Shift(
         tenant_id=actor.tenant_id,
         branch_id=branch_id,
         opened_by=actor.id,
         opening_cash=opening_cash,
+        opening_diff=opening_diff,
+        opening_diff_reason=diff_reason,
         status="open",
     )
     db.add(shift)

@@ -4945,6 +4945,8 @@ body {
 /* Form mở ca NGAY tại màn Tạo đơn (6.54) — căn giữa trong shift__empty (text-align center), rộng vừa. */
 .on-open { display: inline-block; width: 100%; max-width: 320px; text-align: left; margin-top: 14px; }
 .on-open > * + * { margin-top: 10px; }
+/* Cảnh báo lệch tiền đầu ca (6.55) — note amber, radius 4 KHÔNG shadow (an toàn Chrome 56). */
+.shift__warn { margin: 6px 0; padding: 8px 10px; border-radius: 4px; background: var(--ns-warn-bg); color: var(--ns-warn); font-size: 13px; line-height: 1.4; }
 
 /* ════════ TAB LỊCH SỬ (Stage 6.38 → 1-hàng-lọc + danh sách kẻ dòng nén 6.40) — style mới,
    an toàn Chrome 56 (radius 6/4, kẻ 1px [KHÔNG 0.5px], spacing bằng margin KHÔNG flex gap,

@@ -48,6 +48,9 @@ export default function OrderNew() {
   const [shiftState, setShiftState] = useState('loading') // loading|open|none|needbranch
   const [opening, setOpening] = useState('')      // tiền đầu ca — mở ca ngay tại màn tạo đơn (6.54)
   const [openSug, setOpenSug] = useState(0)
+  const [openHasPrev, setOpenHasPrev] = useState(false) // có ca trước → đối chiếu (6.55)
+  const [openReason, setOpenReason] = useState('')
+  const [openReasonErr, setOpenReasonErr] = useState(false)
   const [openBusy, setOpenBusy] = useState(false)
   const [services, setServices] = useState([])
   const [svcLoading, setSvcLoading] = useState(true)
@@ -175,6 +178,7 @@ export default function OrderNew() {
         if (!alive) return
         const sug = toNumber(s.suggested_opening_cash)
         setOpenSug(sug)
+        setOpenHasPrev(!!s.has_previous)
         setOpening(sug > 0 ? String(sug) : '')
       })
       .catch(() => {})
@@ -182,18 +186,30 @@ export default function OrderNew() {
   }, [shiftState, isOwner, branchId])
 
   // Mở ca NGAY tại màn tạo đơn (6.54) — cùng API tab Ca (POST /shifts/open, cần tiền đầu ca).
+  // 6.55: lệch tiền để lại ca trước → BẮT lý do (đai an toàn FE; backend cũng enforce 422).
   // Mở xong checkShift() → shiftState='open' → vào thẳng màn tạo đơn.
   const openShiftHere = async () => {
+    const openDiff = openHasPrev && toNumber(opening) !== openSug
+    if (openDiff && !openReason.trim()) {
+      setOpenReasonErr(true)
+      return
+    }
     setOpenBusy(true)
     setError('')
+    setOpenReasonErr(false)
     try {
       const body = { opening_cash: toNumber(opening) }
       if (isOwner) body.branch_id = branchId
+      if (openDiff) body.opening_diff_reason = openReason.trim()
       await api.post('/shifts/open', body)
       await checkShift()
     } catch (err) {
-      setError(err instanceof ApiError && err.code === 'SHIFT_ALREADY_OPEN'
-        ? 'Chi nhánh đang có ca mở.' : (err?.message || 'Không mở được ca'))
+      if (err instanceof ApiError && err.code === 'OPENING_DIFF_REASON_REQUIRED') {
+        setOpenReasonErr(true)
+      } else {
+        setError(err instanceof ApiError && err.code === 'SHIFT_ALREADY_OPEN'
+          ? 'Chi nhánh đang có ca mở.' : (err?.message || 'Không mở được ca'))
+      }
     } finally {
       setOpenBusy(false)
     }
@@ -612,6 +628,23 @@ export default function OrderNew() {
               <span>Tiền đầu ca{openSug > 0 ? ` (gợi ý ${formatVND(openSug)})` : ''}</span>
               <MoneyInput value={opening} onChange={setOpening} />
             </label>
+            {openHasPrev && opening !== '' && toNumber(opening) !== openSug && (
+              <>
+                <p className="shift__warn">
+                  ⚠️ Lệch {formatVND(toNumber(opening) - openSug)} so với tiền để lại ca trước ({formatVND(openSug)}). Đếm lại trước khi xác nhận.
+                </p>
+                <label className="field">
+                  <span>Lý do lệch (bắt buộc)</span>
+                  <input
+                    className="input"
+                    value={openReason}
+                    onChange={(e) => { setOpenReason(e.target.value); setOpenReasonErr(false) }}
+                    placeholder="VD: bù quỹ đầu ca / thiếu chưa rõ…"
+                  />
+                  {openReasonErr && <span className="field-note field-note--err">Bắt buộc nhập lý do khi tiền đầu ca lệch.</span>}
+                </label>
+              </>
+            )}
             {error && <div className="alert alert--error">{error}</div>}
             <button className="btn btn--primary btn--xl btn--block" onClick={openShiftHere} disabled={openBusy}>
               {openBusy ? 'Đang mở ca…' : 'MỞ CA'}

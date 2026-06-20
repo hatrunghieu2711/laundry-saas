@@ -98,10 +98,12 @@ async def _insert_payment(ctx: dict, shift_id, amount, method, *, order_id=None,
         await db.commit()
 
 
-async def _open(client: AsyncClient, token: str, opening_cash: int, branch_id=None) -> dict:
+async def _open(client: AsyncClient, token: str, opening_cash: int, branch_id=None, reason=None) -> dict:
     body = {"opening_cash": opening_cash}
     if branch_id is not None:
         body["branch_id"] = branch_id
+    if reason is not None:
+        body["opening_diff_reason"] = reason
     return await client.post(OPEN, json=body, headers=auth_headers(token))
 
 
@@ -217,8 +219,60 @@ async def test_can_reopen_branch_after_close(client: AsyncClient, ctx: dict):
         _close_url(opened.json()["id"]), json={"closing_cash_actual": 100000},
         headers=auth_headers(ctx["staff_a_token"]),
     )
-    again = await _open(client, ctx["staff_a_token"], 50000)
+    # Mở lại = KHỚP tiền để lại (100000) → không vướng đối chiếu đầu ca (6.55).
+    again = await _open(client, ctx["staff_a_token"], 100000)
     assert again.status_code == 201
+
+
+# ── Stage 6.55: đối chiếu tiền đầu ca với tiền để lại ca trước (lệch → bắt lý do) ──
+async def _close(client: AsyncClient, token: str, sid: str, actual: int, handover: int = 0):
+    return await client.post(
+        _close_url(sid),
+        json={"closing_cash_actual": actual, "handover_to_owner": handover},
+        headers=auth_headers(token),
+    )
+
+
+async def test_open_matches_left_no_diff(client: AsyncClient, ctx: dict):
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]  # ca đầu (miễn)
+    await _close(client, t, sid, 100000)                 # cash_left_for_next = 100000
+    r = await _open(client, t, 100000)                   # == gợi ý → không cần lý do
+    assert r.status_code == 201, r.text
+    assert r.json()["opening_diff"] is None
+    assert r.json()["opening_diff_reason"] is None
+
+
+async def test_open_diff_without_reason_422(client: AsyncClient, ctx: dict):
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    await _close(client, t, sid, 100000)                 # để lại 100000
+    r = await _open(client, t, 80000)                    # lệch −20000, THIẾU lý do
+    assert r.status_code == 422
+    assert r.json()["code"] == "OPENING_DIFF_REASON_REQUIRED"
+    # ca KHÔNG mở nửa vời → mở lại khớp được
+    assert (await _open(client, t, 100000)).status_code == 201
+
+
+async def test_open_diff_with_reason_signed(client: AsyncClient, ctx: dict):
+    t = ctx["staff_a_token"]
+    sid = (await _open(client, t, 100000)).json()["id"]
+    await _close(client, t, sid, 100000)                 # để lại 100000
+    r = await _open(client, t, 80000, reason="Thiếu 20k, đã đếm lại")  # THIẾU
+    assert r.status_code == 201, r.text
+    assert _num(r.json()["opening_diff"]) == -20000      # âm = thiếu
+    assert r.json()["opening_diff_reason"] == "Thiếu 20k, đã đếm lại"
+    await _close(client, t, r.json()["id"], 80000)       # để lại 80000
+    r2 = await _open(client, t, 120000, reason="Thừa 40k")  # THỪA
+    assert r2.status_code == 201, r2.text
+    assert _num(r2.json()["opening_diff"]) == 40000      # dương = thừa
+
+
+async def test_first_shift_exempt_no_reason(client: AsyncClient, ctx: dict):
+    t = ctx["staff_a_token"]
+    r = await _open(client, t, 500000)  # branch chưa có ca đóng → ca ĐẦU, miễn đối chiếu
+    assert r.status_code == 201, r.text
+    assert r.json()["opening_diff"] is None
 
 
 # ── Stage 6.33: lý do lệch tiền BẮT BUỘC khi cash_difference ≠ 0 (đai an toàn backend) ──

@@ -10,6 +10,9 @@ class ShiftOpen(BaseModel):
     opening_cash: Decimal = Field(ge=0)
     # owner BẮT BUỘC truyền branch_id; staff/manager lấy từ token (ép về branch mình).
     branch_id: uuid.UUID | None = None
+    # Stage 6.55: lý do lệch ĐẦU ca — BẮT BUỘC (enforce ở service: 422 nếu opening_cash ≠
+    # tiền để lại ca trước mà thiếu). Khớp / ca đầu → cho None.
+    opening_diff_reason: str | None = Field(default=None, max_length=500)
 
 
 class ShiftClose(BaseModel):
@@ -22,9 +25,12 @@ class ShiftClose(BaseModel):
 
 
 class OpeningSuggestion(BaseModel):
-    """Gợi ý đầu ca = tiền để lại của ca đóng gần nhất cùng branch (Stage 6.2)."""
+    """Gợi ý đầu ca = tiền để lại của ca đóng gần nhất cùng branch (Stage 6.2).
+    has_previous (6.55): có ca ĐÓNG trước không → FE biết khi nào cần đối chiếu/bắt lý do
+    (ca ĐẦU has_previous=False → nhập tự do, không bắt lý do)."""
 
     suggested_opening_cash: Decimal
+    has_previous: bool = False
 
 
 class ShiftSummary(BaseModel):
@@ -53,6 +59,8 @@ class ShiftOut(BaseModel):
     closed_by: uuid.UUID | None
     closed_by_name: str | None
     opening_cash: Decimal
+    opening_diff: Decimal | None  # Stage 6.55 — lệch đầu ca (âm=thiếu/dương=thừa); NULL khi khớp/ca đầu
+    opening_diff_reason: str | None  # Stage 6.55 — lý do lệch đầu ca
     closing_cash_expected: Decimal | None
     closing_cash_actual: Decimal | None
     cash_difference: Decimal | None

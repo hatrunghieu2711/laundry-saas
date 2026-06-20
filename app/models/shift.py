@@ -40,6 +40,11 @@ class Shift(TimestampMixin, Base):
     )
 
     opening_cash: Mapped[Decimal] = mapped_column(Money, nullable=False)
+    # Đối chiếu ĐẦU ca (Stage 6.55): lệch giữa opening_cash và tiền để lại ca trước
+    # (cash_left_for_next). opening_diff = opening_cash − suggestion (âm=thiếu, dương=thừa);
+    # opening_diff_reason BẮT BUỘC khi lệch (enforce ở service). NULL khi khớp / ca đầu.
+    opening_diff: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
+    opening_diff_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Reconciliation — tính lúc đóng ca.
     closing_cash_expected: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
     closing_cash_actual: Mapped[Decimal | None] = mapped_column(Money, nullable=True)
