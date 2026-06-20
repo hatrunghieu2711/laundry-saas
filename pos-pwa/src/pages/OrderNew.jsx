@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import Receipt from '../components/Receipt'
+import MoneyInput from '../components/MoneyInput'
 import { Lien2PrintLayer } from '../components/Lien2Label'
 import Lien2PrintButton from '../components/Lien2PrintButton'
 import { usePrintQueue } from '../lib/printQueue'
@@ -45,6 +46,9 @@ export default function OrderNew() {
   // Chi nhánh chọn từ HEADER (Stage 6.6.1) — dropdown ở header, không còn hàng riêng.
   const { branchId } = useBranch()
   const [shiftState, setShiftState] = useState('loading') // loading|open|none|needbranch
+  const [opening, setOpening] = useState('')      // tiền đầu ca — mở ca ngay tại màn tạo đơn (6.54)
+  const [openSug, setOpenSug] = useState(0)
+  const [openBusy, setOpenBusy] = useState(false)
   const [services, setServices] = useState([])
   const [svcLoading, setSvcLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -160,6 +164,40 @@ export default function OrderNew() {
   useEffect(() => {
     checkShift()
   }, [checkShift])
+
+  // Chưa có ca → lấy gợi ý tiền đầu ca (= tiền để lại ca trước) để điền sẵn form mở ca tại đây.
+  useEffect(() => {
+    if (shiftState !== 'none') return undefined
+    let alive = true
+    const q = isOwner && branchId ? `?branch_id=${branchId}` : ''
+    api.get(`/shifts/opening-suggestion${q}`)
+      .then((s) => {
+        if (!alive) return
+        const sug = toNumber(s.suggested_opening_cash)
+        setOpenSug(sug)
+        setOpening(sug > 0 ? String(sug) : '')
+      })
+      .catch(() => {})
+    return () => { alive = false }
+  }, [shiftState, isOwner, branchId])
+
+  // Mở ca NGAY tại màn tạo đơn (6.54) — cùng API tab Ca (POST /shifts/open, cần tiền đầu ca).
+  // Mở xong checkShift() → shiftState='open' → vào thẳng màn tạo đơn.
+  const openShiftHere = async () => {
+    setOpenBusy(true)
+    setError('')
+    try {
+      const body = { opening_cash: toNumber(opening) }
+      if (isOwner) body.branch_id = branchId
+      await api.post('/shifts/open', body)
+      await checkShift()
+    } catch (err) {
+      setError(err instanceof ApiError && err.code === 'SHIFT_ALREADY_OPEN'
+        ? 'Chi nhánh đang có ca mở.' : (err?.message || 'Không mở được ca'))
+    } finally {
+      setOpenBusy(false)
+    }
+  }
 
   // ── giỏ ──
   const newId = () => {
@@ -569,9 +607,19 @@ export default function OrderNew() {
         <div className="shift__empty">
           <div className="shift__empty-icon">🕒</div>
           <p>Cần mở ca trước khi tạo đơn.</p>
-          <button className="btn btn--primary btn--xl btn--block" onClick={() => navigate('/')}>
-            Về màn ca
-          </button>
+          <div className="on-open">
+            <label className="field">
+              <span>Tiền đầu ca{openSug > 0 ? ` (gợi ý ${formatVND(openSug)})` : ''}</span>
+              <MoneyInput value={opening} onChange={setOpening} />
+            </label>
+            {error && <div className="alert alert--error">{error}</div>}
+            <button className="btn btn--primary btn--xl btn--block" onClick={openShiftHere} disabled={openBusy}>
+              {openBusy ? 'Đang mở ca…' : 'MỞ CA'}
+            </button>
+            <button className="btn btn--ghost btn--block" onClick={() => navigate('/')} disabled={openBusy}>
+              Tới màn Ca
+            </button>
+          </div>
         </div>
       </div>
     )

@@ -4942,6 +4942,9 @@ body {
 .shift .cashleft--bad .cashleft__main > strong { color: var(--danger); } /* nộp chủ vượt → đỏ */
 /* Màn "chưa có ca → Mở ca": đồng bộ style mới (bỏ shadow, radius 6). */
 .shift .shift__empty { box-shadow: none; border-radius: 6px; }
+/* Form mở ca NGAY tại màn Tạo đơn (6.54) — căn giữa trong shift__empty (text-align center), rộng vừa. */
+.on-open { display: inline-block; width: 100%; max-width: 320px; text-align: left; margin-top: 14px; }
+.on-open > * + * { margin-top: 10px; }
 
 /* ════════ TAB LỊCH SỬ (Stage 6.38 → 1-hàng-lọc + danh sách kẻ dòng nén 6.40) — style mới,
    an toàn Chrome 56 (radius 6/4, kẻ 1px [KHÔNG 0.5px], spacing bằng margin KHÔNG flex gap,
