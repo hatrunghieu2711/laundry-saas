@@ -3398,6 +3398,81 @@ body {
 .cust-ac__item:active { background: var(--bg); }
 .cust-ac__name { font-size: 14px; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cust-ac__phone { font-size: 13px; color: var(--muted); margin-left: 10px; flex: 0 0 auto; }
+
+/* ── Trang Chi tiết đơn (6.51 redesign): 2 cột, card radius 12 KHÔNG shadow, token mới.
+   Spacing bằng margin (KHÔNG flex gap). 2 cột → 1 cột ở màn hẹp qua media query. ── */
+.od { max-width: 920px; margin: 0 auto; }
+.od__hd { display: flex; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+.od__hd-l { display: flex; align-items: center; min-width: 0; }
+.od__hd-l > * + * { margin-left: 8px; }
+.od__hd-r { margin-left: auto; display: flex; }
+.od__hd-r > * + * { margin-left: 8px; }
+.od__code { font-size: 20px; font-weight: 500; color: var(--ink); }
+.od__pay { font-size: 12px; font-weight: 700; padding: 3px 9px; border-radius: 4px; white-space: nowrap; }
+.od__pay.is-ok { background: var(--ns-success-bg); color: var(--ns-success); }
+.od__pay.is-due { background: var(--ns-danger-bg); color: var(--ns-danger); }
+.od__nav { font-size: 13px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); color: var(--ink); cursor: pointer; white-space: nowrap; }
+
+.od__cols { display: flex; flex-wrap: wrap; }
+.od__col { flex: 1 1 320px; min-width: 0; }
+.od__col > * + * { margin-top: 12px; }
+@media (max-width: 719px) { .od__col + .od__col { margin-top: 12px; } }
+@media (min-width: 720px) { .od__col + .od__col { margin-left: 14px; } }
+
+.od__card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; background: var(--surface); }
+.od__card-title { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--ink); }
+.od__kv { margin: 0; }
+.od__kv > div { display: flex; justify-content: space-between; padding: 4px 0; font-size: 14px; }
+.od__kv dt { margin: 0; color: var(--muted); }
+.od__kv dd { margin: 0 0 0 10px; color: var(--ink); text-align: right; min-width: 0; }
+.od__note-wrap { margin-top: 10px; }
+
+.od__line { display: flex; justify-content: space-between; padding: 5px 0; font-size: 14px; }
+.od__line-l { min-width: 0; }
+.od__line-r { flex: 0 0 auto; margin-left: 10px; }
+.od__line--sub { color: var(--muted); font-size: 13px; }
+.od__line--total { border-top: 1px solid var(--line); margin-top: 4px; padding-top: 8px; font-weight: 700; }
+
+.od__metrics { display: flex; }
+.od__metrics > * { flex: 1 1 0; }
+.od__metrics > * + * { margin-left: 10px; }
+.od__metric { background: var(--bg); border-radius: 8px; padding: 12px; min-width: 0; }
+.od__metric-lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 3px; }
+.od__metric-val { font-size: 20px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.od__metric-val.is-ok { color: var(--success); }
+.od__metric-val.is-due { color: var(--danger); }
+
+.od__pay-row { display: flex; justify-content: space-between; align-items: flex-start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.od__pay-row:last-child { border-bottom: none; }
+.od__pay-info { display: flex; flex-direction: column; min-width: 0; }
+.od__pay-type { font-size: 13px; color: var(--ink); }
+.od__pay-meta { font-size: 12px; color: var(--muted); }
+.od__pay-reason { font-size: 12px; color: var(--muted); font-style: italic; }
+.od__pay-amt { flex: 0 0 auto; margin-left: 10px; font-size: 14px; font-weight: 700; color: var(--success); }
+.od__pay-amt.is-neg { color: var(--danger); }
+.od__empty { color: var(--muted); font-size: 13px; margin: 4px 0; }
+
+.od__refund { margin-top: 12px; }
+.od__row-actions { display: flex; margin-top: 10px; }
+.od__row-actions > * { flex: 1 1 0; }
+.od__row-actions > * + * { margin-left: 10px; }
+.od__confirm { margin-top: 8px; font-size: 14px; }
+
+/* Dòng hành động: trái (in/thu) · phải (hoàn/hủy). Nút secondary đồng cỡ. */
+.od__actions { display: flex; flex-wrap: wrap; align-items: center; border-top: 1px solid var(--line); margin-top: 14px; padding-top: 14px; }
+.od__actions-l { display: flex; }
+.od__actions-l > * + * { margin-left: 8px; }
+.od__actions-r { margin-left: auto; display: flex; }
+.od__actions-r > * + * { margin-left: 8px; }
+.od__act {
+  min-height: 42px; padding: 0 16px; border-radius: 6px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
+}
+.od__act:active { background: var(--bg); }
+.od__act--primary { background: var(--orange); border-color: var(--orange); color: #fff; }
+.od__act--info { color: var(--success); border-color: var(--success); }
+.od__act--danger { color: var(--danger); border-color: var(--danger); }
 /* Trong modal: pickup gọn lại */
 .modal--confirm .pickup > * + * {
   margin-top: 8px;
