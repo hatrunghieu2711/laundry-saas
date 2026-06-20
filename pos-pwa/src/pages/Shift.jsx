@@ -437,7 +437,7 @@ export default function Shift() {
 
       {/* ── CA ĐANG MỞ ── */}
       {view === 'main' && shift && (
-        <div className="card">
+        <div className="shift__card">
           <div className="shift__head">
             <div className="badge badge--open">● Ca đang mở</div>
             <button className="btn btn--ghost btn--sm" onClick={refresh} disabled={refreshing}>
@@ -505,8 +505,8 @@ export default function Shift() {
 
       {/* ── FORM ĐÓNG CA ── */}
       {view === 'close' && shift && (
-        <form className="card" onSubmit={submitClose}>
-          <h2 className="card__title">Đóng ca</h2>
+        <form className="shift__card" onSubmit={submitClose}>
+          <h2 className="shift__card-title">Đóng ca</h2>
 
           <div className="summary">
             <div className="summary__row summary__row--head">
