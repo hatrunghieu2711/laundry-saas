@@ -31,3 +31,4 @@ uploads/
 *.sql
 *.sql.gz
 backups/
+scripts/rls/*.sql
