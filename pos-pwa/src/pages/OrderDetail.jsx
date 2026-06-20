@@ -99,6 +99,7 @@ export default function OrderDetail() {
         </div>
         <div className="od__hd-r">
           <button className="od__nav" onClick={() => navigate('/orders/new')}>Tạo đơn</button>
+          <button className="od__nav" onClick={() => navigate('/history')}>Lịch sử</button>
           <button className="od__nav" onClick={() => navigate('/board')}>Đơn hàng</button>
         </div>
       </div>
