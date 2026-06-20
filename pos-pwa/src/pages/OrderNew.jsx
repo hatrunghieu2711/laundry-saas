@@ -402,10 +402,14 @@ export default function OrderNew() {
       const ph = phone.trim()
       const nm = custName.trim()
       let customerId
+      let overwriteName = null // gửi xuống BE để GHI ĐÈ tên (chỉ khi link customer đã có)
       if (ph) {
         // Có SĐT: tìm theo SĐT (như cũ) → thấy dùng id; không thấy → tạo mới.
-        if (custFound) customerId = custFound.id
-        else {
+        if (custFound) {
+          customerId = custFound.id
+          // Khách quen quay lại: tên nhập (KỂ CẢ rỗng) ghi đè tên cũ — SĐT có thể đổi chủ.
+          overwriteName = nm
+        } else {
           const c = await api.post('/customers', { phone: ph, full_name: nm || undefined })
           customerId = c.id
         }
@@ -418,6 +422,7 @@ export default function OrderNew() {
       // Không nhập cả SĐT lẫn tên → khách vãng lai (customer_id NULL) → "Khách lẻ".
       const body = { items: buildItems(), pickup_at: vnWallToISO(pickup) }
       if (customerId) body.customer_id = customerId
+      if (overwriteName !== null) body.customer_name = overwriteName // "" = ghi đè rỗng
       if (note.trim()) body.notes = note.trim()
       if (isOwner) body.branch_id = branchId
       // Phụ thu/giảm: gửi giá trị ĐANG HIỂN THỊ (đã gồm rule điền sẵn + sửa tay)

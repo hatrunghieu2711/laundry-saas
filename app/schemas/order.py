@@ -57,6 +57,9 @@ class OrderAdjustmentIn(BaseModel):
 class OrderCreate(BaseModel):
     items: list[OrderItemIn] = Field(min_length=1)
     customer_id: uuid.UUID | None = None
+    # Ghi đè tên khách (Stage 6.50): khi customer_id đã có + gửi customer_name (KỂ CẢ ""),
+    # service set customers.full_name = giá trị này. None = KHÔNG đụng tên (caller khác).
+    customer_name: str | None = Field(default=None, max_length=255)
     notes: str | None = None
     # Giờ hẹn giao BẮT BUỘC; service validate phải ở tương lai.
     pickup_at: datetime

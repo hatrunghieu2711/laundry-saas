@@ -338,6 +338,30 @@ async def test_list_sort_updated_at(client: AsyncClient, octx: dict):
     assert ids2.index(a["id"]) < ids2.index(b["id"])
 
 
+# ── Stage 6.50: tạo đơn GHI ĐÈ tên khách (Cách 1) ───────────────────────────
+async def test_create_order_overwrites_customer_name(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    async with SessionFactory() as db:
+        cust = Customer(tenant_id=octx["owner"]["tenant_id"], full_name="abc", phone="0905000111")
+        db.add(cust)
+        await db.commit()
+        cid = str(cust.id)
+    # đơn CŨ (customer_name=None → KHÔNG đụng) giữ "abc"
+    o_old = (await _create_order(client, t, _ITEMS, customer_id=cid)).json()
+    assert o_old["customer_name"] == "abc"
+    # nhập trùng "abc" → không đổi
+    o_same = (await _create_order(client, t, _ITEMS, customer_id=cid, customer_name="abc")).json()
+    assert o_same["customer_name"] == "abc"
+    # nhập "xyz" → GHI ĐÈ
+    o_new = (await _create_order(client, t, _ITEMS, customer_id=cid, customer_name="xyz")).json()
+    assert o_new["customer_name"] == "xyz"
+    # JOIN: đơn CŨ cũng hiển thị "xyz"
+    assert (await client.get(f"{ORDERS}/{o_old['id']}", headers=auth_headers(t))).json()["customer_name"] == "xyz"
+    # nhập RỖNG → "" (KHÔNG giữ tên cũ — SĐT có thể đổi chủ)
+    o_empty = (await _create_order(client, t, _ITEMS, customer_id=cid, customer_name="")).json()
+    assert o_empty["customer_name"] == ""
+
+
 # ── Stage 3.9: search q (mã đơn HOẶC tên khách) ─────────────────────────────
 async def test_list_search_q_by_code_and_name(client: AsyncClient, octx: dict):
     t = octx["staff_token"]

@@ -281,6 +281,19 @@ async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Orde
     branch = await branch_service.get_branch(db, actor.tenant_id, branch_id)
     if data.customer_id is not None:
         await _ensure_customer(db, actor.tenant_id, data.customer_id)
+        # GHI ĐÈ tên khách (Cách 1, Stage 6.50): SĐT đã có customer + nhân viên nhập tên
+        # (KỂ CẢ rỗng) → cập nhật customers.full_name = tên nhập, cùng transaction tạo đơn.
+        # Lý do: SĐT có thể bị thu hồi/đổi chủ → tên mới (kể cả "") mới đúng người đang dùng.
+        # JOIN: đổi tên ảnh hưởng cả đơn cũ (đã chấp nhận). customer_name=None → không đụng.
+        if data.customer_name is not None:
+            new_name = data.customer_name.strip()
+            cust = await db.scalar(
+                select(Customer).where(
+                    Customer.tenant_id == actor.tenant_id, Customer.id == data.customer_id
+                )
+            )
+            if cust is not None and cust.full_name != new_name:
+                cust.full_name = new_name  # cùng session → commit chung với đơn (atomic)
 
     # Thu trước cần ca mở để ghi tiền → kiểm TRƯỚC khi tạo đơn (tránh đơn mồ côi
     # nếu thu lỗi). Stage 6.6.4.
