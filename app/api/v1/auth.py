@@ -58,7 +58,7 @@ def _token_response(session: IssuedSession) -> TokenResponse:
 
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, response: Response, db: DbSession) -> TokenResponse:
-    user = await auth_service.authenticate(db, payload.phone, payload.password)
+    user = await auth_service.authenticate(db, payload.phone, payload.password, payload.slug)
     session = await auth_service.issue_session(db, user)
     _set_session_cookies(response, session)
     return _token_response(session)

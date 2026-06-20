@@ -4,10 +4,19 @@ const K = {
   access: 'pos.access_token',
   csrf: 'pos.csrf',
   user: 'pos.user',
+  // Mã cửa hàng (slug tenant) — BỀN qua logout: mỗi máy POS nhớ mã, lần sau tự điền.
+  // KHÔNG xóa trong clearSession; chỉ đổi khi user nhập mã khác lúc đăng nhập.
+  tenantSlug: 'pos.tenant_slug',
 }
 
 export const getAccessToken = () => localStorage.getItem(K.access)
 export const getCsrf = () => localStorage.getItem(K.csrf)
+
+export const getTenantSlug = () => localStorage.getItem(K.tenantSlug) || ''
+export function setTenantSlug(slug) {
+  if (slug) localStorage.setItem(K.tenantSlug, slug)
+  else localStorage.removeItem(K.tenantSlug)
+}
 
 export function getUser() {
   const raw = localStorage.getItem(K.user)

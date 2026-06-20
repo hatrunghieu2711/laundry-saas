@@ -20,6 +20,7 @@ from app.core.security import (
 )
 from app.models.refresh_token import RefreshToken
 from app.models.user import User
+from app.services import tenant_service
 
 _settings = get_settings()
 
@@ -44,15 +45,25 @@ def _build_access_token(user: User) -> str:
     )
 
 
-async def authenticate(db: AsyncSession, phone: str, password: str) -> User:
+async def authenticate(
+    db: AsyncSession, phone: str, password: str, slug: str | None = None
+) -> User:
     """Tìm user active theo phone và verify password.
 
-    phone unique theo (tenant_id, phone) — về lý thuyết có thể trùng giữa các
-    tenant; duyệt qua các ứng viên active và khớp password.
+    phone unique theo (tenant_id, phone) — có thể trùng giữa các tenant.
+    slug (mã cửa hàng) optional — tenant context chống nhập nhằng đa tenant:
+    - CÓ slug → giới hạn ứng viên về đúng tenant (uq tenant_id+phone → tối đa 1).
+    - KHÔNG slug (rỗng/space coi như không có) → tìm TOÀN CỤC (backward-compat
+      giai đoạn 1; sẽ siết bắt buộc ở giai đoạn 2).
+    Mọi lỗi (sai slug/phone/password) → cùng 401 INVALID_CREDENTIALS (chống dò tenant).
     """
-    result = await db.execute(
-        select(User).where(User.phone == phone, User.status == "active")
-    )
+    stmt = select(User).where(User.phone == phone, User.status == "active")
+    if slug is not None and slug.strip():
+        tenant = await tenant_service.get_tenant_by_slug(db, slug)
+        if tenant is None:
+            raise APIError(401, "INVALID_CREDENTIALS", "Sai số điện thoại hoặc mật khẩu")
+        stmt = stmt.where(User.tenant_id == tenant.id)
+    result = await db.execute(stmt)
     for user in result.scalars().all():
         if verify_password(password, user.password_hash):
             return user

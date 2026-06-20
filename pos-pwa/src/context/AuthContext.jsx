@@ -33,8 +33,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   const login = useCallback(
-    async (phone, password) => {
-      const tokens = await api.login(phone, password)
+    async (phone, password, slug) => {
+      const tokens = await api.login(phone, password, slug)
       setSession({ access_token: tokens.access_token, csrf_token: tokens.csrf_token })
       return hydrateUser()
     },

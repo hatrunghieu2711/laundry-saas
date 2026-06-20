@@ -1,6 +1,10 @@
 """Test auth flow: login, me, refresh rotation, logout."""
 from httpx import AsyncClient
 
+from app.core.database import SessionFactory
+from app.core.security import hash_password
+from app.models.tenant import Tenant
+from app.models.user import User
 from tests.conftest import make_expired_access_token
 
 LOGIN = "/api/v1/auth/login"
@@ -54,6 +58,105 @@ async def test_login_unknown_phone(client: AsyncClient, owner: dict):
     resp = await client.post(LOGIN, json={"phone": "0000000000", "password": "owner123"})
     assert resp.status_code == 401
     assert resp.json()["code"] == "INVALID_CREDENTIALS"
+
+
+# ── login đa tenant: mã cửa hàng (slug) làm tenant context (Stage 6.76) ──────
+async def _make_dup_phone_tenants() -> tuple[str, str, dict[str, object]]:
+    """2 tenant khác nhau, CÙNG phone + CÙNG password — mô phỏng nhập nhằng đa tenant."""
+    phone, password = "0988888888", "samepass123"
+    ids: dict[str, object] = {}
+    async with SessionFactory() as db:
+        for name, slug in [("Tiệm A", "tiem-a"), ("Tiệm B", "tiem-b")]:
+            tenant = Tenant(name=name, slug=slug, status="active")
+            db.add(tenant)
+            await db.flush()
+            db.add(
+                User(
+                    tenant_id=tenant.id, branch_id=None, role="owner",
+                    full_name=f"Chủ {name}", phone=phone,
+                    password_hash=hash_password(password), status="active",
+                )
+            )
+            ids[slug] = tenant.id
+        await db.commit()
+    return phone, password, ids
+
+
+async def _tenant_of(client: AsyncClient, access_token: str) -> str:
+    resp = await client.get(ME, headers={"Authorization": f"Bearer {access_token}"})
+    assert resp.status_code == 200, resp.text
+    return resp.json()["tenant_id"]
+
+
+async def test_login_with_correct_slug(client: AsyncClient, owner: dict):
+    resp = await client.post(
+        LOGIN,
+        json={"phone": owner["phone"], "password": owner["password"], "slug": "giat-ui-2h"},
+    )
+    assert resp.status_code == 200, resp.text
+    assert await _tenant_of(client, resp.json()["access_token"]) == str(owner["tenant_id"])
+
+
+async def test_login_without_slug_backward_compat(client: AsyncClient, owner: dict):
+    """Giai đoạn 1: 2H login KHÔNG nhập mã vẫn được (backward-compat)."""
+    resp = await client.post(LOGIN, json={"phone": owner["phone"], "password": owner["password"]})
+    assert resp.status_code == 200, resp.text
+
+
+async def test_login_empty_slug_treated_as_none(client: AsyncClient, owner: dict):
+    """slug rỗng/space → coi như không nhập (tìm toàn cục) → vẫn login được."""
+    resp = await client.post(
+        LOGIN, json={"phone": owner["phone"], "password": owner["password"], "slug": "   "}
+    )
+    assert resp.status_code == 200, resp.text
+
+
+async def test_login_unknown_slug_generic_401(client: AsyncClient, owner: dict):
+    """slug không tồn tại → 401 generic (KHÔNG lộ 'tenant không tồn tại')."""
+    resp = await client.post(
+        LOGIN,
+        json={"phone": owner["phone"], "password": owner["password"], "slug": "khong-co-tiem"},
+    )
+    assert resp.status_code == 401
+    assert resp.json()["code"] == "INVALID_CREDENTIALS"
+
+
+async def test_login_slug_normalized_case_space(client: AsyncClient, owner: dict):
+    """Mã có HOA + khoảng trắng → chuẩn hóa lowercase+trim khớp 'giat-ui-2h'."""
+    resp = await client.post(
+        LOGIN,
+        json={"phone": owner["phone"], "password": owner["password"], "slug": "  GIAT-UI-2H "},
+    )
+    assert resp.status_code == 200, resp.text
+    assert await _tenant_of(client, resp.json()["access_token"]) == str(owner["tenant_id"])
+
+
+async def test_login_right_phone_wrong_tenant_slug(
+    client: AsyncClient, owner: dict, owner2: dict
+):
+    """phone của 2H + slug của tenant KHÁC → 401 (phone không thuộc tenant đó)."""
+    resp = await client.post(
+        LOGIN,
+        json={"phone": owner["phone"], "password": owner["password"], "slug": "sach-thom"},
+    )
+    assert resp.status_code == 401
+    assert resp.json()["code"] == "INVALID_CREDENTIALS"
+
+
+async def test_login_dup_phone_slug_matches_right_tenant(client: AsyncClient):
+    """2 tenant trùng phone+pass: CÓ slug → match ĐÚNG tenant theo slug."""
+    phone, password, ids = await _make_dup_phone_tenants()
+    for slug in ("tiem-a", "tiem-b"):
+        resp = await client.post(LOGIN, json={"phone": phone, "password": password, "slug": slug})
+        assert resp.status_code == 200, resp.text
+        assert await _tenant_of(client, resp.json()["access_token"]) == str(ids[slug])
+
+
+async def test_login_dup_phone_no_slug_still_authenticates(client: AsyncClient):
+    """2 tenant trùng phone+pass: KHÔNG slug → vẫn login (lấy ứng viên đầu — siết ở GĐ 2)."""
+    phone, password, _ = await _make_dup_phone_tenants()
+    resp = await client.post(LOGIN, json={"phone": phone, "password": password})
+    assert resp.status_code == 200, resp.text
 
 
 # ── me ──────────────────────────────────────────────────────────────────

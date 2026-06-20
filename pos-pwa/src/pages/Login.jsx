@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ApiError } from '../lib/api'
+import { getTenantSlug, setTenantSlug } from '../lib/storage'
 
 // Điều hướng theo role sau khi đăng nhập.
 function homeFor() {
@@ -15,6 +16,8 @@ export default function Login() {
   const location = useLocation()
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
+  // Mã cửa hàng (slug tenant) — tự điền từ máy nếu đã lưu (6.76, giai đoạn 1: optional).
+  const [slug, setSlug] = useState(() => getTenantSlug())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -22,8 +25,11 @@ export default function Login() {
     e.preventDefault()
     setError('')
     setLoading(true)
+    const slugClean = slug.trim().toLowerCase()
     try {
-      const user = await login(phone.trim(), password)
+      const user = await login(phone.trim(), password, slugClean)
+      // Đăng nhập OK → nhớ mã trên máy này (bền qua logout); rỗng → xóa mã đã lưu.
+      setTenantSlug(slugClean)
       const dest = location.state?.from?.pathname || homeFor(user.role)
       navigate(dest, { replace: true })
     } catch (err) {
@@ -71,6 +77,21 @@ export default function Login() {
             onChange={(e) => setPassword(e.target.value)}
             placeholder="••••••••"
             required
+          />
+        </label>
+
+        <label className="field">
+          <span>Mã cửa hàng</span>
+          <input
+            className="input"
+            type="text"
+            inputMode="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={slug}
+            onChange={(e) => setSlug(e.target.value)}
+            placeholder="vd: giat-ui-2h"
           />
         </label>
 

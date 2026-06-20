@@ -145,8 +145,13 @@ export const api = {
   del: (path, opts) => apiFetch(path, { ...opts, method: 'DELETE' }),
 
   // ── auth shortcuts ──
-  login: (phone, password) =>
-    apiFetch('/auth/login', { method: 'POST', body: { phone, password }, auth: false }),
+  // slug (mã cửa hàng) optional — chỉ gửi khi có (client cũ/không nhập → không gửi).
+  login: (phone, password, slug) =>
+    apiFetch('/auth/login', {
+      method: 'POST',
+      body: { phone, password, ...(slug ? { slug } : {}) },
+      auth: false,
+    }),
   me: () => apiFetch('/auth/me'),
   logout: () => apiFetch('/auth/logout', { method: 'POST' }),
 }

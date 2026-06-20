@@ -7,6 +7,8 @@ from pydantic import BaseModel, ConfigDict, Field
 class LoginRequest(BaseModel):
     phone: str = Field(min_length=1, max_length=32)
     password: str = Field(min_length=1, max_length=128)
+    # Mã cửa hàng (slug tenant) — optional giai đoạn 1 (client cũ không gửi vẫn chạy).
+    slug: str | None = Field(default=None, max_length=100)
 
 
 class TokenResponse(BaseModel):
