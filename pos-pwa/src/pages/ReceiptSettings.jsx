@@ -33,6 +33,25 @@ const SAMPLE_ORDER = {
   ],
 }
 
+// Icon inline SVG (6.69) — thay glyph ✎⧉🗑↑↓⊞✓ (KHÔNG webfont/emoji).
+const RICONS = {
+  edit: 'M4 20h3.5L17 9.5a2.1 2.1 0 0 0-3-3L3.5 17z M12.5 8l3 3',
+  copy: 'M9 9h9v9H9z M5 14V6a1 1 0 0 1 1-1h8',
+  trash: 'M4 7h16 M9 7V5h6v2 M6 7l1 13h10l1-13 M10 11v5 M14 11v5',
+  up: 'M12 19V6 M6 12l6-6 6 6',
+  down: 'M12 5v13 M6 12l6 6 6-6',
+  merge: 'M5 5h6v6H5z M13 13h6v6h-6z M11 8h5v5',
+  check: 'M20 6L9 17l-5-5',
+}
+function Ico({ name }) {
+  return (
+    <svg className="ic-btn" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d={RICONS[name]} />
+    </svg>
+  )
+}
+
 export default function ReceiptSettings() {
   const { user } = useAuth()
   const canEdit = user?.role === 'owner'
@@ -242,7 +261,7 @@ export default function ReceiptSettings() {
         <h2 className="services__title">Mẫu phiếu in — bố cục theo khối</h2>
         {!canEdit && <div className="alert alert--error">Chỉ chủ chuỗi (owner) mới sửa được. Bạn đang xem.</div>}
 
-        <div className="card">
+        <div className="shift__card">
           <div className="rcfg__card-head">
             <h3 className="card__title">Tùy chọn chung</h3>
             <label className="rcfg__switch">
@@ -251,9 +270,9 @@ export default function ReceiptSettings() {
             </label>
           </div>
           <p className="rcfg__hint">
-            Kéo-thả (hoặc ↑/↓) để sắp xếp. Kéo 1 khối thả vào ô <strong>＋ghép</strong> của khối khác,
+            Kéo-thả (hoặc nút Lên/Xuống) để sắp xếp. Kéo 1 khối thả vào ô <strong>＋ghép</strong> của khối khác,
             hoặc nút <strong>Ghép/Tách</strong>, để xếp 2 khối/hàng (tự do, không giới hạn).
-            Bấm ✎ để sửa nhãn, nội dung &amp; định dạng (đậm · nghiêng · căn lề · cỡ chữ).
+            Bấm nút sửa để sửa nhãn, nội dung &amp; định dạng (đậm · nghiêng · căn lề · cỡ chữ).
           </p>
           <label className="field">
             <span>Link tra cứu cho QR (base URL + mã đơn)</span>
@@ -273,7 +292,7 @@ export default function ReceiptSettings() {
           </p>
         </div>
 
-        <div className="card">
+        <div className="shift__card">
           <h3 className="card__title">Các khối trên phiếu</h3>
           <div className="bld-list">
             {rows.map((row, ri) => (
@@ -298,10 +317,10 @@ export default function ReceiptSettings() {
                         {row.length === 2 && <span className="bld-cell__half">½</span>}
                       </span>
                       <span className="bld-cell__acts">
-                        <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => openEdit(ri, ci)}>✎</button>
-                        <button className="icon-btn" disabled={!canEdit} title="Nhân bản khối" onClick={() => copyBlock(ri, ci)}>⧉</button>
+                        <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => openEdit(ri, ci)}><Ico name="edit" /></button>
+                        <button className="icon-btn" disabled={!canEdit} title="Nhân bản khối" onClick={() => copyBlock(ri, ci)}><Ico name="copy" /></button>
                         {blk.removable && (
-                          <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri, ci)}>🗑</button>
+                          <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri, ci)}><Ico name="trash" /></button>
                         )}
                       </span>
                     </div>
@@ -315,10 +334,10 @@ export default function ReceiptSettings() {
                   )}
                 </div>
                 <div className="bld-row__ops">
-                  <button className="icon-btn" disabled={!canEdit || ri === 0} title="Lên" onClick={() => moveRow(ri, -1)}>↑</button>
-                  <button className="icon-btn" disabled={!canEdit || ri === rows.length - 1} title="Xuống" onClick={() => moveRow(ri, +1)}>↓</button>
+                  <button className="icon-btn" disabled={!canEdit || ri === 0} title="Lên" onClick={() => moveRow(ri, -1)}><Ico name="up" /></button>
+                  <button className="icon-btn" disabled={!canEdit || ri === rows.length - 1} title="Xuống" onClick={() => moveRow(ri, +1)}><Ico name="down" /></button>
                   {row.length === 1 && canPairDown(ri) && (
-                    <button className="icon-btn icon-btn--wide" disabled={!canEdit} title="Ghép với hàng dưới" onClick={() => pairDown(ri)}>⊞</button>
+                    <button className="icon-btn icon-btn--wide" disabled={!canEdit} title="Ghép với hàng dưới" onClick={() => pairDown(ri)}><Ico name="merge" /></button>
                   )}
                   {row.length === 2 && (
                     <button className="icon-btn icon-btn--wide" disabled={!canEdit} title="Tách thành 2 hàng" onClick={() => splitRow(ri)}>⊟</button>
@@ -339,12 +358,12 @@ export default function ReceiptSettings() {
         {error && !editBlk && <div className="alert alert--error">{error}</div>}
         {canEdit && (
           <button className="btn btn--primary btn--xl btn--block" onClick={save} disabled={saving}>
-            {saving ? 'Đang lưu…' : saved ? '✓ Đã lưu' : 'Lưu mẫu phiếu'}
+            {saving ? 'Đang lưu…' : saved ? <><Ico name="check" /> Đã lưu</> : 'Lưu mẫu phiếu'}
           </button>
         )}
 
         {canEdit && (
-          <div className="card rcfg__default">
+          <div className="shift__card rcfg__default">
             <h3 className="card__title">Mẫu mặc định của tiệm</h3>
             <p className="rcfg__hint">
               Trạng thái: <strong>Đang chỉnh sửa</strong> →
@@ -354,10 +373,10 @@ export default function ReceiptSettings() {
             </p>
             <div className="rcfg__default-btns">
               <button className="btn btn--ghost btn--lg" onClick={saveAsDefault} disabled={saving}>
-                💾 Lưu làm mẫu mặc định của tôi
+                Lưu làm mẫu mặc định của tôi
               </button>
               <button className="btn btn--ghost btn--lg" onClick={restoreDefault} disabled={saving}>
-                ↺ Khôi phục mẫu mặc định
+                Khôi phục mẫu mặc định
               </button>
             </div>
           </div>

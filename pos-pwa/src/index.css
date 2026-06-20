@@ -4276,14 +4276,18 @@ body {
 .icon-btn {
   min-width: 30px;
   height: 30px;
-  border: 1.5px solid var(--line);
-  background: #fff;
-  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   padding: 0 6px;
 }
+.ic-btn { width: 16px; height: 16px; display: block; }
 .icon-btn--wide {
   font-size: 12px;
 }
