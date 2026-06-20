@@ -4673,6 +4673,12 @@ body {
 .reports__list-meta { font-size: 12px; color: var(--muted); }
 .reports__neg { color: var(--danger); font-weight: 800; }
 .reports__pos { color: #16a34a; font-weight: 800; }
+/* Lệch đầu/cuối ca (6.57): thiếu(âm)=đỏ .reports__neg / thừa(dương)=amber .reports__over. */
+.reports__over { color: var(--ns-warn); font-weight: 800; }
+.reports__diff { display: flex; align-items: baseline; flex-wrap: wrap; margin-top: 2px; font-size: 13px; }
+.reports__diff > * + * { margin-left: 6px; }
+.reports__diff-lbl { font-size: 12px; color: var(--muted); min-width: 44px; }
+.reports__diff-reason { color: var(--muted); }
 .reports__hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
 
 /* ── Màn "Đã tạo đơn" (Stage 6.8.2): card kẻ thẳng, gọn, tóm tắt đơn ──────── */

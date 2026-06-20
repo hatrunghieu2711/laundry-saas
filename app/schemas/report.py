@@ -59,15 +59,17 @@ class CashDiffRow(BaseModel):
     opened_at: datetime
     closed_at: datetime | None
     staff_name: str | None
-    cash_difference: Decimal
+    cash_difference: Decimal  # lệch CUỐI ca (0 nếu ca chỉ lệch đầu ca)
     cash_diff_reason: str | None = None  # Stage 6.33 — lý do lệch (chủ phân tích)
+    opening_diff: Decimal | None = None  # Stage 6.57 — lệch ĐẦU ca (None nếu khớp đầu ca)
+    opening_diff_reason: str | None = None  # Stage 6.57 — lý do lệch đầu ca
     reopen_count: int = 0  # Stage 6.37 — ca này từng mở lại bao nhiêu lần
 
 
 class CashDiffGroup(BaseModel):
-    total: Decimal       # tổng chênh lệch (net, có dấu) của các ca lệch
-    count: int           # số ca LỆCH (!= 0)
-    matched_count: int   # số ca KHỚP (= 0)
+    total: Decimal       # tổng lệch CUỐI ca (net, có dấu) của các ca lệch
+    count: int           # số ca có lệch ĐẦU hoặc CUỐI (Stage 6.57)
+    matched_count: int   # số ca KHỚP cả đầu lẫn cuối
     rows: list[CashDiffRow]
 
 

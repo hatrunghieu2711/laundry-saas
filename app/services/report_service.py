@@ -204,7 +204,8 @@ async def owner_summary(
         db, tenant_id, start_date=from_date, end_date=to_date, branch_id=branch_id
     )
 
-    # c) LỆCH KÉT — ca ĐÓNG trong khoảng; liệt kê ca lệch (!=0), đếm ca khớp.
+    # c) LỆCH KÉT — ca ĐÓNG trong khoảng; liệt kê ca lệch ĐẦU hoặc CUỐI ca (Stage 6.57),
+    #    đếm ca khớp cả hai. (Trước 6.57 chỉ xét lệch cuối ca cash_difference≠0.)
     sh_conds = [Shift.tenant_id == tenant_id, Shift.status == "closed"]
     if branch_id is not None:
         sh_conds.append(Shift.branch_id == branch_id)
@@ -216,7 +217,8 @@ async def owner_summary(
         await db.execute(
             select(
                 Shift.id, Shift.branch_id, Shift.opened_at, Shift.closed_at,
-                Shift.cash_difference, Shift.cash_diff_reason, Shift.reopen_count,
+                Shift.cash_difference, Shift.cash_diff_reason,
+                Shift.opening_diff, Shift.opening_diff_reason, Shift.reopen_count,
                 User.full_name,
             )
             .select_from(Shift).outerjoin(User, Shift.closed_by == User.id)
@@ -225,15 +227,18 @@ async def owner_summary(
     ).all()
     diff_rows, matched, total_diff = [], 0, _ZERO
     for r in sh_rows:
-        d = r.cash_difference or _ZERO
-        if d == 0:
-            matched += 1
+        d = r.cash_difference or _ZERO      # lệch CUỐI ca
+        od = r.opening_diff or _ZERO        # lệch ĐẦU ca (Stage 6.57)
+        if d == 0 and od == 0:
+            matched += 1                    # khớp CẢ đầu lẫn cuối
         else:
-            total_diff += d
+            total_diff += d                 # total = net lệch CUỐI ca (ca chỉ-lệch-đầu cộng 0)
             diff_rows.append({
                 "shift_id": r.id, "branch_id": r.branch_id, "opened_at": r.opened_at,
                 "closed_at": r.closed_at, "staff_name": r.full_name, "cash_difference": d,
                 "cash_diff_reason": r.cash_diff_reason,  # Stage 6.33 — chủ xem lý do lệch
+                "opening_diff": (od if od != 0 else None),  # Stage 6.57 — lệch đầu ca
+                "opening_diff_reason": r.opening_diff_reason,
                 "reopen_count": r.reopen_count or 0,     # Stage 6.37 — ca từng mở lại?
             })
     cash_diff = {"total": total_diff, "count": len(diff_rows), "matched_count": matched, "rows": diff_rows}

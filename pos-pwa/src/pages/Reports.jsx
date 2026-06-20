@@ -130,15 +130,16 @@ export function ReportsView({
             )}
           </div>
 
-          {/* Lệch két — cảnh báo */}
+          {/* Lệch quỹ ca (đầu + cuối) — cảnh báo (Stage 6.57: gồm cả lệch đầu ca) */}
           <div className="card">
-            <h3 className="reports__h">Lệch két {hasDiff && <span className="reports__warn-tag">⚠ thất thoát</span>}</h3>
+            <h3 className="reports__h">Lệch quỹ ca (đầu + cuối) {hasDiff && <span className="reports__warn-tag">⚠ thất thoát</span>}</h3>
             {!hasDiff ? (
               <p className="reports__ok">Tất cả ca khớp ✓ ({cashDiff.matched_count} ca)</p>
             ) : (
               <ul className="reports__list">
                 {cashDiff.rows.map((r) => {
                   const d = toNumber(r.cash_difference)
+                  const od = r.opening_diff != null ? toNumber(r.opening_diff) : null
                   return (
                     <li key={r.shift_id} className="reports__list-item reports__list-item--warn">
                       <div className="reports__list-main">
@@ -146,11 +147,21 @@ export function ReportsView({
                         <span className="reports__list-meta">
                           {r.staff_name || '—'} · {formatDateTime(r.closed_at)}
                         </span>
-                        {r.cash_diff_reason && (
-                          <span className="reports__list-meta">Lý do: {r.cash_diff_reason}</span>
+                        {od !== null && (
+                          <span className="reports__diff">
+                            <span className="reports__diff-lbl">Đầu ca</span>
+                            <strong className={od < 0 ? 'reports__neg' : 'reports__over'}>{signed(od)}</strong>
+                            {r.opening_diff_reason && <span className="reports__diff-reason">{r.opening_diff_reason}</span>}
+                          </span>
+                        )}
+                        {d !== 0 && (
+                          <span className="reports__diff">
+                            <span className="reports__diff-lbl">Cuối ca</span>
+                            <strong className={d < 0 ? 'reports__neg' : 'reports__over'}>{signed(d)}</strong>
+                            {r.cash_diff_reason && <span className="reports__diff-reason">{r.cash_diff_reason}</span>}
+                          </span>
                         )}
                       </div>
-                      <strong className={d < 0 ? 'reports__neg' : 'reports__pos'}>{signed(d)}</strong>
                     </li>
                   )
                 })}

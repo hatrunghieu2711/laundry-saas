@@ -76,13 +76,16 @@ async def _pay(rctx, branch, order_id, amount):
         await db.commit()
 
 
-async def _closed_shift(rctx, branch, *, diff, handover, closed_at, closed_by=None):
+async def _closed_shift(rctx, branch, *, diff, handover, closed_at, closed_by=None,
+                        opening_diff=0, opening_diff_reason=None):
     async with SessionFactory() as db:
         db.add(Shift(
             tenant_id=rctx["owner"]["tenant_id"], branch_id=uuid.UUID(branch["id"]),
             opened_by=rctx["owner"]["user_id"], closed_by=closed_by or rctx["owner"]["user_id"],
             opening_cash=Decimal(0), closing_cash_expected=Decimal(0),
             closing_cash_actual=Decimal(diff), cash_difference=Decimal(diff),
+            opening_diff=Decimal(opening_diff) if opening_diff else None,
+            opening_diff_reason=opening_diff_reason,
             handover_to_owner=Decimal(handover), cash_left_for_next=Decimal(0),
             status="closed", opened_at=closed_at - timedelta(hours=8), closed_at=closed_at,
         ))
@@ -111,6 +114,36 @@ async def seeded(rctx: dict):
 def _q(frm="2026-06-10", to="2026-06-12", branch=None):
     s = f"?from_date={frm}&to_date={to}"
     return s + (f"&branch_id={branch}" if branch else "")
+
+
+# ── Stage 6.57: mục "Lệch két" gồm CẢ lệch đầu ca (gộp chung + nới filter) ──
+async def test_summary_includes_opening_diff(client: AsyncClient, rctx: dict):
+    t, a = rctx["owner_token"], rctx["a"]
+    # ca chỉ lệch ĐẦU ca (cuối khớp) → TRƯỚC bị ẩn, giờ phải hiện
+    await _closed_shift(rctx, a, diff=0, handover=0, closed_at=_dt("2026-06-10T10:00:00"),
+                        opening_diff=-30000, opening_diff_reason="Thiếu đầu ca")
+    # ca lệch CẢ hai
+    await _closed_shift(rctx, a, diff=5000, handover=0, closed_at=_dt("2026-06-11T10:00:00"),
+                        opening_diff=20000, opening_diff_reason="Thừa đầu ca")
+    # ca khớp CẢ hai → không hiện
+    await _closed_shift(rctx, a, diff=0, handover=0, closed_at=_dt("2026-06-11T11:00:00"))
+    s = (await client.get(f"{URL}{_q()}", headers=auth_headers(t))).json()["cash_diff"]
+    assert s["count"] == 2           # ca có BẤT KỲ lệch (đầu-only + cả-hai)
+    assert s["matched_count"] == 1   # ca khớp cả hai
+    rows = {(x["opening_diff"] and _num(x["opening_diff"]), _num(x["cash_difference"])) for x in s["rows"]}
+    assert (-30000, 0) in rows       # đầu-only: opening_diff=-30000, cuối=0
+    assert (20000, 5000) in rows     # cả-hai
+    reasons = [x["opening_diff_reason"] for x in s["rows"] if x["opening_diff"] is not None]
+    assert "Thiếu đầu ca" in reasons and "Thừa đầu ca" in reasons
+    assert _num(s["total"]) == 5000  # total = net lệch CUỐI ca (0 + 5000)
+
+
+async def test_summary_closing_only_opening_diff_null(client: AsyncClient, rctx: dict):
+    t, a = rctx["owner_token"], rctx["a"]
+    await _closed_shift(rctx, a, diff=-7000, handover=0, closed_at=_dt("2026-06-10T10:00:00"))
+    s = (await client.get(f"{URL}{_q()}", headers=auth_headers(t))).json()["cash_diff"]
+    assert s["count"] == 1
+    assert s["rows"][0]["opening_diff"] is None  # chỉ lệch cuối → opening_diff null
 
 
 async def test_summary_all_branches(client: AsyncClient, seeded: dict):
