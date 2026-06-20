@@ -60,7 +60,7 @@ body {
   border: 1px solid transparent;
   border-radius: var(--radius);
   font-size: 17px;
-  font-weight: 600;
+  font-weight: 500; /* 6.66: 600→500 — 800/600 trên system-ui làm chữ Việt dày/méo dấu (Chrome PC) */
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -277,7 +277,7 @@ body {
 .btn--xl {
   min-height: 64px;
   font-size: 20px;
-  font-weight: 800;
+  /* 6.66: bỏ font-weight 800 (gây dày/méo dấu tiếng Việt) → kế thừa .btn (500). */
 }
 
 /* Empty-state "chưa có ca" (6.58) — chuẩn style mới: radius 12 (card), border 1px,
