@@ -82,7 +82,6 @@ export default function Shift() {
   const [diffReason, setDiffReason] = useState('') // lý do lệch tiền (Stage 6.32; bắt buộc khi lệch≠0)
   const [reasonErr, setReasonErr] = useState(false) // Stage 6.36: lỗi "thiếu lý do lệch" — hiện DƯỚI ô
   const [closed, setClosed] = useState(null)
-  const [handoverBoard, setHandoverBoard] = useState(null) // tình hình bàn giao cho phiếu
   const [printSlip, setPrintSlip] = useState(null) // 'handover' | 'report'
   const [lastClosed, setLastClosed] = useState(null) // Stage 6.37: ca đóng gần nhất (xem/in lại từ DB)
   const [reopenAsk, setReopenAsk] = useState(false)  // Stage 6.37: popup xác nhận mở lại ca
@@ -225,23 +224,6 @@ export default function Shift() {
         // → hiện bị BỎ QUA (chưa lưu) cho tới khi thêm cột+schema+service. Báo để xử riêng.
         cash_diff_reason: diff !== 0 ? diffReason.trim() : null,
       })
-      // Tình hình bàn giao (cho biên bản): đơn đang xử lý / trễ hẹn / còn nợ.
-      let board = null
-      try {
-        const q = isOwner ? `?branch_id=${branchId}` : ''
-        const b = await api.get(`/orders/board${q}`)
-        const cols = b.columns || {}
-        const processing = ['created', 'washing', 'drying', 'ready']
-          .reduce((s, k) => s + (cols[k]?.length || 0), 0)
-        board = {
-          processing,
-          overdue: b.summary?.overdue || 0,
-          owing: (b.summary?.unpaid || 0) + (b.summary?.debt || 0),
-        }
-      } catch {
-        board = null
-      }
-      setHandoverBoard(board)
       setClosed(res)
       setShiftOpen(false) // 6.71: nhãn tab → "Mở ca"
       setActual('')
@@ -269,7 +251,6 @@ export default function Shift() {
   // Stage 6.37: xem lại ca vừa đóng (đọc từ DB) → in lại biên nhận bất cứ lúc nào.
   const viewLastClosed = () => {
     if (!lastClosed) return
-    setHandoverBoard(null) // bảng bàn giao là snapshot lúc đóng (không lưu) → để trống khi xem lại
     setClosed(lastClosed)
     setView('result')
   }
@@ -348,7 +329,7 @@ export default function Shift() {
       )}
 
       {/* Portal in phiếu giao ca (ẩn trên màn, hiện khi @media print). */}
-      <ShiftSlip kind={printSlip} shift={closed} branchName={branchName} board={handoverBoard} />
+      <ShiftSlip kind={printSlip} shift={closed} branchName={branchName} />
 
       {/* ── Popup xác nhận MỞ LẠI CA (Stage 6.37) ── */}
       {reopenAsk && (
