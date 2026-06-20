@@ -498,6 +498,9 @@ trả giá (stage 6.21–6.27 — sửa viền/khoảng cách thẻ Kanban /boar
 5. **Xếp NGANG nhiều thẻ: KHÔNG dùng `flex-wrap`** (bug paint flex-line — chỉ item ĐẦU mỗi
    dòng vẽ đúng viền). Dùng **`float`** (an toàn nhất: `float:left` + `width:calc(50% - …)` +
    `:nth-child(2n){margin-left}` + `:nth-child(odd){clear:left}` + clearfix `::after`) hoặc block.
+   **PHẠM VI:** rule này CHỈ áp cho **Kanban board** (nhiều thẻ, repaint NẶNG khi cuộn — nơi đã
+   tái hiện bug). Form / chi tiết / popup ÍT phần tử (`.od__cols`, `.hexp__cols`, `.history__bar`,
+   `.sheet`) dùng `flex-wrap` BÌNH THƯỜNG, không sao — thực tế các layout mới đã dùng ổn.
 6. **Service worker `autoUpdate`**: mỗi lần deploy, máy POS GIỮ bản cũ tới khi xóa cache / SW
    activate. → Sau deploy quan trọng: XÓA CACHE trên máy POS. Xác minh đã nạp bản mới bằng cách
    so **hash file `index-*.css`** máy đang nạp với file trong `pos-pwa/dist/` (build deterministic).
@@ -506,8 +509,60 @@ trả giá (stage 6.21–6.27 — sửa viền/khoảng cách thẻ Kanban /boar
    nhất** cho lỗi tương thích. (Headless "PASS" nhiều lần nhưng máy thật vẫn lỗi — 6.22→6.24.)
 
 **QUY TẮC CHUNG:** mọi component MỚI chạy trên máy POS (card, popup, modal, form) phải:
-tránh `radius`+`shadow` trên khối lớn, tránh flex `gap`, tránh `flex-wrap` để xếp ngang, để
-layout fallback ngoài `@supports(grid)`. **Test trên máy POS thật trước khi coi là xong.**
+tránh `radius`+`shadow` trên khối lớn, tránh flex `gap`, tránh `flex-wrap` ĐỂ XẾP NGANG NHIỀU
+THẺ (Kanban — xem rule #5 phạm vi), để layout fallback ngoài `@supports(grid)`. **Test trên máy
+POS thật trước khi coi là xong.**
+
+## CHUẨN STYLE UI (style mới — áp cho mọi màn refactor + component mới)
+
+Đây là hệ style chuẩn hiện tại. Mọi UI MỚI hoặc màn được refactor PHẢI theo mục này mà KHÔNG cần nhắc lại trong prompt. Mục này là luật chung; nếu prompt không nói gì về style thì mặc định áp các quy tắc dưới đây.
+
+### Token màu (dùng CSS variable, KHÔNG hardcode mã màu)
+- `var(--line)` — đường kẻ / viền.
+- `var(--orange)` — màu nhấn chính (nút chính, chip đang chọn).
+- `var(--muted)` — chữ phụ / nhãn mờ.
+- `var(--ink)` — chữ chính.
+- `var(--success)` — xanh (đã thu, đã giao, tiền vào).
+- `var(--danger)` — đỏ (chưa thu, hủy, thiếu tiền, hoàn tiền).
+- `var(--surface)` / `var(--bg)` — nền.
+- `var(--ns-*)` — palette riêng của board (Kanban); KHÔNG dùng ngoài board.
+- Cảnh báo / ghi chú nổi bật: token warning/amber (vd `--ns-warn` / `--ns-warn-bg`).
+
+### Radius (KHÔNG dùng var(--radius)=14 cũ cho component mới)
+- Panel / khung lớn: radius 6.
+- Control (input, select, nút, chip, badge): radius 4.
+- Metric card (ô số): radius 8.
+- Card (thẻ thông tin có viền): radius 12.
+- var(--radius)=14 là hệ CŨ — chỉ giữ cho màn chưa refactor (.modal/.diff cũ). Component mới KHÔNG kế thừa giá trị này.
+
+### Spacing
+- Khoảng cách giữa phần tử dùng `margin` hoặc `> * + * { margin-* }`. TUYỆT ĐỐI KHÔNG dùng `flex gap` (Chrome 56 không hỗ trợ — xem mục Chrome 56).
+
+### Emoji & icon — LUẬT CỨNG
+- KHÔNG dùng emoji trong UI (🖨️ ➡️ ↩️ 💵 🏦 📝 ✅ ⏰ … đều cấm). Đây là luật chung, áp mọi nơi.
+- KHÔNG dùng webfont icon (Tabler `ti ti-*` hay bất kỳ icon-font nào) — lý do: PWA chạy offline + Chrome 56.
+- Icon = INLINE SVG (vẽ thẳng trong markup). Tái dùng path SVG đã có trong app (vd mũi tên ← → của board).
+- Nút/nhãn ưu tiên CHỮ THUẦN; chỉ thêm icon khi thật cần và bằng inline SVG.
+
+### Class hệ thống
+- `.panel` / `.panel__*` — khung/section chuẩn (head/body/group/row/foot/hint).
+- `.cfm` — token/quy ước style mới (nguồn gốc OrderNew).
+- `.od__*` — Chi tiết đơn. `.history__*` — Lịch sử. `.hexp__*` — hàng mở rộng. `.sheet` — bottom-sheet popup ☰.
+- Khi làm màn mới: dùng các class/token này, KHÔNG tạo style rời rạc mâu thuẫn.
+
+### Border (Chrome 56 thực dụng — xem thêm mục Chrome 56)
+- Border 1px, KHÔNG 0.5px (máy POS DPI thấp làm tròn 0.5px về 0 → mất viền). Mockup có thể vẽ 0.5px nhưng code LUÔN 1px.
+- `overflow:hidden` chỉ an toàn trên span nhỏ (cắt chữ ellipsis); KHÔNG dùng trên khối lớn có radius (bug paint Chrome 56).
+
+## DEPLOY / MIGRATION (ai chạy, thứ tự)
+
+- TRUNG HIEU (user) chạy MỌI lệnh alembic + docker compose trong terminal riêng. Claude Code KHÔNG chạy, KHÔNG thấy trạng thái prod → đừng giả định migration đã chạy hay chưa; user là nguồn sự thật.
+- Vì Claude Code không thấy terminal user: KHÔNG cảnh báo lặp "migration đang chờ" như thể là lỗi — chỉ nêu MỘT LẦN ở cuối stage nếu stage đó có thay đổi cần deploy.
+- Thứ tự deploy khi có migration: `alembic current` (kiểm) → backup → `alembic upgrade head` (migration TRƯỚC) → `docker compose restart app` (restart SAU). Restart trước khi migration = code mới gặp DB cũ = 500.
+- Stage chỉ đổi backend không-migration: chỉ cần restart.
+- Stage frontend thuần: không cần gì, live sau build.
+- Mỗi stage cuối báo: hash file mới (JS/CSS), có cần migration/restart không, commit + tag stage riêng.
+- KHÔNG verify UI bằng headless (xem mục Chrome 56) — mọi prompt UI ngầm hiểu điều này, không cần nhắc "KHÔNG kiểm headless" nữa nếu mục này đã có.
 
 ## TEST
 
@@ -656,6 +711,10 @@ layout fallback ngoài `@supports(grid)`. **Test trên máy POS thật trước 
 
 ## NỢ KỸ THUẬT ĐÃ BIẾT
 
+- **File > ~400 dòng vi phạm chuẩn CODING STANDARDS (cần tách module sau).** Hiện vượt:
+  `pos-pwa/src/pages/OrderNew.jsx`, `Board.jsx`, `Shift.jsx`, `History.jsx` (lớn dần qua các
+  stage 6.x). Ưu tiên tách khi có dịp refactor màn tương ứng (vd OrderNew → tách form xác nhận /
+  giỏ / mở-ca; Shift → tách form đóng ca / ResultCard). Ghi nhận, chưa chặn phát hành.
 - **Múi giờ POS cố định Việt Nam (UTC+7) ở frontend (chốt Stage 3.8).** Trước đây
   picker giờ giao dùng giờ LOCAL trình duyệt → máy POS để UTC làm giờ chọn lệch 7h
   thành quá khứ → 422. Nay `pos-pwa/src/lib/datetime.js` thao tác trên "VN wall
