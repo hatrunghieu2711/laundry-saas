@@ -75,8 +75,10 @@ export default function OrderNew() {
   const [phone, setPhone] = useState('')
   const [custName, setCustName] = useState('')
   const [custFound, setCustFound] = useState(null)
+  const [custSug, setCustSug] = useState([])   // gợi ý autocomplete khách (6.49)
+  const [sugOpen, setSugOpen] = useState(false)
   const [note, setNote] = useState('')
-  const [pickup, setPickup] = useState(() => defaultPickupVnWall(4))
+  const [pickup, setPickup] = useState(() => defaultPickupVnWall(3))
   // ── bước thanh toán trong modal ──
   const [payMode, setPayMode] = useState('prepay') // prepay | later (2H: thu ĐỦ hoặc chưa thu)
   const [payMethod, setPayMethod] = useState('cash')
@@ -304,11 +306,9 @@ export default function OrderNew() {
       return
     }
     setConfirmActive(true)
-    // Giờ hẹn MẶC ĐỊNH 08:00 (Stage 6.6.5): hôm nay nếu 08:00 còn ở tương lai,
-    // ngược lại ngày mai → mặc định luôn hợp lệ, nhân viên sổ chọn lại nếu cần.
-    const vnToday0 = startOfDayVn(new Date(Date.now() + 7 * 60 * 60 * 1000))
-    const at8Today = combineVn(vnToday0, 8, 0)
-    setPickup(isPastVnWall(at8Today) ? combineVn(addDaysVn(vnToday0, 1), 8, 0) : at8Today)
+    // Giờ hẹn MẶC ĐỊNH = hiện tại + 3 giờ (Stage 6.49, làm tròn lên 15'; theo giờ VN) —
+    // nhân viên sửa được. (Trước 6.49 mặc định 08:00.)
+    setPickup(defaultPickupVnWall(3))
     setStep(1)
     setAdjOpen(false)
     setPayMode('prepay')
@@ -338,27 +338,32 @@ export default function OrderNew() {
     }
   }
 
-  // Tra khách theo SĐT (debounce) khi modal mở.
+  // Gợi ý khách theo SĐT/tên (debounce) khi modal mở — autocomplete (6.49).
   useEffect(() => {
     if (!showConfirm) return undefined
     const ph = phone.trim()
     if (ph.length < 3) {
       setCustFound(null)
+      setCustSug([])
       return undefined
     }
     let alive = true
     const t = setTimeout(async () => {
       try {
-        const found = await api.get(`/customers?phone=${encodeURIComponent(ph)}&limit=1`)
+        const res = await api.get(`/customers?q=${encodeURIComponent(ph)}&limit=8`)
         if (!alive) return
-        if (found.total > 0) {
-          setCustFound(found.items[0])
-          setCustName(found.items[0].full_name || '')
+        const items = res.items || []
+        setCustSug(items)
+        // khớp SĐT chính xác → coi là "khách quen" (hint + link customer_id), điền tên.
+        const exact = items.find((c) => c.phone === ph)
+        if (exact) {
+          setCustFound(exact)
+          setCustName(exact.full_name || '')
         } else {
           setCustFound(null)
         }
       } catch {
-        if (alive) setCustFound(null)
+        if (alive) { setCustFound(null); setCustSug([]) }
       }
     }, 400)
     return () => {
@@ -366,6 +371,14 @@ export default function OrderNew() {
       clearTimeout(t)
     }
   }, [phone, showConfirm])
+
+  // Chọn 1 gợi ý → điền SĐT + tên, link khách quen, đóng dropdown.
+  const pickCust = (c) => {
+    setPhone(c.phone || '')
+    setCustName(c.full_name || '')
+    setCustFound(c)
+    setSugOpen(false)
+  }
 
   // Bước 1 → 2: chặn giờ quá khứ trước khi sang bước thanh toán.
   const goStep2 = () => {
@@ -451,6 +464,8 @@ export default function OrderNew() {
     setPhone('')
     setCustName('')
     setCustFound(null)
+    setCustSug([])
+    setSugOpen(false)
     setNote('')
     setOverflowKg({})
     setSearch('')
@@ -501,13 +516,16 @@ export default function OrderNew() {
             </div>
             {payWarn && <div className="alert alert--error">{payWarn}</div>}
             <div className="ordok__actions">
-              <button className="btn btn--ghost ordok__print" onClick={printBillAndLabel}>
-                {printed ? 'In lại' : 'In phiếu'}
-              </button>
-              <Lien2PrintButton order={created} className="btn btn--ghost ordok__lien2" />
-              <button className="btn btn--primary ordok__new" onClick={startNew}>
-                ＋ Tạo đơn mới
-              </button>
+              <div className="ordok__actrow">
+                <button className="btn btn--ghost" onClick={printBillAndLabel}>
+                  {printed ? 'In lại bill' : 'In bill'}
+                </button>
+                <Lien2PrintButton order={created} className="btn btn--ghost" />
+              </div>
+              <div className="ordok__actrow">
+                <button className="btn btn--primary" onClick={startNew}>Tạo đơn mới</button>
+                <button className="btn btn--ghost" onClick={() => navigate('/board')}>Đơn hàng</button>
+              </div>
             </div>
             <p className="ordok__hint">
               {autoPrint === false
@@ -735,11 +753,25 @@ export default function OrderNew() {
                 /* BƯỚC 1 — Khách & giờ giao (có nhập liệu, ít trường) */
                 <div className="cfm__cols">
                   <div className="cfm__col">
-                    <label className="field">
-                      <span>SĐT khách (trống = vãng lai)</span>
-                      <input className="input" type="tel" inputMode="numeric" placeholder="VD 0905..."
-                        value={phone} onChange={(e) => setPhone(e.target.value)} />
-                    </label>
+                    <div className="cust-ac">
+                      <label className="field">
+                        <span>SĐT khách (trống = vãng lai)</span>
+                        <input className="input" type="tel" inputMode="numeric" placeholder="VD 0905..."
+                          value={phone} onChange={(e) => { setPhone(e.target.value); setSugOpen(true) }} />
+                      </label>
+                      {sugOpen && custSug.length > 0 && (
+                        <ul className="cust-ac__list">
+                          {custSug.map((c) => (
+                            <li key={c.id}>
+                              <button type="button" className="cust-ac__item" onClick={() => pickCust(c)}>
+                                <span className="cust-ac__name">{c.full_name || '(chưa có tên)'}</span>
+                                <span className="cust-ac__phone">{c.phone || '—'}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                     {phone.trim() && (
                       <p className={`cust-hint ${custFound ? 'cust-hint--known' : ''}`}>
                         {custFound ? `✓ Khách quen: ${custFound.full_name || '(chưa có tên)'}` : 'Khách mới — nhập tên'}

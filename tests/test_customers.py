@@ -47,6 +47,23 @@ async def test_find_by_phone(client: AsyncClient, cctx: dict):
     assert none.json()["total"] == 0
 
 
+# ── Stage 6.49: GET /customers?q= (autocomplete khớp một phần SĐT HOẶC tên) ──
+async def test_search_q_partial_phone_or_name(client: AsyncClient, cctx: dict):
+    h = auth_headers(cctx["staff_token"])
+    await client.post(CUSTOMERS, json={"full_name": "Anh Hiếu", "phone": "0905123456"}, headers=h)
+    await client.post(CUSTOMERS, json={"full_name": "Chị Mai", "phone": "0905999000"}, headers=h)
+    # khớp MỘT PHẦN sđt → cả 2 (cùng tiền tố 0905)
+    r = await client.get(f"{CUSTOMERS}?q=0905&limit=8", headers=h)
+    assert r.status_code == 200
+    assert r.json()["total"] == 2
+    # khớp theo TÊN (một phần, không phân biệt hoa thường)
+    r2 = await client.get(f"{CUSTOMERS}?q=hi%E1%BA%BFu&limit=8", headers=h)  # "hiếu"
+    phones = [c["phone"] for c in r2.json()["items"]]
+    assert "0905123456" in phones and "0905999000" not in phones
+    # không khớp → rỗng
+    assert (await client.get(f"{CUSTOMERS}?q=zzzz", headers=h)).json()["total"] == 0
+
+
 async def test_cross_tenant_isolation(client: AsyncClient, cctx: dict, owner2: dict):
     made = await client.post(CUSTOMERS, json={"phone": "0900111999"},
                              headers=auth_headers(cctx["staff_token"]))

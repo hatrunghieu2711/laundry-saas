@@ -21,9 +21,10 @@ async def list_customers(
     db: DbSession,
     page: PageParams,
     phone: Annotated[str | None, Query()] = None,
+    q: Annotated[str | None, Query()] = None,
 ) -> Page[CustomerOut]:
     items, total = await customer_service.list_customers(
-        db, actor.tenant_id, page, phone=phone
+        db, actor.tenant_id, page, phone=phone, q=q
     )
     return Page[CustomerOut](items=items, total=total, limit=page.limit, offset=page.offset)
 

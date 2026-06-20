@@ -3372,6 +3372,32 @@ body {
   color: #15803d;
   font-weight: 700;
 }
+/* Autocomplete khách (6.49): dropdown gợi ý dưới ô SĐT. KHÔNG box-shadow (bug paint
+   Chrome 56) — chỉ border 1px + radius. Khối nhỏ, overflow cuộn an toàn. */
+.cust-ac { position: relative; }
+.cust-ac__list {
+  position: absolute;
+  top: 100%; left: 0; right: 0;
+  z-index: 20;
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  max-height: 264px;
+  overflow-y: auto;
+}
+.cust-ac__item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; min-height: 40px; padding: 0 12px;
+  background: none; border: none; border-bottom: 1px solid var(--line);
+  text-align: left; cursor: pointer;
+}
+.cust-ac__list li:last-child .cust-ac__item { border-bottom: none; }
+.cust-ac__item:active { background: var(--bg); }
+.cust-ac__name { font-size: 14px; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cust-ac__phone { font-size: 13px; color: var(--muted); margin-left: 10px; flex: 0 0 auto; }
 /* Trong modal: pickup gọn lại */
 .modal--confirm .pickup > * + * {
   margin-top: 8px;
@@ -4633,24 +4659,16 @@ body {
   color: var(--muted);
   font-weight: 400;
 }
+/* Màn "đã tạo đơn" (6.49): 4 nút → 2 HÀNG, mỗi hàng 2 nút flex:1, cách nhau margin (KHÔNG gap). */
 .ordok__actions {
   display: flex;
+  flex-direction: column;
   margin-top: 14px;
 }
-.ordok__actions > * + * {
-  margin-left: 10px;
-}
-.ordok__print,
-.ordok__lien2 {
-  flex: 0 0 auto;
-  min-height: 44px;
-  border-radius: 8px;
-}
-.ordok__new {
-  flex: 1 1 auto;
-  min-height: 44px;
-  border-radius: 8px;
-}
+.ordok__actions > * + * { margin-top: 10px; }
+.ordok__actrow { display: flex; }
+.ordok__actrow > * { flex: 1 1 0; min-height: 44px; border-radius: 8px; }
+.ordok__actrow > * + * { margin-left: 10px; }
 .ordok__hint {
   margin: 10px 0 0;
   text-align: center;
