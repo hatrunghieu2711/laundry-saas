@@ -328,7 +328,7 @@ export default function Board() {
       <input
         className="topbar-actions__search"
         type="search"
-        placeholder="🔍 Tìm mã đơn / tên / SĐT…"
+        placeholder="Tìm mã đơn / tên / SĐT…"
         value={search}
         onChange={(e) => setSearch(e.target.value)}
         aria-label="Tìm đơn"
@@ -589,7 +589,7 @@ export default function Board() {
             </div>
 
             <div className="pay-methods">
-              {[['cash', '💵 Tiền mặt'], ['transfer', '🏦 Chuyển khoản']].map(([k, lbl]) => (
+              {[['cash', 'Tiền mặt'], ['transfer', 'Chuyển khoản']].map(([k, lbl]) => (
                 <button
                   key={k}
                   className={`pay-method ${payMethod === k ? 'pay-method--on' : ''}`}
@@ -622,7 +622,7 @@ export default function Board() {
                 </button>
               ) : (
                 <button className="btn btn--ghost btn--lg btn--block" onClick={() => setDebtMode(true)} disabled={payBusy}>
-                  📝 Ghi nợ (khách trả sau)
+                  Ghi nợ (khách trả sau)
                 </button>
               )}
             </div>
