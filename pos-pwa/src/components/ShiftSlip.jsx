@@ -7,11 +7,14 @@ import { formatDateTime, formatVND, toNumber } from '../lib/format'
 // - report: Biên bản giao ca — đối soát tiền + rút nộp chủ + để lại ca sau.
 const sid = (id) => (id ? String(id).slice(0, 8).toUpperCase() : '—')
 
-function Row({ label, value, total }) {
+// total = dòng tổng (to + đậm + viền trên); emph = nhấn cả dòng (to vừa + đậm, vd Rút nộp chủ);
+// strong = chỉ ĐẬM số tiền (nhãn thường), dùng cho dòng chênh lệch.
+function Row({ label, value, total, emph, strong }) {
+  const rowCls = total ? 'rcp__row--total' : emph ? 'rcp__row--emph' : ''
   return (
-    <div className={`rcp__row ${total ? 'rcp__row--total' : ''}`}>
+    <div className={`rcp__row ${rowCls}`}>
       <span className="rcp__row-lbl">{label}</span>
-      <span className="rcp__row-amt">{value}</span>
+      <span className={`rcp__row-amt ${strong ? 'rcp__row-amt--strong' : ''}`}>{value}</span>
     </div>
   )
 }
@@ -30,14 +33,13 @@ function HandoverReceipt({ shift, branchName }) {
       <Row label="Mở ca" value={formatDateTime(shift.opened_at)} />
       <Row label="Đóng ca" value={formatDateTime(shift.closed_at)} />
       <Row label="Nhân viên nộp" value={shift.closed_by_name || '—'} />
-      <div className="rcp__divider" />
+      {/* Bỏ divider dashed phía trên — dùng VIỀN TRÊN của dòng total làm 1 đường (6.75). */}
       <Row label="SỐ TIỀN NỘP" value={formatVND(shift.handover_to_owner)} total />
-      <div className="rcp__divider" />
       {hasDiff && (
         <>
           {openingDiff !== 0 && (
             <>
-              <Row label="Chênh lệch đầu ca" value={`${openingDiff > 0 ? '+' : ''}${formatVND(shift.opening_diff)}`} />
+              <Row label="Chênh lệch mở ca" value={`${openingDiff > 0 ? '+' : ''}${formatVND(shift.opening_diff)}`} strong />
               {shift.opening_diff_reason && (
                 <div className="sslip__reason">Lý do: {shift.opening_diff_reason}</div>
               )}
@@ -45,15 +47,15 @@ function HandoverReceipt({ shift, branchName }) {
           )}
           {cashDiff !== 0 && (
             <>
-              <Row label="Chênh lệch cuối ca" value={`${cashDiff > 0 ? '+' : ''}${formatVND(shift.cash_difference)}`} />
+              <Row label="Chênh lệch đóng ca" value={`${cashDiff > 0 ? '+' : ''}${formatVND(shift.cash_difference)}`} strong />
               {shift.cash_diff_reason && (
                 <div className="sslip__reason">Lý do: {shift.cash_diff_reason}</div>
               )}
             </>
           )}
-          <div className="rcp__divider" />
         </>
       )}
+      <div className="rcp__divider" />
     </div>
   )
 }
@@ -79,22 +81,25 @@ function HandoverReport({ shift, branchName }) {
       <Row label="Đếm thực tế" value={formatVND(shift.closing_cash_actual)} />
       <Row label="Chênh lệch" value={formatVND(shift.cash_difference)} total />
       {toNumber(shift.cash_difference) !== 0 && shift.cash_diff_reason && (
-        <div className="sslip__reason">Lý do lệch cuối ca: {shift.cash_diff_reason}</div>
+        <div className="sslip__reason">Lý do: {shift.cash_diff_reason}</div>
       )}
       {shift.opening_diff != null && toNumber(shift.opening_diff) !== 0 && (
         <>
+          {/* Dòng phân tách cuối ca ↔ mở ca — chỉ in khi CÓ khối lệch mở ca (opening_diff≠0). */}
+          <div className="sslip__sep" />
           <Row
-            label="Lệch đầu ca"
+            label="Chênh lệch mở ca"
             value={`${toNumber(shift.opening_diff) > 0 ? '+' : ''}${formatVND(shift.opening_diff)}`}
+            strong
           />
           {shift.opening_diff_reason && (
-            <div className="sslip__reason">Lý do lệch đầu ca: {shift.opening_diff_reason}</div>
+            <div className="sslip__reason">Lý do: {shift.opening_diff_reason}</div>
           )}
         </>
       )}
 
       <div className="rcp__divider" />
-      <Row label="Rút nộp chủ" value={formatVND(shift.handover_to_owner)} />
+      <Row label="Rút nộp chủ" value={formatVND(shift.handover_to_owner)} emph />
       <Row label="Tiền để lại ca sau" value={formatVND(shift.cash_left_for_next)} total />
 
       <div className="rcp__divider" />

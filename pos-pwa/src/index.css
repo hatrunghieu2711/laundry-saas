@@ -4500,12 +4500,17 @@ body {
 .rcp.sslip .rcp__field { font-size: 12px; }
 .rcp.sslip .rcp__row { font-size: 13px; }
 .rcp.sslip .rcp__row--total { font-size: 16px; }
+/* 6.75: nhấn cả dòng (Rút nộp chủ) — to vừa + đậm; và ĐẬM riêng số tiền (dòng chênh lệch). */
+.rcp.sslip .rcp__row--emph { font-size: 15px; font-weight: 800; }
+.rcp.sslip .rcp__row-amt--strong { font-weight: 800; }
 .sslip__title { text-align: center; font-size: 15px; }
 .rcp .sslip__sub { text-align: center; font-size: 13px; font-weight: 700; margin-bottom: 2px; }
 .rcp .sslip__h { font-weight: 800; margin: 2px 0; text-transform: uppercase; font-size: 13px; }
 .rcp .sslip__note { font-size: 12px; font-style: italic; text-align: right; }
 /* Lý do lệch (đầu/cuối ca) — CANH TRÁI, +1 font so với note (6.74). */
 .rcp .sslip__reason { font-size: 12px; text-align: left; word-break: break-word; }
+/* Dòng phân tách cuối ca ↔ mở ca — chấm mảnh, nhẹ hơn divider dashed (6.75). */
+.rcp .sslip__sep { border-top: 1px dotted #000; margin: 4px 0; }
 
 /* ── Báo cáo cho chủ (Stage 6.3) ─────────────────────────────────────── */
 .reports { max-width: 640px; margin: 0 auto; }
