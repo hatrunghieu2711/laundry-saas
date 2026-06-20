@@ -4710,9 +4710,14 @@ body {
   margin: 8px auto;
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 16px;
 }
+/* OrderNew (6.63) — icon inline SVG thay emoji; method tile scope riêng (KHÔNG đụng global). */
+.ordok__check svg { width: 14px; height: 14px; }
+.cfm__dot svg { width: 12px; height: 12px; vertical-align: middle; }
+.cart__del svg { width: 14px; height: 14px; display: block; }
+.cfm .method-btn { border-radius: 6px; border-width: 1px; background: var(--surface); }
 .ordok--wait {
   text-align: center;
 }

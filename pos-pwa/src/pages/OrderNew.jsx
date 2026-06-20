@@ -30,7 +30,6 @@ import {
 const HOURS = Array.from({ length: 24 }, (_, h) => h)
 import { PAYMENT_METHOD } from '../lib/orders'
 import { UNIT_LABEL, normalizeService } from '../lib/services'
-import { DEFAULT_CATEGORY_ICON } from '../lib/categories'
 import { getReceiptConfig } from '../lib/receipt'
 
 const PREPAY_METHODS = ['cash', 'transfer', 'qr']
@@ -313,16 +312,16 @@ export default function OrderNew() {
         (a.display_order ?? 0) - (b.display_order ?? 0) || a.name.localeCompare(b.name),
     )
     const uncat = services.filter((s) => !s.category_id)
-    const list = [{ key: '__fav', label: 'Hay chọn', icon: '⭐', items: favs }]
+    // Tab hiện MONOGRAM (chữ cái đầu label) — KHÔNG dùng icon emoji (6.63, tab render chữ cái).
+    const list = [{ key: '__fav', label: 'Hay chọn', items: favs }]
     for (const c of cats) {
       list.push({
         key: c.id,
         label: c.name,
-        icon: c.icon || DEFAULT_CATEGORY_ICON,
         items: services.filter((s) => s.category_id === c.id),
       })
     }
-    if (uncat.length) list.push({ key: '__other', label: 'Khác', icon: '📦', items: uncat })
+    if (uncat.length) list.push({ key: '__other', label: 'Khác', items: uncat })
     return list
   }, [services])
 
@@ -571,7 +570,7 @@ export default function OrderNew() {
           </div>
         ) : (
           <div className="ordok">
-            <div className="ordok__head"><span className="ordok__check">✓</span> Đã tạo đơn</div>
+            <div className="ordok__head"><span className="ordok__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg></span> Đã tạo đơn</div>
             <div className="ordok__code">
               <span className="ordok__code-lbl">Mã đơn hàng</span>
               <span className="ordok__code-val">{created.order_code}</span>
@@ -631,7 +630,7 @@ export default function OrderNew() {
             {openHasPrev && opening !== '' && toNumber(opening) !== openSug && (
               <>
                 <p className="shift__warn">
-                  ⚠️ Lệch {formatVND(toNumber(opening) - openSug)} so với tiền để lại ca trước ({formatVND(openSug)}). Đếm lại trước khi xác nhận.
+                  Lệch {formatVND(toNumber(opening) - openSug)} so với tiền để lại ca trước ({formatVND(openSug)}). Đếm lại trước khi xác nhận.
                 </p>
                 <label className="field">
                   <span>Lý do lệch (bắt buộc)</span>
@@ -775,7 +774,7 @@ export default function OrderNew() {
           <input
             className="input zones__search"
             type="search"
-            placeholder="🔍 Tìm dịch vụ…"
+            placeholder="Tìm dịch vụ…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -792,7 +791,7 @@ export default function OrderNew() {
                   <div className="cart__top">
                     <span className="cart__name" title={x.name}>{x.name}</span>
                     <button className="cart__del" onClick={() => removeItem(x.id)} aria-label="Xóa">
-                      ✕
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true"><path d="M6 6l12 12 M6 18L18 6" /></svg>
                     </button>
                   </div>
                   <div className="cart__bot">
@@ -836,7 +835,7 @@ export default function OrderNew() {
               <span className="cfm__title">Xác nhận đơn</span>
               <span className="cfm__spacer" />
               <span className="cfm__steps">
-                <span className={`cfm__dot ${step === 1 ? 'cfm__dot--active' : 'cfm__dot--done'}`}>{step === 1 ? '1' : '✓'}</span>
+                <span className={`cfm__dot ${step === 1 ? 'cfm__dot--active' : 'cfm__dot--done'}`}>{step === 1 ? '1' : <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>}</span>
                 <span className={`cfm__bar ${step === 2 ? 'cfm__bar--done' : ''}`} />
                 <span className={`cfm__dot ${step === 2 ? 'cfm__dot--active' : ''}`}>2</span>
               </span>
@@ -870,7 +869,7 @@ export default function OrderNew() {
                     </div>
                     {phone.trim() && (
                       <p className={`cust-hint ${custFound ? 'cust-hint--known' : ''}`}>
-                        {custFound ? `✓ Khách quen: ${custFound.full_name || '(chưa có tên)'}` : 'Khách mới — nhập tên'}
+                        {custFound ? `Khách quen: ${custFound.full_name || '(chưa có tên)'}` : 'Khách mới — nhập tên'}
                       </p>
                     )}
                     <label className="field">
@@ -906,7 +905,7 @@ export default function OrderNew() {
                       </select>
                     </div>
                     <div className={`cfm__when-note ${pickupPast ? 'cfm__when-note--bad' : ''}`}>
-                      {pickupPast ? '⚠️ Giờ giao không ở quá khứ.' : <>Giao lúc: <strong>{formatPickupLong(pickup)}</strong></>}
+                      {pickupPast ? 'Giờ giao không được ở quá khứ.' : <>Giao lúc: <strong>{formatPickupLong(pickup)}</strong></>}
                     </div>
                   </div>
                 </div>
