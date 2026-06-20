@@ -7,11 +7,11 @@ import { api } from '../lib/api'
 import { formatVND } from '../lib/format'
 import { formatPickupBoard, nowVnWall, startOfDayVn, addDaysVn, vnWallToISO } from '../lib/datetime'
 import { ORDER_STATUS } from '../lib/orders'
+import { buildTimeline } from '../lib/timeline'
 
 // Tab "Lịch sử" (Stage 6.38 → hàng mở rộng + timeline 6.41). GET /orders (list) đủ info cơ
 // bản (items/payment/phone); mở 1 hàng → lazy GET /orders/{id} (kèm tracking) dựng timeline.
 const LIMIT = 25
-const PAY_SUB = { paid: 'đã thu', debt: 'nợ', partial: 'thu 1 phần', unpaid: 'chưa thu', refunded: 'đã hoàn' }
 const PAY_LABEL = { paid: 'Đã thu', debt: 'Còn nợ', partial: 'Thu một phần', unpaid: 'Chưa thu', refunded: 'Đã hoàn' }
 
 function timeRange(key) {
@@ -46,30 +46,6 @@ function statusBadge(os) {
     return { label: ORDER_STATUS[os] || 'Đã giao', cls: 'hbadge--done' }
   if (os === 'created') return { label: ORDER_STATUS[os] || 'Mới tạo', cls: 'hbadge--new' }
   return { label: ORDER_STATUS[os] || os, cls: 'hbadge--proc' }
-}
-
-// 4 mốc timeline từ tracking [{status, at}] (asc). washing|drying SỚM NHẤT = "Đang xử lý";
-// cancelled → bước cuối thành "Đã hủy" (đỏ) + giờ hủy.
-function buildTimeline(order) {
-  const m = {}
-  for (const e of order.tracking || []) {
-    if (e.status === 'created' && !m.created) m.created = e.at
-    if ((e.status === 'washing' || e.status === 'drying') && !m.proc) m.proc = e.at
-    if (e.status === 'ready' && !m.ready) m.ready = e.at
-    if (e.status === 'delivered' && !m.delivered) m.delivered = e.at
-    if (e.status === 'cancelled') m.cancelled = e.at
-  }
-  const steps = [
-    { label: 'Nhận đơn', at: m.created, sub: PAY_SUB[order.payment_status], subOk: order.payment_status === 'paid' },
-    { label: 'Đang xử lý', at: m.proc },
-    { label: 'Sẵn sàng', at: m.ready },
-  ]
-  steps.push(
-    m.cancelled
-      ? { label: 'Đã hủy', at: m.cancelled, danger: true }
-      : { label: 'Đã giao', at: m.delivered },
-  )
-  return steps
 }
 
 function Chevron({ open }) {

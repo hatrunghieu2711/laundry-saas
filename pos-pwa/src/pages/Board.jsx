@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import Receipt from '../components/Receipt'
@@ -10,6 +10,8 @@ import { useTopbarSlot } from '../context/TopbarSlotContext'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
 import { formatPickupBoard } from '../lib/datetime'
+import { CANCELLABLE, ORDER_STATUS } from '../lib/orders'
+import { buildTimeline } from '../lib/timeline'
 
 // Dashboard "Đơn hàng" (Stage 6.10 layout + 6.12 thẻ thao tác): 3 cột tại tiệm.
 //   - GỘP washing + drying → "Đang xử lý"; BỎ "Đã giao" (đã giao rời board).
@@ -456,35 +458,110 @@ export default function Board() {
         </div>
       )}
 
-      {/* ── Bottom sheet ☰: 3 thao tác ── */}
-      {sheet && (
-        <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setSheet(null)}>
-          <div className="sheet" onClick={(e) => e.stopPropagation()}>
-            <div className="sheet__title">Đơn {sheet.order.order_code}</div>
-            <button className="sheet__item" onClick={() => navigate(`/orders/${sheet.order.id}`)}>
-              Xem chi tiết
-            </button>
-            <button
-              className="sheet__item"
-              onClick={() => { const id = sheet.order.id; setSheet(null); printBill(id) }}
-            >
-              🖨️ In lại bill
-            </button>
-            {sheet.full
-              ? <Lien2PrintButton order={sheet.full} className="sheet__item" />
-              : <button className="sheet__item" disabled>Đang tải liên 2…</button>}
-            {['created', 'washing', 'drying', 'ready'].includes(sheet.order.order_status) && (
-              <button
-                className="sheet__item sheet__item--danger"
-                onClick={() => { const o = sheet.order; setSheet(null); setCancelModal(o) }}
-              >
-                Hủy đơn
-              </button>
-            )}
-            <button className="sheet__item sheet__cancel" onClick={() => setSheet(null)}>Đóng</button>
+      {/* ── Bottom sheet ☰: thẻ đầy đủ (6.45) ── */}
+      {sheet && (() => {
+        const o = sheet.order
+        const full = sheet.full
+        const paid = o.payment_status === 'paid'
+        const colIdx = COLUMNS.findIndex((c) => c.statuses.includes(o.order_status))
+        const note = (full?.notes ?? o.notes ?? '').trim()
+        const phone = full?.customer_phone || o.customer_phone
+        return (
+          <div className="modal-overlay" role="dialog" aria-modal="true" onClick={() => setSheet(null)}>
+            <div className="sheet sheet--full" onClick={(e) => e.stopPropagation()}>
+              <div className="sheet__grip" />
+
+              {/* HEADER: mã + badge thu + badge trạng thái */}
+              <div className="sheet__hd">
+                <span className="sheet__code">{o.order_code}</span>
+                <span className={`sheet__pay ${paid ? 'is-ok' : 'is-due'}`}>{paid ? 'Đã thu' : 'Chưa thu'}</span>
+                <span className="sheet__status">{ORDER_STATUS[o.order_status] || o.order_status}</span>
+              </div>
+
+              {/* KHÁCH + TIỀN */}
+              <div className="sheet__cust">
+                <span className="sheet__cust-l">Khách: {o.customer_name || 'Khách lẻ'}{phone ? ` · ${phone}` : ''}</span>
+                <span className="sheet__cust-r">
+                  <span className="sheet__total">{formatVND(o.total_amount)}</span>
+                  <span className={`sheet__paytag ${paid ? 'is-ok' : 'is-due'}`}>{paid ? 'Đã thu' : 'Chưa thu'}</span>
+                </span>
+              </div>
+
+              {/* DỊCH VỤ */}
+              <div className="sheet__sec">
+                <span className="sheet__lbl">Dịch vụ</span>
+                {full
+                  ? (full.items || []).map((it) => (
+                      <span className="sheet__svc" key={it.id}>{it.service_name} ×{toNumber(it.quantity)}</span>
+                    ))
+                  : <span className="sheet__svc sheet__muted">Đang tải…</span>}
+              </div>
+
+              {/* GHI CHÚ (tái dùng kiểu History) */}
+              <div className="sheet__sec">
+                <span className="sheet__lbl">Ghi chú</span>
+                {note
+                  ? <span className="hexp__note hexp__note--has">{note}</span>
+                  : <span className="hexp__note hexp__note--empty">Không có ghi chú</span>}
+              </div>
+
+              {/* TIMELINE NGANG (tái dùng markup History 6.41-6.42) */}
+              <div className="sheet__sec">
+                <span className="sheet__lbl">Nhật ký thời gian</span>
+                {full ? (
+                  <div className="htl">
+                    {buildTimeline(full).map((s, i) => (
+                      <Fragment key={s.label}>
+                        {i > 0 && (
+                          <div className="htl__link">
+                            <span className={`htl__bar ${s.at ? (s.danger ? 'is-cancel' : 'is-done') : ''}`} />
+                          </div>
+                        )}
+                        <div className={`htl__step ${s.at ? 'is-done' : 'is-todo'} ${s.danger ? 'is-cancel' : ''}`}>
+                          <span className="htl__time">{s.at ? formatPickupBoard(s.at) : '—'}</span>
+                          <span className="htl__dotrow"><span className="htl__dot" /></span>
+                          <span className="htl__name">{s.label}</span>
+                          {s.sub && <span className={`htl__sub ${s.subOk ? 'is-ok' : 'is-due'}`}>{s.sub}</span>}
+                        </div>
+                      </Fragment>
+                    ))}
+                  </div>
+                ) : <span className="sheet__svc sheet__muted">Đang tải…</span>}
+              </div>
+
+              {/* HÀNH ĐỘNG CHÍNH: ← lùi · → tiến (pay-first giữ nguyên) · In liên 2 */}
+              <div className="sheet__main-acts">
+                <button
+                  className="sheet__move"
+                  disabled={colIdx <= 0 || busyId === o.id}
+                  onClick={() => { setSheet(null); move(o, 'back') }}
+                  aria-label={colIdx > 0 ? `Lùi về ${COLUMNS[colIdx - 1].label}` : 'Lùi'}
+                ><Icon name="arrow-left" className="sheet__move-ic" /></button>
+                <button
+                  className="sheet__move sheet__move--next"
+                  disabled={busyId === o.id}
+                  onClick={() => { setSheet(null); move(o, 'fwd') }}
+                  aria-label={COLUMNS[colIdx + 1] ? `Sang ${COLUMNS[colIdx + 1].label}` : 'Giao đơn'}
+                ><Icon name="arrow-right" className="sheet__move-ic" /></button>
+                {full
+                  ? <Lien2PrintButton order={full} className="sheet__lien2" />
+                  : <button className="sheet__lien2" disabled>In liên 2</button>}
+              </div>
+
+              {/* HÀNH ĐỘNG PHỤ: In bill · Chi tiết · Thu tiền · Hủy · Đóng */}
+              <div className="sheet__sub-acts">
+                <button className="sheet__mini" onClick={() => { const id = o.id; setSheet(null); printBill(id) }}>In bill</button>
+                <button className="sheet__mini" onClick={() => navigate(`/orders/${o.id}`)}>Chi tiết</button>
+                <button className="sheet__mini" onClick={() => navigate(`/orders/${o.id}/pay`)}>Thu tiền</button>
+                {CANCELLABLE.has(o.order_status) && (
+                  <button className="sheet__mini sheet__mini--danger" onClick={() => { setSheet(null); setCancelModal(o) }}>Hủy</button>
+                )}
+                <button className="sheet__mini" onClick={() => setSheet(null)}>Đóng</button>
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* ── Popup HỦY ĐƠN (Stage 6.28): lý do bắt buộc + hoàn tiền → sổ luôn cân ── */}
       {cancelModal && (

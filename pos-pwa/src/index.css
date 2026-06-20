@@ -2858,6 +2858,62 @@ body {
 .sheet__item--danger { color: var(--danger); font-weight: 700; } /* Hủy đơn (6.28) — đỏ, căn trái */
 .sheet__cancel { color: var(--danger); text-align: center; margin-top: 4px; }
 
+/* ── Bottom-sheet ĐẦY ĐỦ (6.45): thẻ thao tác trên board. An toàn Chrome 56:
+   spacing bằng margin (KHÔNG gap), radius góc trên 16 KHÔNG shadow, border 1px,
+   sheet dài → overflow-y cuộn. ── */
+.sheet--full {
+  max-width: 480px;
+  padding: 0 14px 14px;
+  max-height: 86vh;
+  overflow-y: auto;
+  border-radius: 16px 16px 0 0;
+}
+.sheet__grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 8px auto 10px; }
+/* HEADER */
+.sheet__hd { display: flex; align-items: center; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+.sheet__code { font-size: 16px; font-weight: 500; color: var(--ink); }
+.sheet__pay { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 10px; }
+.sheet__status { margin-left: auto; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; border: 1px solid var(--line); color: var(--muted); }
+.sheet__pay.is-ok, .sheet__paytag.is-ok { background: var(--ns-success-bg); color: var(--ns-success); }
+.sheet__pay.is-due, .sheet__paytag.is-due { background: var(--ns-danger-bg); color: var(--ns-danger); }
+/* KHÁCH + TIỀN (1 hàng, kẻ trên/dưới) */
+.sheet__cust { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.sheet__cust-l { font-size: 14px; color: var(--ink); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet__cust-r { flex: 0 0 auto; display: flex; align-items: center; margin-left: 10px; }
+.sheet__total { font-size: 15px; font-weight: 700; color: var(--ink); }
+.sheet__paytag { font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 4px; margin-left: 8px; }
+/* SECTIONS */
+.sheet__sec { padding: 10px 0 2px; }
+.sheet__lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+.sheet__svc { display: block; font-size: 14px; color: var(--ink); line-height: 1.6; }
+.sheet__muted { color: var(--muted); font-style: italic; }
+/* HÀNH ĐỘNG CHÍNH: ← → flex:1 bằng nhau · In liên 2 ~38%. Cách nhau bằng margin. */
+.sheet__main-acts { display: flex; align-items: stretch; margin-top: 12px; }
+.sheet__main-acts > * + * { margin-left: 8px; }
+.sheet__move {
+  flex: 1 1 0; display: flex; align-items: center; justify-content: center;
+  min-height: 48px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--ink); cursor: pointer;
+}
+.sheet__move:disabled { opacity: .4; }
+.sheet__move--next { background: var(--orange); border-color: var(--orange); color: #fff; }
+.sheet__move-ic { width: 20px; height: 20px; display: block; }
+.sheet__lien2 {
+  flex: 0 0 38%; min-height: 48px; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 600; cursor: pointer;
+}
+.sheet__lien2:disabled { opacity: .4; }
+/* HÀNH ĐỘNG PHỤ: nút nhỏ flex:1. */
+.sheet__sub-acts { display: flex; margin-top: 8px; }
+.sheet__sub-acts > * + * { margin-left: 6px; }
+.sheet__mini {
+  flex: 1 1 0; min-height: 38px; padding: 0 4px;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: var(--surface); color: var(--ink); font-size: 13px; cursor: pointer; white-space: nowrap;
+}
+.sheet__mini:active { background: var(--bg); }
+.sheet__mini--danger { color: var(--danger); border-color: var(--danger); }
+
 /* Popup giao‑thanh‑toán */
 .pay-due {
   display: flex;
