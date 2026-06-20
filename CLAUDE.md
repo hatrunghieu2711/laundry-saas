@@ -538,6 +538,10 @@ POS thật trước khi coi là xong.**
 ### Spacing
 - Khoảng cách giữa phần tử dùng `margin` hoặc `> * + * { margin-* }`. TUYỆT ĐỐI KHÔNG dùng `flex gap` (Chrome 56 không hỗ trợ — xem mục Chrome 56).
 
+### Font & weight
+- NÚT (.btn và mọi biến thể): font-weight LUÔN 500, TUYỆT ĐỐI KHÔNG >500 (600/700/800). Lý do: trên system-ui = Segoe UI (Chrome PC), weight ≥600 làm chữ IN HOA + dấu tiếng Việt (Ở/Ấ/Ề/Đ...) render dày/bè/méo dấu. Nút nổi bật bằng MÀU + KÍCH THƯỚC, không bằng weight. (Đã trả giá: stage 6.65-6.67 — .btn/.btn--xl/.shift__cta + ~15 class nút khác từng để 600-800.)
+- Weight cao (600+) CHỈ cho chữ/số HIỂN THỊ (tiêu đề, giá tiền, mã đơn, badge) — KHÔNG cho nút. Tab đang chọn (.app-nav__tab--active) 600 là ngoại lệ có chủ đích (báo trạng thái active).
+
 ### Emoji & icon — LUẬT CỨNG
 - KHÔNG dùng emoji trong UI (🖨️ ➡️ ↩️ 💵 🏦 📝 ✅ ⏰ … đều cấm). Đây là luật chung, áp mọi nơi.
 - KHÔNG dùng webfont icon (Tabler `ti ti-*` hay bất kỳ icon-font nào) — lý do: PWA chạy offline + Chrome 56.
