@@ -2497,7 +2497,8 @@ body {
   overflow: hidden;
 }
 .app-menu__item {
-  display: block;
+  display: flex;
+  align-items: center;
   width: 100%;
   text-align: left;
   background: none;
@@ -2536,6 +2537,9 @@ body {
   border-top: 1px solid var(--line);
   color: var(--danger);
 }
+/* Icon menu (6.62) — inline SVG thay emoji; ☰ trên thanh nav to hơn. */
+.app-menu__ic { flex: 0 0 auto; width: 18px; height: 18px; margin-right: 10px; }
+.app-nav__more .app-menu__ic { width: 22px; height: 22px; margin: 0; }
 /* Desktop/POS: 5 cột đầy đủ cạnh nhau, không cuộn ngang. */
 @media (min-width: 1024px) {
   .board__cols {
@@ -4536,8 +4540,8 @@ body {
   font-size: 13px;
   font-weight: 800;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
+  /* 6.62: BỎ text-transform:uppercase — Chrome 56 in-hoa tiếng Việt hỏng dấu (Ề/Ộ…).
+     Tiêu đề viết hoa-thường sẵn trong text, không ép CSS. */
   margin-bottom: 8px;
 }
 .metric {
@@ -4830,8 +4834,6 @@ body {
   font-size: 11px;
   font-weight: 800;
   color: var(--muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
 }
 .panel__row { /* dòng nhãn — giá trị (chỉ số/tổng kết) */
   display: flex;
