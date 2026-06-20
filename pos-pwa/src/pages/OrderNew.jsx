@@ -296,6 +296,14 @@ export default function OrderNew() {
     setError('')
   }
 
+  // Hủy/thoát luồng tạo đơn (Stage 6.53): đơn CHƯA vào DB trước nút "Tạo đơn" cuối →
+  // chỉ điều hướng đi (unmount xóa state nháp), KHÔNG gọi API. Có nhập gì → hỏi xác nhận.
+  const cancelDraft = () => {
+    const hasDraft = cart.length > 0 || phone.trim() || custName.trim() || note.trim()
+    if (hasDraft && !window.confirm('Hủy đơn đang tạo? Thông tin chưa lưu sẽ mất.')) return
+    navigate('/board')
+  }
+
   const openConfirm = async () => {
     if (cart.length === 0) return
     // Đang có phiên (vừa "Thêm dịch vụ") → MỞ LẠI, giữ nguyên thông tin đã nhập;
@@ -751,6 +759,8 @@ export default function OrderNew() {
                 <span className={`cfm__bar ${step === 2 ? 'cfm__bar--done' : ''}`} />
                 <span className={`cfm__dot ${step === 2 ? 'cfm__dot--active' : ''}`}>2</span>
               </span>
+              {/* Thoát luồng tạo đơn — góc trên, tách xa nút "Tạo đơn" (đáy) tránh bấm nhầm. */}
+              <button type="button" className="cfm__cancel" onClick={cancelDraft} disabled={busy}>Hủy</button>
             </div>
 
             <div className="cfm__body">

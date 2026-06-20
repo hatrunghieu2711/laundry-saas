@@ -3509,6 +3509,18 @@ body {
   display: flex;
   align-items: center;
 }
+/* Nút Hủy/thoát (6.53): chữ đỏ nhẹ, góc trên modal — tách xa nút "Tạo đơn" ở đáy. */
+.cfm__cancel {
+  margin-left: 14px;
+  padding: 6px 10px;
+  background: none;
+  border: none;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cfm__cancel:disabled { opacity: .5; }
 .cfm__steps > * + * {
   margin-left: 5px;
 }
