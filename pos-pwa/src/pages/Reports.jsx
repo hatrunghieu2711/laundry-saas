@@ -30,13 +30,17 @@ export function ReportsView({
     return b ? `${b.code} · ${b.name}` : '—'
   }
   const cashDiff = data?.cash_diff
-  const diffTotal = toNumber(cashDiff?.total)
+  // Tổng lệch quỹ kỳ = net CẢ lệch đầu ca (opening_diff) + cuối ca (cash_difference) — cộng ở
+  // FE từ rows (đã có opening_diff từ 6.57). cashDiff.total (BE) chỉ là net lệch cuối ca.
+  const diffTotal = (cashDiff?.rows || []).reduce(
+    (s, r) => s + toNumber(r.cash_difference) + toNumber(r.opening_diff), 0,
+  )
   const hasDiff = cashDiff?.count > 0
 
   return (
     <div className="reports">
       {/* Bộ lọc: khoảng ngày + chi nhánh */}
-      <div className="card reports__filters">
+      <div className="shift__card reports__filters">
         <div className="reports__dates">
           <label className="field field--inline">
             <span>Từ ngày</span>
@@ -82,10 +86,10 @@ export function ReportsView({
               <span className="rcard__sub">{data.handover.count} lần</span>
             </div>
             <div className={`rcard ${hasDiff ? 'rcard--warn' : 'rcard--ok'}`}>
-              <span className="rcard__label">Lệch két</span>
+              <span className="rcard__label">Lệch quỹ ca</span>
               <strong className="rcard__value">{hasDiff ? signed(diffTotal) : '0đ'}</strong>
               <span className="rcard__sub">
-                {hasDiff ? `${cashDiff.count} ca lệch` : 'Tất cả ca khớp ✓'}
+                {hasDiff ? `${cashDiff.count} ca lệch` : 'Tất cả ca khớp'}
               </span>
             </div>
             <div className="rcard rcard--debt">
@@ -96,7 +100,7 @@ export function ReportsView({
           </div>
 
           {/* Doanh thu theo ngày */}
-          <div className="card">
+          <div className="shift__card">
             <h3 className="reports__h">Doanh thu theo ngày</h3>
             {data.revenue.by_day.length === 0 ? (
               <p className="shift__hint">Không có doanh thu trong khoảng này.</p>
@@ -131,10 +135,10 @@ export function ReportsView({
           </div>
 
           {/* Lệch quỹ ca (đầu + cuối) — cảnh báo (Stage 6.57: gồm cả lệch đầu ca) */}
-          <div className="card">
-            <h3 className="reports__h">Lệch quỹ ca (đầu + cuối) {hasDiff && <span className="reports__warn-tag">⚠ thất thoát</span>}</h3>
+          <div className="shift__card">
+            <h3 className="reports__h">Lệch quỹ ca (đầu + cuối) {hasDiff && <span className="reports__warn-tag">thất thoát</span>}</h3>
             {!hasDiff ? (
-              <p className="reports__ok">Tất cả ca khớp ✓ ({cashDiff.matched_count} ca)</p>
+              <p className="reports__ok">Tất cả ca khớp ({cashDiff.matched_count} ca)</p>
             ) : (
               <ul className="reports__list">
                 {cashDiff.rows.map((r) => {
@@ -170,7 +174,7 @@ export function ReportsView({
           </div>
 
           {/* Đã nộp chủ */}
-          <div className="card">
+          <div className="shift__card">
             <h3 className="reports__h">Đã nộp chủ ({data.handover.count})</h3>
             {data.handover.rows.length === 0 ? (
               <p className="shift__hint">Chưa có khoản nộp chủ trong khoảng này.</p>
@@ -192,7 +196,7 @@ export function ReportsView({
           </div>
 
           {/* Nợ chưa thu */}
-          <div className="card">
+          <div className="shift__card">
             <h3 className="reports__h">Nợ chưa thu</h3>
             <div className="summary__row summary__row--head">
               <span>{data.unpaid.order_count} đơn còn nợ</span>

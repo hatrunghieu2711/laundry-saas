@@ -4636,9 +4636,9 @@ body {
   box-sizing: border-box;
 }
 .rcard {
-  background: #fff;
-  border: 1.5px solid var(--line);
-  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
   padding: 14px;
   display: flex;
   flex-direction: column;
