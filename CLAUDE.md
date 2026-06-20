@@ -567,6 +567,7 @@ POS thật trước khi coi là xong.**
 - Stage frontend thuần: không cần gì, live sau build.
 - Mỗi stage cuối báo: hash file mới (JS/CSS), có cần migration/restart không, commit + tag stage riêng.
 - KHÔNG verify UI bằng headless (xem mục Chrome 56) — mọi prompt UI ngầm hiểu điều này, không cần nhắc "KHÔNG kiểm headless" nữa nếu mục này đã có.
+- ⚠️ KHÔNG BAO GIỜ UPDATE password_hash (bcrypt) qua psql command-line: hash bcrypt chứa nhiều ký tự '$' ($2b$12$...) → shell nuốt mất → hash hỏng → passlib UnknownHashError → login 500. Đổi mật khẩu/hash phải qua Python trong container (hash_password trong app.core.security) hoặc qua chức năng reset của app. Session maker app = SessionFactory (app.core.database). (Đã trả giá: đổi user/pass owner 2H.)
 
 ## TEST
 
@@ -744,6 +745,7 @@ POS thật trước khi coi là xong.**
   vào login (vd tenant slug / subdomain / mã tenant), nếu không hai user khác
   tenant trùng phone + trùng password sẽ đăng nhập nhập nhằng (trả về user đầu
   tiên khớp). Xử lý trước khi mở Stage 7.
+- **NỢ: chưa có màn "đổi mật khẩu của chính mình" trong app** — mọi lần đổi MK owner phải vào DB tay (rủi ro). Nên thêm self-service đổi MK (nhất là khi nhiều tenant — chủ tenant khác không vào được DB).
 - **Sinh branch `code` bằng COUNT(*) trong tenant** (B1, B2...). Đếm cả branch đã
   soft-delete để không tái sử dụng code. Có race lý thuyết khi tạo 2 branch đồng
   thời cùng tenant (rất hiếm: chỉ owner tạo, tần suất thấp) — chấp nhận ở MVP.
