@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
+import { useShift } from '../context/ShiftContext'
 import { useTopbarSlot } from '../context/TopbarSlotContext'
 
 // Nav chính: + Tạo đơn · Đơn hàng · Ca · Lịch sử · ☰ (menu).
@@ -51,7 +52,10 @@ export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const { branchId, setBranchId, branches } = useBranch()
+  const { shiftOpen } = useShift()
   const { setSlotEl } = useTopbarSlot()
+  // Nhãn tab "Ca" động (6.71): đang mở → "Đóng ca"; chưa mở → "Mở ca"; chưa biết → "Ca".
+  const caLabel = shiftOpen === true ? 'Đóng ca' : shiftOpen === false ? 'Mở ca' : 'Ca'
   const isOwner = user?.role === 'owner'
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
@@ -90,7 +94,7 @@ export default function Layout({ children }) {
             end={n.end}
             className={({ isActive }) => `app-nav__tab ${isActive ? 'app-nav__tab--active' : ''}`}
           >
-            {n.label}
+            {n.to === '/' ? caLabel : n.label}
           </NavLink>
         ))}
         <div className="app-nav__spacer" />

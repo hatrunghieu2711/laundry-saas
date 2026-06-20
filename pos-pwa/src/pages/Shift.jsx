@@ -5,6 +5,7 @@ import ShiftSlip from '../components/ShiftSlip'
 import ShiftEmpty from '../components/ShiftEmpty'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
+import { useShift } from '../context/ShiftContext'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 
@@ -64,6 +65,7 @@ export default function Shift() {
 
   // Bộ chọn chi nhánh DÙNG CHUNG trên thanh trên cùng (Stage 6.10).
   const { branchId, branches } = useBranch()
+  const { setShiftOpen } = useShift() // đồng bộ nhãn tab "Ca" (6.71)
   const [shift, setShift] = useState(undefined) // undefined=loading, null=chưa có ca, obj=đang mở
   const [summary, setSummary] = useState(null) // client-side (cho form đóng ca)
   const [metrics, setMetrics] = useState(null) // realtime từ GET /shifts/{id}/summary (Stage 6.1)
@@ -177,6 +179,7 @@ export default function Shift() {
       if (isOwner) body.branch_id = branchId
       if (openDiff) body.opening_diff_reason = openReason.trim()
       await api.post('/shifts/open', body)
+      setShiftOpen(true) // 6.71: nhãn tab → "Đóng ca"
       setOpening(''); setOpenReason('')
       setView('main')
       await loadCurrent()
@@ -240,6 +243,7 @@ export default function Shift() {
       }
       setHandoverBoard(board)
       setClosed(res)
+      setShiftOpen(false) // 6.71: nhãn tab → "Mở ca"
       setActual('')
       setHandover('')
       setView('result')
@@ -277,6 +281,7 @@ export default function Shift() {
     setError('')
     try {
       await api.post(`/shifts/${closed.id}/reopen`)
+      setShiftOpen(true) // 6.71: mở lại ca → nhãn tab "Đóng ca"
       setReopenAsk(false)
       setClosed(null)
       setView('main')

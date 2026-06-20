@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { BranchProvider } from './context/BranchContext'
+import { ShiftProvider } from './context/ShiftContext'
 import { TopbarSlotProvider } from './context/TopbarSlotContext'
 import Board from './pages/Board'
 import BranchesManage from './pages/BranchesManage'
@@ -23,9 +24,11 @@ function Protected({ children }) {
   return (
     <ProtectedRoute>
       <BranchProvider>
-        <TopbarSlotProvider>
-          <Layout>{children}</Layout>
-        </TopbarSlotProvider>
+        <ShiftProvider>
+          <TopbarSlotProvider>
+            <Layout>{children}</Layout>
+          </TopbarSlotProvider>
+        </ShiftProvider>
       </BranchProvider>
     </ProtectedRoute>
   )

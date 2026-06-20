@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
+import { useShift } from '../context/ShiftContext'
 import Receipt from '../components/Receipt'
 import MoneyInput from '../components/MoneyInput'
 import ShiftEmpty from '../components/ShiftEmpty'
@@ -45,6 +46,7 @@ export default function OrderNew() {
 
   // Chi nhánh chọn từ HEADER (Stage 6.6.1) — dropdown ở header, không còn hàng riêng.
   const { branchId } = useBranch()
+  const { setShiftOpen } = useShift() // nhãn tab "Ca" động (6.71): mở ca tại đây → set đang-mở
   const [shiftState, setShiftState] = useState('loading') // loading|open|none|needbranch
   const [opening, setOpening] = useState('')      // tiền đầu ca — mở ca ngay tại màn tạo đơn (6.54)
   const [openSug, setOpenSug] = useState(0)
@@ -202,6 +204,7 @@ export default function OrderNew() {
       if (isOwner) body.branch_id = branchId
       if (openDiff) body.opening_diff_reason = openReason.trim()
       await api.post('/shifts/open', body)
+      setShiftOpen(true) // 6.71: ca vừa mở → nhãn tab đổi "Mở ca" → "Đóng ca"
       await checkShift()
     } catch (err) {
       if (err instanceof ApiError && err.code === 'OPENING_DIFF_REASON_REQUIRED') {
