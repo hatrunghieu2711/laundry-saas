@@ -93,7 +93,7 @@ export default function History() {
   const [search, setSearch] = useState('')
   const [q, setQ] = useState('')
   const [timeKey, setTimeKey] = useState('7d')
-  const [statusKey, setStatusKey] = useState('delivered')
+  const [statusKey, setStatusKey] = useState('all')
 
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
@@ -250,12 +250,14 @@ export default function History() {
                               ))}
                               {(!od.items || od.items.length === 0) && <span className="hexp__svc">—</span>}
                             </div>
-                            {note && (
-                              <div className="hexp__col hexp__col--note">
-                                <span className="hexp__lbl">Ghi chú</span>
-                                <span className="hexp__note">{note}</span>
-                              </div>
-                            )}
+                            <div className="hexp__col hexp__col--note">
+                              <span className="hexp__lbl">Ghi chú</span>
+                              {note ? (
+                                <span className="hexp__note hexp__note--has">{note}</span>
+                              ) : (
+                                <span className="hexp__note hexp__note--empty">Không có ghi chú</span>
+                              )}
+                            </div>
                             <div className="hexp__col hexp__col--pay">
                               <span className="hexp__lbl">Thanh toán</span>
                               <span className={`hexp__pay ${payTone}`}>{PAY_LABEL[ps] || ps}</span>

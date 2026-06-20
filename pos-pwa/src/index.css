@@ -4870,14 +4870,18 @@ body {
 .hexp__col + .hexp__col { border-left: 1px solid var(--line); }
 .hexp__col--cust { flex: 0 0 125px; }
 .hexp__col--svc { flex: 2 1 0; }            /* rộng nhất — tên dịch vụ dài */
-.hexp__col--note { flex: 1.4 1 0; }
+.hexp__col--note { flex: 1.6 1 0; }
 .hexp__col--pay { flex: 0 0 105px; }
 .hexp__col--acts { flex: 0 0 116px; justify-content: center; padding-bottom: 0; }
 .hexp__lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 .hexp__name { font-size: 14px; font-weight: 500; color: var(--ink); }
 .hexp__phone { font-size: 13px; color: var(--muted); }
 .hexp__svc { font-size: 14px; color: var(--ink); line-height: 1.6; }   /* mỗi món 1 dòng */
-.hexp__note { font-size: 14px; color: var(--muted); line-height: 1.5; word-break: break-word; }
+.hexp__note { font-size: 14px; line-height: 1.5; word-break: break-word; }
+/* CÓ note → khối nền vàng nhạt nổi bật (token cảnh báo sẵn có, radius 6 nhỏ, KHÔNG shadow/overflow). */
+.hexp__note--has { color: var(--ns-warn); background: var(--ns-warn-bg); padding: 8px 10px; border-radius: 6px; }
+/* KHÔNG note → xám mờ in nghiêng, không nền (cột vẫn hiện để layout ổn định). */
+.hexp__note--empty { font-size: 13px; color: var(--muted); font-style: italic; }
 .hexp__pay { font-size: 14px; font-weight: 500; color: var(--ink); }
 .hexp__pay.is-ok { color: var(--ns-success); }
 .hexp__pay.is-due { color: var(--ns-danger); }
