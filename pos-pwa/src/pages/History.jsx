@@ -70,6 +70,7 @@ export default function History() {
   const [q, setQ] = useState('')
   const [timeKey, setTimeKey] = useState('7d')
   const [statusKey, setStatusKey] = useState('all')
+  const [sortKey, setSortKey] = useState('updated_at') // mặc định: mới cập nhật
 
   const [items, setItems] = useState([])
   const [total, setTotal] = useState(0)
@@ -100,13 +101,13 @@ export default function History() {
         const st = STATUS_FILTERS.find((s) => s.key === statusKey)?.statuses || []
         st.forEach((s) => p.append('order_status', s))
       }
-      // Xếp theo lần CHẠM gần nhất (đổi trạng thái/thu tiền/sửa) — đơn vừa xử lý lên đầu.
-      p.set('sort', 'updated_at')
+      // updated_at = xếp theo lần CHẠM gần nhất (đổi trạng thái/thu tiền/sửa); created_at = mới tạo.
+      p.set('sort', sortKey)
       p.set('limit', LIMIT)
       p.set('offset', off)
       return p
     },
-    [isOwner, branchId, searching, q, timeKey, statusKey],
+    [isOwner, branchId, searching, q, timeKey, statusKey, sortKey],
   )
 
   const load = useCallback(async () => {
@@ -178,7 +179,20 @@ export default function History() {
       </div>
 
       {error && <div className="alert alert--error">{error}</div>}
-      <div className="history__count">{loading && items.length === 0 ? 'Đang tải…' : countLabel}</div>
+      <div className="history__count">
+        <span className="history__count-n">{loading && items.length === 0 ? 'Đang tải…' : countLabel}</span>
+        <span className="history__sort">
+          <span className="history__sort-lbl">Sắp xếp:</span>
+          <button
+            className={`history__sortbtn ${sortKey === 'updated_at' ? 'chip--active' : ''}`}
+            onClick={() => setSortKey('updated_at')}
+          >Mới cập nhật</button>
+          <button
+            className={`history__sortbtn ${sortKey === 'created_at' ? 'chip--active' : ''}`}
+            onClick={() => setSortKey('created_at')}
+          >Mới tạo</button>
+        </span>
+      </div>
       {!loading && items.length === 0 && !error && <p className="history__hint">Không có đơn nào.</p>}
 
       {items.length > 0 && (

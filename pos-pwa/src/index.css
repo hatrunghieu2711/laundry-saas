@@ -4847,7 +4847,19 @@ body {
 .history__search { flex: 2; min-width: 0; min-height: 36px; font-size: 13px; }
 .history__sel { flex: 1; min-width: 0; min-height: 36px; font-size: 13px; }
 .history__hint { color: var(--muted); font-size: 12px; margin: 4px 0; }
-.history__count { font-size: 12px; color: var(--muted); margin: 6px 0 4px; }
+.history__count { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); margin: 6px 0 4px; }
+.history__count-n { min-width: 0; }
+/* Toggle sắp xếp (6.48): nhãn + 2 nút nhỏ, cách nhau margin (KHÔNG gap). */
+.history__sort { display: flex; align-items: center; flex: 0 0 auto; }
+.history__sort-lbl { font-size: 12px; color: var(--muted); margin-right: 6px; }
+.history__sortbtn {
+  padding: 5px 10px; border-radius: 4px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 600;
+  white-space: nowrap; cursor: pointer;
+}
+.history__sortbtn + .history__sortbtn { margin-left: 6px; }
+/* Compound để THẮNG nền của .history__sortbtn (định nghĩa sau .chip--active) — nút chọn nền cam. */
+.history__sortbtn.chip--active { background: var(--orange); border-color: var(--orange); color: #fff; }
 /* Khung list: 1 hộp bo 6px viền 1px; mỗi đơn 1 dòng ngang, kẻ 1px (không thẻ rời + radius). */
 .history__list {
   display: block;
