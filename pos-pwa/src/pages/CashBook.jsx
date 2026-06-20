@@ -200,7 +200,7 @@ export default function CashBook() {
       {shift && (
         <>
           {/* Tổng quan */}
-          <div className="card cashbook__totals">
+          <div className="shift__card cashbook__totals">
             <div className="summary">
               <div className="summary__row">
                 <span>＋ Tổng thu</span>

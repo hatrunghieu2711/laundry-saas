@@ -1192,11 +1192,13 @@ body {
   margin: 5px;
   box-sizing: border-box;
 }
+/* 6.64: kéo global về chuẩn mới (radius 6, border 1px, bg token) — CashBook hết phụ thuộc
+   bản cũ radius 14; OrderPay/OrderNew có scope riêng nên không đổi. */
 .method-btn {
   min-height: 56px;
-  border: 1.5px solid var(--line);
-  background: #fff;
-  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 6px;
   font-size: 17px;
   font-weight: 700;
   cursor: pointer;
