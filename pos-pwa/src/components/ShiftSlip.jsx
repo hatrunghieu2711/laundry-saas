@@ -57,6 +57,17 @@ function HandoverReport({ shift, branchName, board }) {
       <Row label="Phải có" value={formatVND(shift.closing_cash_expected)} />
       <Row label="Đếm thực tế" value={formatVND(shift.closing_cash_actual)} />
       <Row label="Chênh lệch" value={formatVND(shift.cash_difference)} total />
+      {shift.opening_diff != null && toNumber(shift.opening_diff) !== 0 && (
+        <>
+          <Row
+            label="Lệch đầu ca"
+            value={`${toNumber(shift.opening_diff) > 0 ? '+' : ''}${formatVND(shift.opening_diff)}`}
+          />
+          {shift.opening_diff_reason && (
+            <div className="sslip__note">Lý do lệch đầu ca: {shift.opening_diff_reason}</div>
+          )}
+        </>
+      )}
 
       <div className="rcp__divider" />
       <Row label="Rút nộp chủ" value={formatVND(shift.handover_to_owner)} />

@@ -679,6 +679,17 @@ function ResultCard({ closed, onBack, onPrintHandover, onPrintReport, onReopen }
         </div>
       </div>
 
+      {/* Lệch ĐẦU ca (Stage 6.56) — cạnh lệch cuối ca; chỉ hiện khi ≠0. Thiếu=đỏ / thừa=amber. */}
+      {closed.opening_diff != null && toNumber(closed.opening_diff) !== 0 && (
+        <div className={`odiff ${toNumber(closed.opening_diff) < 0 ? 'odiff--short' : 'odiff--over'}`}>
+          <div className="odiff__line">
+            <span>Lệch đầu ca</span>
+            <strong>{`${toNumber(closed.opening_diff) > 0 ? '+' : ''}${formatVND(closed.opening_diff)}`}</strong>
+          </div>
+          {closed.opening_diff_reason && <div className="odiff__reason">Lý do: {closed.opening_diff_reason}</div>}
+        </div>
+      )}
+
       {/* Rút nộp chủ + tiền để lại ca sau (Stage 6.2) */}
       <div className="summary">
         <div className="summary__row"><span>Rút nộp chủ</span><span>{formatVND(closed.handover_to_owner)}</span></div>

@@ -444,6 +444,14 @@ body {
 .diff--danger .diff__note {
   color: var(--danger);
 }
+/* Lệch ĐẦU ca (6.56) — khối nhỏ radius 8 KHÔNG shadow; thiếu(âm)=đỏ / thừa(dương)=amber. */
+.odiff { margin: 8px 0 4px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); }
+.odiff--short { background: var(--danger-soft); border-color: var(--danger); }
+.odiff--over { background: var(--ns-warn-bg); border-color: var(--ns-warn); }
+.odiff__line { display: flex; justify-content: space-between; align-items: baseline; font-size: 15px; font-weight: 700; }
+.odiff--short .odiff__line { color: var(--danger); }
+.odiff--over .odiff__line { color: var(--ns-warn); }
+.odiff__reason { margin-top: 4px; font-size: 13px; color: var(--muted); }
 
 /* Hàng nút (hủy / xác nhận) */
 .row-actions {
