@@ -17,6 +17,10 @@ function Row({ label, value, total }) {
 }
 
 function HandoverReceipt({ shift, branchName }) {
+  // Chênh lệch ca (để chủ nhận tiền thấy ngay) — CHỈ in dòng nào ≠0; ca khớp → không in gì.
+  const openingDiff = toNumber(shift.opening_diff)
+  const cashDiff = toNumber(shift.cash_difference)
+  const hasDiff = openingDiff !== 0 || cashDiff !== 0
   return (
     <div className="rcp sslip">
       <div className="rcp__title sslip__title">BIÊN NHẬN NỘP TIỀN</div>
@@ -29,6 +33,27 @@ function HandoverReceipt({ shift, branchName }) {
       <div className="rcp__divider" />
       <Row label="SỐ TIỀN NỘP" value={formatVND(shift.handover_to_owner)} total />
       <div className="rcp__divider" />
+      {hasDiff && (
+        <>
+          {openingDiff !== 0 && (
+            <>
+              <Row label="Chênh lệch đầu ca" value={`${openingDiff > 0 ? '+' : ''}${formatVND(shift.opening_diff)}`} />
+              {shift.opening_diff_reason && (
+                <div className="sslip__reason">Lý do: {shift.opening_diff_reason}</div>
+              )}
+            </>
+          )}
+          {cashDiff !== 0 && (
+            <>
+              <Row label="Chênh lệch cuối ca" value={`${cashDiff > 0 ? '+' : ''}${formatVND(shift.cash_difference)}`} />
+              {shift.cash_diff_reason && (
+                <div className="sslip__reason">Lý do: {shift.cash_diff_reason}</div>
+              )}
+            </>
+          )}
+          <div className="rcp__divider" />
+        </>
+      )}
     </div>
   )
 }
@@ -53,6 +78,9 @@ function HandoverReport({ shift, branchName }) {
       <Row label="Phải có" value={formatVND(shift.closing_cash_expected)} />
       <Row label="Đếm thực tế" value={formatVND(shift.closing_cash_actual)} />
       <Row label="Chênh lệch" value={formatVND(shift.cash_difference)} total />
+      {toNumber(shift.cash_difference) !== 0 && shift.cash_diff_reason && (
+        <div className="sslip__reason">Lý do lệch cuối ca: {shift.cash_diff_reason}</div>
+      )}
       {shift.opening_diff != null && toNumber(shift.opening_diff) !== 0 && (
         <>
           <Row
@@ -60,7 +88,7 @@ function HandoverReport({ shift, branchName }) {
             value={`${toNumber(shift.opening_diff) > 0 ? '+' : ''}${formatVND(shift.opening_diff)}`}
           />
           {shift.opening_diff_reason && (
-            <div className="sslip__note">Lý do lệch đầu ca: {shift.opening_diff_reason}</div>
+            <div className="sslip__reason">Lý do lệch đầu ca: {shift.opening_diff_reason}</div>
           )}
         </>
       )}
