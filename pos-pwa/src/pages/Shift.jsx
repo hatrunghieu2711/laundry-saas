@@ -396,8 +396,8 @@ export default function Shift() {
 
       {/* ── FORM MỞ CA ── */}
       {view === 'open' && (
-        <form className="card" onSubmit={submitOpen}>
-          <h2 className="card__title">Mở ca</h2>
+        <form className="shift__card" onSubmit={submitOpen}>
+          <h2 className="shift__card-title">Mở ca</h2>
           {openSuggestion > 0 && (
             <p className="shift__hint">
               Gợi ý: ca trước để lại <strong>{formatVND(openSuggestion)}</strong> — đếm lại trong két rồi xác nhận/sửa.
@@ -410,7 +410,7 @@ export default function Shift() {
           {openHasPrev && opening !== '' && toNumber(opening) !== openSuggestion && (
             <>
               <p className="shift__warn">
-                ⚠️ Lệch {formatVND(toNumber(opening) - openSuggestion)} so với tiền để lại ca trước ({formatVND(openSuggestion)}). Đếm lại trước khi xác nhận.
+                Lệch {formatVND(toNumber(opening) - openSuggestion)} so với tiền để lại ca trước ({formatVND(openSuggestion)}). Đếm lại trước khi xác nhận.
               </p>
               <label className="field">
                 <span>Lý do lệch (bắt buộc)</span>
@@ -564,9 +564,9 @@ export default function Shift() {
                   : `${liveDiff > 0 ? '+' : ''}${formatVND(liveDiff)}`}
               </strong>
             </div>
-            {level === 'ok' && <p className="diff__note">Khớp két 👍</p>}
+            {level === 'ok' && <p className="diff__note">Khớp két</p>}
             {(level === 'warn' || level === 'danger') && (
-              <p className="diff__note">⚠️ Lệch tiền, kiểm đếm lại trước khi xác nhận</p>
+              <p className="diff__note">Lệch tiền, kiểm đếm lại trước khi xác nhận</p>
             )}
           </div>
 
@@ -612,7 +612,7 @@ export default function Shift() {
             )}
           </div>
           {handoverInvalid && (
-            <p className="diff__note">⚠️ Tiền nộp chủ vượt quá tiền thực đếm.</p>
+            <p className="diff__note">Tiền nộp chủ vượt quá tiền thực đếm.</p>
           )}
 
           <div className="row-actions">
@@ -635,8 +635,11 @@ function ResultCard({ closed, onBack, onPrintHandover, onPrintReport, onReopen }
   const level = diffLevel(diff)
   const handover = toNumber(closed.handover_to_owner)
   return (
-    <div className="card">
-      <h2 className="card__title">Đã đóng ca ✅</h2>
+    <div className="shift__card">
+      <h2 className="shift__card-title shift__done-title">
+        <svg className="pay__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
+        Đã đóng ca
+      </h2>
       {closed.reopen_count > 0 && (
         <p className="field-note field-note--err">Ca này đã mở lại {closed.reopen_count} lần</p>
       )}

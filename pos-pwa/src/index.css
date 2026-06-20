@@ -312,6 +312,10 @@ body {
   margin: 0 0 14px;
   font-size: 20px;
 }
+/* Shift (6.60) — page-card chuẩn mới: radius 12 + border 1px var(--line), KHÔNG shadow. */
+.shift__card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 16px; }
+.shift__card-title { margin: 0 0 14px; font-size: 18px; font-weight: 700; color: var(--ink); }
+.shift__done-title { display: flex; align-items: center; }
 
 .badge {
   display: inline-block;
@@ -356,9 +360,9 @@ body {
 
 /* Tóm tắt đã thu theo method */
 .summary {
-  background: #fafafa;
+  background: var(--bg);
   border: 1px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 8px;
   padding: 12px 14px;
   margin-bottom: 16px;
 }
@@ -401,12 +405,13 @@ body {
 }
 
 /* Khối chênh lệch — tô màu theo mức lệch */
+/* Khối đối soát lệch (Shift-only) — chuẩn mới: radius 8, border 1px, KHÔNG shadow (6.60). */
 .diff {
-  border-radius: var(--radius);
+  border-radius: 8px;
   padding: 12px 14px;
   margin: 14px 0 4px;
-  border: 1.5px solid var(--line);
-  background: #fafafa;
+  border: 1px solid var(--line);
+  background: var(--bg);
 }
 .diff__line {
   display: flex;
