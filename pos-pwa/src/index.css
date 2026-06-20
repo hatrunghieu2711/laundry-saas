@@ -501,7 +501,7 @@ body {
   border: 1.5px solid var(--line);
   background: #fff;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -632,7 +632,7 @@ body {
 }
 .tier-btn__label {
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 500;
   color: var(--ink);
 }
 .tier-btn__price {
@@ -757,7 +757,7 @@ body {
   border: 1.5px solid var(--line);
   background: #fff;
   font-size: 16px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 .qty-btn--del {
@@ -1200,7 +1200,7 @@ body {
   background: var(--surface);
   border-radius: 6px;
   font-size: 17px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
 }
 .method-btn--active {
@@ -1653,7 +1653,7 @@ body {
   border-radius: 8px;
   background: #fff;
   font-size: 18px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 .lien2m__q--on {
@@ -1923,7 +1923,7 @@ body {
   background: #fff;
   border-radius: var(--radius);
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--ink);
   cursor: pointer;
   padding: 6px 10px;
@@ -2463,7 +2463,7 @@ body {
   padding: 0 12px;
   background: var(--surface);
   border: none;
-  font-weight: 700;
+  font-weight: 500;
   color: var(--muted);
   cursor: pointer;
   white-space: nowrap;
@@ -2858,7 +2858,7 @@ body {
   padding: 0;
   color: #fff;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -2882,13 +2882,13 @@ body {
   border-radius: 8px;
   padding: 14px 12px;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 500;
   color: var(--ink);
   cursor: pointer;
 }
 .sheet__item:disabled { color: var(--ns-text-3); }
 .sheet__item:active { background: var(--bg); }
-.sheet__item--danger { color: var(--danger); font-weight: 700; } /* Hủy đơn (6.28) — đỏ, căn trái */
+.sheet__item--danger { color: var(--danger); font-weight: 500; } /* Hủy đơn (6.28) — đỏ, căn trái */
 .sheet__cancel { color: var(--danger); text-align: center; margin-top: 4px; }
 
 /* ── Bottom-sheet ĐẦY ĐỦ (6.45): thẻ thao tác trên board. An toàn Chrome 56:
@@ -2933,7 +2933,7 @@ body {
 .sheet__move-ic { width: 20px; height: 20px; display: block; }
 .sheet__lien2 {
   flex: 0 0 38%; min-height: 48px; border: 1px solid var(--line); border-radius: 6px;
-  background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 600; cursor: pointer;
+  background: var(--surface); color: var(--ink); font-size: 15px; font-weight: 500; cursor: pointer;
 }
 .sheet__lien2:disabled { opacity: .4; }
 /* HÀNH ĐỘNG PHỤ: nút nhỏ flex:1. */
@@ -2967,7 +2967,7 @@ body {
   border: 1px solid var(--line);
   border-radius: 8px;
   font-size: 15px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 }
 .pay-method--on { border-color: var(--ns-accent); background: #fdf1ec; color: var(--ns-accent); }
@@ -3500,7 +3500,7 @@ body {
 .od__act {
   min-height: 42px; padding: 0 16px; border-radius: 6px;
   border: 1px solid var(--line); background: var(--surface); color: var(--ink);
-  font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  font-size: 14px; font-weight: 500; cursor: pointer; white-space: nowrap;
 }
 .od__act:active { background: var(--bg); }
 .od__act--primary { background: var(--orange); border-color: var(--orange); color: #fff; }
@@ -3898,7 +3898,7 @@ body {
 .svc-fav-toggle {
   display: flex;
   align-items: center;
-  font-weight: 600;
+  font-weight: 500;
   margin: 4px 0 14px;
   cursor: pointer;
 }
@@ -4389,7 +4389,7 @@ body {
   background: #fff;
   border-radius: 8px;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 500;
   cursor: pointer;
   padding: 0 6px;
 }
@@ -4935,7 +4935,7 @@ body {
 .shift__cta {
   min-height: 48px;
   font-size: 17px;
-  font-weight: 800;
+  font-weight: 500;
   margin-bottom: 10px;
 }
 .shift__btnrow { display: flex; }
@@ -5005,7 +5005,7 @@ body {
 .history__sort-lbl { font-size: 12px; color: var(--muted); margin-right: 6px; }
 .history__sortbtn {
   padding: 5px 10px; border-radius: 4px; border: 1px solid var(--line);
-  background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 600;
+  background: var(--surface); color: var(--ink); font-size: 12px; font-weight: 500;
   white-space: nowrap; cursor: pointer;
 }
 .history__sortbtn + .history__sortbtn { margin-left: 6px; }
