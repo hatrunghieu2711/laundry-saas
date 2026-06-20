@@ -233,50 +233,60 @@ export default function History() {
                       const od = det.order
                       const ps = od.payment_status
                       const payTone = ps === 'paid' ? 'is-ok' : ps === 'refunded' ? '' : 'is-due'
+                      const note = (od.notes || '').trim()
                       return (
                         <>
-                          <div className="hexp__info">
-                            <div className="hexp__cell">
+                          {/* HÀNG 1: 5 cột ngang (Ghi chú ẩn nếu trống), ngăn bằng border-left. */}
+                          <div className="hexp__cols">
+                            <div className="hexp__col hexp__col--cust">
                               <span className="hexp__lbl">Khách hàng</span>
                               <span className="hexp__name">{od.customer_name || 'Khách lẻ'}</span>
                               {od.customer_phone && <span className="hexp__phone">{od.customer_phone}</span>}
                             </div>
-                            <div className="hexp__cell">
+                            <div className="hexp__col hexp__col--svc">
                               <span className="hexp__lbl">Dịch vụ</span>
                               {(od.items || []).map((it) => (
                                 <span className="hexp__svc" key={it.id}>{it.service_name} ×{Number(it.quantity)}</span>
                               ))}
                               {(!od.items || od.items.length === 0) && <span className="hexp__svc">—</span>}
                             </div>
-                            <div className="hexp__cell">
+                            {note && (
+                              <div className="hexp__col hexp__col--note">
+                                <span className="hexp__lbl">Ghi chú</span>
+                                <span className="hexp__note">{note}</span>
+                              </div>
+                            )}
+                            <div className="hexp__col hexp__col--pay">
                               <span className="hexp__lbl">Thanh toán</span>
-                              <span className={`hexp__pay ${payTone}`}>{PAY_LABEL[ps] || ps} {formatVND(od.total_amount)}</span>
+                              <span className={`hexp__pay ${payTone}`}>{PAY_LABEL[ps] || ps}</span>
+                              <span className={`hexp__pay ${payTone}`}>{formatVND(od.total_amount)}</span>
+                            </div>
+                            <div className="hexp__col hexp__col--acts">
+                              <button className="btn btn--ghost" onClick={() => window.print()}>In lại bill</button>
+                              <button className="btn btn--ghost" onClick={() => navigate(`/orders/${o.id}`)}>Xem chi tiết</button>
                             </div>
                           </div>
 
-                          {/* Timeline ngang 4 bước — chấm 16px + thanh nối liền (KHÔNG mũi tên). */}
-                          <div className="hexp__tlhead">Nhật ký thời gian</div>
-                          <div className="htl">
-                            {buildTimeline(od).map((s, i) => (
-                              <Fragment key={s.label}>
-                                {i > 0 && (
-                                  <div className="htl__link">
-                                    <span className={`htl__bar ${s.at ? (s.danger ? 'is-cancel' : 'is-done') : ''}`} />
+                          {/* HÀNG 2: timeline 4 bước — chấm 16px + thanh nối liền (border-top ngăn). */}
+                          <div className="hexp__tl">
+                            <div className="hexp__tlhead">Nhật ký thời gian</div>
+                            <div className="htl">
+                              {buildTimeline(od).map((s, i) => (
+                                <Fragment key={s.label}>
+                                  {i > 0 && (
+                                    <div className="htl__link">
+                                      <span className={`htl__bar ${s.at ? (s.danger ? 'is-cancel' : 'is-done') : ''}`} />
+                                    </div>
+                                  )}
+                                  <div className={`htl__step ${s.at ? 'is-done' : 'is-todo'} ${s.danger ? 'is-cancel' : ''}`}>
+                                    <span className="htl__time">{s.at ? formatPickupBoard(s.at) : '—'}</span>
+                                    <span className="htl__dotrow"><span className="htl__dot" /></span>
+                                    <span className="htl__name">{s.label}</span>
+                                    {s.sub && <span className={`htl__sub ${s.subOk ? 'is-ok' : 'is-due'}`}>{s.sub}</span>}
                                   </div>
-                                )}
-                                <div className={`htl__step ${s.at ? 'is-done' : 'is-todo'} ${s.danger ? 'is-cancel' : ''}`}>
-                                  <span className="htl__time">{s.at ? formatPickupBoard(s.at) : '—'}</span>
-                                  <span className="htl__dotrow"><span className="htl__dot" /></span>
-                                  <span className="htl__name">{s.label}</span>
-                                  {s.sub && <span className={`htl__sub ${s.subOk ? 'is-ok' : 'is-due'}`}>{s.sub}</span>}
-                                </div>
-                              </Fragment>
-                            ))}
-                          </div>
-
-                          <div className="hexp__acts">
-                            <button className="btn btn--ghost" onClick={() => window.print()}>In lại bill</button>
-                            <button className="btn btn--ghost" onClick={() => navigate(`/orders/${o.id}`)}>Xem chi tiết đầy đủ</button>
+                                </Fragment>
+                              ))}
+                            </div>
                           </div>
                         </>
                       )

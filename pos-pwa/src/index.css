@@ -4861,20 +4861,34 @@ body {
   border-top: 1px solid var(--line);
   padding: 16px 16px 18px;
 }
-/* Info cơ bản: lưới ngang wrap, khoảng cách bằng margin (KHÔNG gap). */
-.hexp__info { display: flex; flex-wrap: wrap; margin-bottom: 6px; }
-.hexp__cell { display: flex; flex-direction: column; min-width: 0; margin: 0 32px 12px 0; }
+/* HÀNG 1 — 5 CỘT NGANG (6.43): ngăn bằng border-left 1px; co giãn → flex-wrap khi máy hẹp
+   (KHÔNG flex gap — dùng padding trong cột + border-left). box-sizing border-box để bề rộng
+   cố định ĐÃ GỒM padding. */
+.hexp__cols { display: flex; flex-wrap: wrap; align-items: stretch; }
+.hexp__col { box-sizing: border-box; display: flex; flex-direction: column; min-width: 0; padding: 0 12px 8px; }
+.hexp__col:first-child { padding-left: 0; }
+.hexp__col + .hexp__col { border-left: 1px solid var(--line); }
+.hexp__col--cust { flex: 0 0 125px; }
+.hexp__col--svc { flex: 2 1 0; }            /* rộng nhất — tên dịch vụ dài */
+.hexp__col--note { flex: 1.4 1 0; }
+.hexp__col--pay { flex: 0 0 105px; }
+.hexp__col--acts { flex: 0 0 116px; justify-content: center; padding-bottom: 0; }
 .hexp__lbl { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-.hexp__name { font-size: 15px; font-weight: 600; color: var(--ink); }
-.hexp__phone { font-size: 14px; color: var(--ns-text-2); }
-.hexp__svc { font-size: 14px; color: var(--ink); line-height: 1.7; }   /* mỗi món 1 dòng */
-.hexp__pay { font-size: 15px; font-weight: 600; color: var(--ink); }
+.hexp__name { font-size: 14px; font-weight: 500; color: var(--ink); }
+.hexp__phone { font-size: 13px; color: var(--muted); }
+.hexp__svc { font-size: 14px; color: var(--ink); line-height: 1.6; }   /* mỗi món 1 dòng */
+.hexp__note { font-size: 14px; color: var(--muted); line-height: 1.5; word-break: break-word; }
+.hexp__pay { font-size: 14px; font-weight: 500; color: var(--ink); }
 .hexp__pay.is-ok { color: var(--ns-success); }
 .hexp__pay.is-due { color: var(--ns-danger); }
+/* 2 nút xếp DỌC trong cột: font 12, padding gọn, chữ thuần (KHÔNG icon webfont). */
+.hexp__col--acts .btn { width: 100%; font-size: 12px; padding: 7px 8px; min-height: 0; }
+.hexp__col--acts .btn + .btn { margin-top: 6px; }
 
-/* Timeline NGANG: chấm 16px + thanh nối liền 2px (KHÔNG mũi tên/gap). time(trên 13/500) ·
-   chấm · tên(dưới 13/500) · nhãn thu-nợ. Căn giữa thanh nối theo hàng chấm bằng margin-top. */
-.hexp__tlhead { font-size: 12px; color: var(--muted); margin: 8px 0 14px; }
+/* HÀNG 2 — timeline NGANG: chấm 16px + thanh nối liền 2px (KHÔNG mũi tên/gap). time(trên
+   13/500) · chấm · tên(dưới 13/500) · nhãn thu-nợ. Ngăn hàng 1 bằng border-top 1px. */
+.hexp__tl { border-top: 1px solid var(--line); margin-top: 12px; padding-top: 14px; }
+.hexp__tlhead { font-size: 12px; color: var(--muted); margin: 0 0 14px; }
 .htl { display: flex; align-items: flex-start; padding: 0 4px; }
 .htl__step {
   flex: 1 1 0;
@@ -4907,11 +4921,6 @@ body {
 .htl__bar { display: block; width: 100%; height: 2px; background: var(--line); }
 .htl__bar.is-done { background: var(--ns-success); }
 .htl__bar.is-cancel { background: var(--ns-danger); }
-
-/* Nút: 2 nút chia đôi, font 14, cao ~42 cho dễ bấm POS; cách nhau bằng margin. */
-.hexp__acts { display: flex; margin-top: 16px; }
-.hexp__acts > * + * { margin-left: 12px; }
-.hexp__acts > .btn { flex: 1 1 0; font-size: 14px; min-height: 42px; }
 /* Badge trạng thái (font 11, radius 4, không shadow): giao xanh / hủy đỏ / mới tạo amber / đang xử lý cam. */
 .hbadge { flex: 0 0 auto; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; white-space: nowrap; }
 .hbadge--done { background: var(--ns-success-bg); color: var(--ns-success); }
