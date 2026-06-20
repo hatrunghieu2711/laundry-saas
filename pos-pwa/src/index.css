@@ -2987,8 +2987,10 @@ body {
 }
 .modal {
   background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
+  /* CHUẨN STYLE UI (6.72): radius 6 + border 1px, BỎ shadow (khối lớn — Chrome 56 paint).
+     Khớp .panel/.panel--modal/.cfm → MỌI modal cùng radius 6. Overlay mờ tự tách nền. */
+  border: 1px solid var(--line);
+  border-radius: 6px;
   width: 100%;
   max-width: 440px;
   padding: 20px;
