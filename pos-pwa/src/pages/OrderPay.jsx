@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
+import Receipt from '../components/Receipt'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
 import { PAYMENT_METHOD } from '../lib/orders'
@@ -115,6 +116,14 @@ export default function OrderPay() {
           >
             Đổi trạng thái đơn
           </button>
+          {/* Khách đã cầm bill cũ "CHƯA THANH TOÁN" → in tờ mới (Receipt đọc data hiện tại = paid). */}
+          <button
+            className="btn btn--ghost btn--lg btn--block"
+            style={{ marginTop: 10 }}
+            onClick={() => window.print()}
+          >
+            In lại bill
+          </button>
         </div>
       ) : (
         <div className="card">
@@ -153,6 +162,9 @@ export default function OrderPay() {
           </button>
         </div>
       )}
+
+      {/* Bill ẩn (in lại) — @media print hiện .print-receipt, ẩn #root. Đọc order hiện tại. */}
+      <Receipt order={order} />
     </div>
   )
 }
