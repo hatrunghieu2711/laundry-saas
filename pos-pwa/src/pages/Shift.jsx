@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
 import ShiftSlip from '../components/ShiftSlip'
+import ShiftEmpty from '../components/ShiftEmpty'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import { ApiError, api } from '../lib/api'
@@ -376,8 +377,7 @@ export default function Shift() {
 
       {/* ── CHƯA CÓ CA → MỞ CA ── */}
       {view === 'main' && shift === null && (!isOwner || branchId) && (
-        <div className="shift__empty">
-          <div className="shift__empty-icon">🕒</div>
+        <ShiftEmpty>
           <p>Chưa có ca nào đang mở.</p>
           <button className="btn btn--primary btn--xl btn--block" onClick={startOpen}>
             MỞ CA
@@ -391,7 +391,7 @@ export default function Shift() {
               Xem ca vừa đóng
             </button>
           )}
-        </div>
+        </ShiftEmpty>
       )}
 
       {/* ── FORM MỞ CA ── */}

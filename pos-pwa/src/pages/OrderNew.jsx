@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import Receipt from '../components/Receipt'
 import MoneyInput from '../components/MoneyInput'
+import ShiftEmpty from '../components/ShiftEmpty'
 import { Lien2PrintLayer } from '../components/Lien2Label'
 import Lien2PrintButton from '../components/Lien2PrintButton'
 import { usePrintQueue } from '../lib/printQueue'
@@ -620,8 +621,7 @@ export default function OrderNew() {
   if (shiftState === 'none') {
     return (
       <div className="ordernew">
-        <div className="shift__empty">
-          <div className="shift__empty-icon">🕒</div>
+        <ShiftEmpty>
           <p>Cần mở ca trước khi tạo đơn.</p>
           <div className="on-open">
             <label className="field">
@@ -653,7 +653,7 @@ export default function OrderNew() {
               Tới màn Ca
             </button>
           </div>
-        </div>
+        </ShiftEmpty>
       </div>
     )
   }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
+import ShiftEmpty from '../components/ShiftEmpty'
 import { useAuth } from '../context/AuthContext'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
@@ -188,13 +189,12 @@ export default function CashBook() {
       {shift === undefined && branchId && <p className="shift__hint">Đang tải sổ quỹ…</p>}
 
       {shift === null && (!isOwner || branchId) && (
-        <div className="shift__empty">
-          <div className="shift__empty-icon">🕒</div>
+        <ShiftEmpty>
           <p>Chưa có ca nào đang mở.</p>
           <button className="btn btn--primary btn--xl btn--block" onClick={() => navigate('/')}>
             Về màn ca để mở ca
           </button>
-        </div>
+        </ShiftEmpty>
       )}
 
       {shift && (

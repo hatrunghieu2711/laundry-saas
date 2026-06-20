@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
 import Receipt from '../components/Receipt'
+import ShiftEmpty from '../components/ShiftEmpty'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
 import { PAYMENT_METHOD } from '../lib/orders'
@@ -78,13 +79,12 @@ export default function OrderPay() {
   if (hasShift === false) {
     return (
       <div className="pay">
-        <div className="shift__empty">
-          <div className="shift__empty-icon">🕒</div>
+        <ShiftEmpty>
           <p>Cần mở ca trước khi thu tiền.</p>
           <button className="btn btn--primary btn--xl btn--block" onClick={() => navigate('/')}>
             Về màn ca
           </button>
-        </div>
+        </ShiftEmpty>
       </div>
     )
   }
