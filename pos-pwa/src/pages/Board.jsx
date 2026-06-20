@@ -521,7 +521,6 @@ export default function Board() {
                           <span className="htl__time">{s.at ? formatPickupBoard(s.at) : '—'}</span>
                           <span className="htl__dotrow"><span className="htl__dot" /></span>
                           <span className="htl__name">{s.label}</span>
-                          {s.sub && <span className={`htl__sub ${s.subOk ? 'is-ok' : 'is-due'}`}>{s.sub}</span>}
                         </div>
                       </Fragment>
                     ))}

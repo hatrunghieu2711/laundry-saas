@@ -1,16 +1,7 @@
 // Map tracking logs ([{status, at}]) → 4 bước timeline. Dùng chung tab Lịch sử
 // (History.jsx) + bottom-sheet ☰ trên board (Board.jsx). Nguồn tracking = GET
-// /orders/{id} (OrderDetailOut.tracking, Stage 6.41).
-export const PAY_SUB = {
-  paid: 'đã thu',
-  debt: 'nợ',
-  partial: 'thu 1 phần',
-  unpaid: 'chưa thu',
-  refunded: 'đã hoàn',
-}
-
-// washing|drying SỚM NHẤT = "Đang xử lý"; cancelled → bước cuối thành "Đã hủy" (đỏ).
-// Bước chưa có mốc → at=undefined (UI hiện mờ "—").
+// /orders/{id} (OrderDetailOut.tracking, Stage 6.41). TIMELINE THUẦN trạng thái xử
+// lý — KHÔNG kèm nhãn thanh toán (tình trạng thu đã có ở badge cạnh mã/tiền — 6.46).
 export function buildTimeline(order) {
   const m = {}
   for (const e of order.tracking || []) {
@@ -21,7 +12,7 @@ export function buildTimeline(order) {
     if (e.status === 'cancelled') m.cancelled = e.at
   }
   const steps = [
-    { label: 'Nhận đơn', at: m.created, sub: PAY_SUB[order.payment_status], subOk: order.payment_status === 'paid' },
+    { label: 'Nhận đơn', at: m.created },
     { label: 'Đang xử lý', at: m.proc },
     { label: 'Sẵn sàng', at: m.ready },
   ]
