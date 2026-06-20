@@ -553,7 +553,7 @@ export default function Board() {
                 <button className="sheet__mini" onClick={() => navigate(`/orders/${o.id}`)}>Chi tiết</button>
                 <button className="sheet__mini" onClick={() => navigate(`/orders/${o.id}/pay`)}>Thu tiền</button>
                 {CANCELLABLE.has(o.order_status) && (
-                  <button className="sheet__mini sheet__mini--danger" onClick={() => { setSheet(null); setCancelModal(o) }}>Hủy</button>
+                  <button className="sheet__mini sheet__mini--danger" onClick={() => { setSheet(null); setCancelModal(o) }}>Hủy đơn</button>
                 )}
                 <button className="sheet__mini" onClick={() => setSheet(null)}>Đóng</button>
               </div>

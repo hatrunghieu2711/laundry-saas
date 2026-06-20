@@ -324,6 +324,20 @@ async def test_get_order_includes_tracking(client: AsyncClient, octx: dict):
     assert all(e["at"] for e in tr)  # mỗi mốc có thời gian
 
 
+# ── Stage 6.47: GET /orders?sort=updated_at (tab Lịch sử) ───────────────────
+async def test_list_sort_updated_at(client: AsyncClient, octx: dict):
+    t = octx["staff_token"]
+    a = (await _create_order(client, t, _ITEMS)).json()  # tạo TRƯỚC
+    b = (await _create_order(client, t, _ITEMS)).json()  # tạo SAU
+    # mặc định created_at desc → b (mới tạo) đứng trước a
+    ids = [o["id"] for o in (await client.get(f"{ORDERS}?limit=50", headers=auth_headers(t))).json()["items"]]
+    assert ids.index(b["id"]) < ids.index(a["id"])
+    # CHẠM a (đổi trạng thái → updated_at bump) rồi sort=updated_at → a lên trước b
+    await _set_status(client, t, a["id"], "washing")
+    ids2 = [o["id"] for o in (await client.get(f"{ORDERS}?sort=updated_at&limit=50", headers=auth_headers(t))).json()["items"]]
+    assert ids2.index(a["id"]) < ids2.index(b["id"])
+
+
 # ── Stage 3.9: search q (mã đơn HOẶC tên khách) ─────────────────────────────
 async def test_list_search_q_by_code_and_name(client: AsyncClient, octx: dict):
     t = octx["staff_token"]

@@ -42,11 +42,12 @@ async def list_orders(
     date_from: Annotated[datetime | None, Query(alias="from")] = None,
     date_to: Annotated[datetime | None, Query(alias="to")] = None,
     q: Annotated[str | None, Query()] = None,
+    sort: Annotated[str, Query(pattern="^(created_at|updated_at)$")] = "created_at",
 ) -> Page[OrderOut]:
     items, total = await order_service.list_orders(
         db, actor, page,
         branch_id=branch_id, order_status=order_status, payment_status=payment_status,
-        customer_id=customer_id, date_from=date_from, date_to=date_to, q=q,
+        customer_id=customer_id, date_from=date_from, date_to=date_to, q=q, sort=sort,
     )
     return Page[OrderOut](items=items, total=total, limit=page.limit, offset=page.offset)
 

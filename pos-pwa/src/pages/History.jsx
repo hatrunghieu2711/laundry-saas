@@ -100,6 +100,8 @@ export default function History() {
         const st = STATUS_FILTERS.find((s) => s.key === statusKey)?.statuses || []
         st.forEach((s) => p.append('order_status', s))
       }
+      // Xếp theo lần CHẠM gần nhất (đổi trạng thái/thu tiền/sửa) — đơn vừa xử lý lên đầu.
+      p.set('sort', 'updated_at')
       p.set('limit', LIMIT)
       p.set('offset', off)
       return p

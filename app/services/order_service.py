@@ -555,6 +555,7 @@ async def list_orders(
     date_from: datetime | None = None,
     date_to: datetime | None = None,
     q: str | None = None,
+    sort: str = "created_at",
 ) -> tuple[list[Order], int]:
     base = select(Order).where(Order.tenant_id == actor.tenant_id)
     if actor.role != "owner":
@@ -574,8 +575,11 @@ async def list_orders(
     base = _apply_search(base, q)
 
     total = await db.scalar(select(func.count()).select_from(base.subquery())) or 0
+    # sort="updated_at" → xếp theo lần CHẠM gần nhất (đổi trạng thái/thu/sửa); mặc định
+    # created_at giữ hành vi cũ cho mọi caller khác. Lọc from/to vẫn theo created_at.
+    sort_col = Order.updated_at if sort == "updated_at" else Order.created_at
     result = await db.execute(
-        base.order_by(Order.created_at.desc()).limit(page.limit).offset(page.offset)
+        base.order_by(sort_col.desc()).limit(page.limit).offset(page.offset)
     )
     return list(result.scalars().all()), total
 
