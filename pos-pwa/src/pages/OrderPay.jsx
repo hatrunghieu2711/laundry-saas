@@ -91,16 +91,14 @@ export default function OrderPay() {
 
   return (
     <div className="pay">
-      <div className="card">
-        <div className="detail__head">
-          <span className="detail__code">{order.order_code}</span>
-        </div>
+      <div className="pay__card">
+        <span className="pay__code">{order.order_code}</span>
         <div className="pay-amounts">
           <div><span>Tổng đơn</span><strong>{formatVND(order.total_amount)}</strong></div>
-          <div><span>Đã thu</span><strong>{formatVND(paidSum)}</strong></div>
+          <div><span>Đã thu</span><strong className="pay__amt-ok">{formatVND(paidSum)}</strong></div>
           <div className="pay-amounts__remain">
             <span>Còn lại</span>
-            <strong>{formatVND(remaining > 0 ? remaining : 0)}</strong>
+            <strong className={remaining > 0 ? 'pay__amt-due' : ''}>{formatVND(remaining > 0 ? remaining : 0)}</strong>
           </div>
         </div>
       </div>
@@ -108,8 +106,11 @@ export default function OrderPay() {
       {error && <div className="alert alert--error">{error}</div>}
 
       {paidEnough ? (
-        <div className="card pay__done">
-          <p>✅ Đơn đã thu đủ.</p>
+        <div className="pay__card pay__done">
+          <span className="pay__done-row">
+            <svg className="pay__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M20 6L9 17l-5-5" /></svg>
+            Đơn đã thu đủ.
+          </span>
           <button
             className="btn btn--primary btn--xl btn--block"
             onClick={() => navigate(`/orders/${id}`)}
@@ -126,7 +127,7 @@ export default function OrderPay() {
           </button>
         </div>
       ) : (
-        <div className="card">
+        <div className="pay__card">
           <span className="field-label">Phương thức</span>
           <div className="method-grid">
             {METHODS.map((m) => (

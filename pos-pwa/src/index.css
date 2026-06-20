@@ -1065,6 +1065,15 @@ body {
 .pay .card {
   margin: 0;
 }
+/* OrderPay (6.59) — chuẩn style mới: card radius 12 + border 1px KHÔNG shadow (page card);
+   method tile bo theo token; KHÔNG đụng .method-btn global (OrderNew/CashBook dùng chung). */
+.pay__card { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 14px; }
+.pay__code { display: block; font-size: 18px; font-weight: 700; color: var(--ink); margin-bottom: 10px; }
+.pay__amt-ok { color: var(--success); }
+.pay__amt-due { color: var(--danger); }
+.pay__done-row { display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; margin: 4px 0 16px; }
+.pay__check { flex: 0 0 auto; width: 22px; height: 22px; margin-right: 8px; color: var(--success); }
+.pay .method-btn { border-radius: 6px; border-width: 1px; background: var(--surface); }
 .detail__head {
   display: flex;
   justify-content: space-between;
