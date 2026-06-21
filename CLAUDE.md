@@ -83,6 +83,22 @@ Mục tiêu dài hạn: bán SaaS subscription cho 50–100 branch.
    không bao giờ tin tenant_id từ request body.
 3. Index luôn composite bắt đầu bằng tenant: `(tenant_id, branch_id, created_at)`.
 4. Shared schema, một database. Không schema-per-tenant.
+5. Lọc tay `tenant_id` ở service VẪN GIỮ (defense-in-depth) — RLS (dưới) là lưới DB THÊM, không thay.
+
+## KIẾN TRÚC RLS (Row-Level Security — lưới cách ly tenant ở tầng DB; R1→R3)
+
+Lọc tay ở service là tuyến 1; RLS là lưới an toàn DB chặn cross-tenant kể cả khi code quên filter.
+
+- **Kết nối / role:** App connect bằng role **`laundry_app`** (NOSUPERUSER, NOBYPASSRLS, non-owner) → BỊ RLS chặn. Migration connect bằng **`MIGRATION_DATABASE_URL`** = `laundry` (owner, bypass RLS) → migrate/data-fix không vướng policy. `alembic/env.py` ƯU TIÊN `MIGRATION_DATABASE_URL` rồi mới fallback `DATABASE_URL`; `tests/conftest.py` ép cả hai về DB `_test` (chống migrate nhầm prod). ⚠️ `laundry_app` là superuser/owner → RLS BỊ BỎ QUA; phải tách role.
+- **Tenant context per-request:** `ContextVar current_tenant` (`app/core/tenant_ctx.py`) set từ **JWT claim** trong `get_current_user` (TRƯỚC khi đọc DB — giải chicken-and-egg) + event **`after_begin`** (database.py, trên sync Session subclass riêng) chạy `SELECT set_config('app.current_tenant_id', :tid, true)` (bound param). `is_local=true` (transaction-scoped) → tự xóa cuối txn → connection trả pool SẠCH (chống leak) + re-apply MỖI txn → sống qua multi-commit (⚠️ `commit()` TRẢ connection về pool — đã đo). KHÔNG dùng pool `checkout` event (async giòn, khó await trong handler sync).
+- **Policy:** biểu thức tenant an toàn = `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid` (GUC rỗng → NULL → không match → thấy rỗng, KHÔNG lỗi; `''::uuid` sẽ LỖI). USING (đọc) + WITH CHECK (chặn ghi cross-tenant).
+  - **14 bảng strict** (tenant_id trực tiếp): orders, payments, shifts, cash_transactions, customers, branches, categories, services, price_rules, discount_logs, deliveries, audit_logs, tenant_settings, subscriptions.
+  - **`users`** = **permissive-when-empty**: GUC rỗng (login `authenticate` / refresh `rotate_session`) → đọc TOÀN CỤC; GUC set (authed) → chỉ tenant mình.
+  - **3 bảng con** (KHÔNG có tenant_id trực tiếp): order_items / service_tiers / order_tracking_logs → policy GIÁN TIẾP qua parent (`EXISTS (... parent.tenant_id = GUC)`).
+  - **NGOÀI RLS:** refresh_tokens (token opaque, refresh chạy GUC rỗng), tenants + plans (tra cứu/global; tenants có `_ensure_own_tenant` ở app), alembic_version.
+  - **KHÔNG `FORCE`:** owner (chạy migration/data-fix) BỎ QUA RLS → migrate không bị policy chặn; app (laundry_app non-owner) vẫn bị áp. Test cách ly dùng role app nên không cần FORCE.
+- **Sequence mã đơn:** `app_create_order_seq(text)` SECURITY DEFINER (chạy bằng owner) → role app KHÔNG cần `CREATE ON SCHEMA` (đã `REVOKE CREATE ON SCHEMA public FROM laundry_app`). `branch.code` (B1/B2) **bất biến** = khóa sequence `order_code_seq_b1`; `order_prefix` (01/02) owner đặt = tiền tố HIỂN THỊ + ghép mã đơn.
+- **Test cách ly:** fixture `app_role_engine` connect `laundry_app` trên `laundry_test` (đã GRANT) → `tests/test_rls_isolation.py` kiểm tenant A không đọc/ghi được data B kể cả khi bỏ filter tay. Suite chung chạy bằng owner (bypass RLS) nên không bị ảnh hưởng.
 
 ## QUY TẮC ORDER
 
@@ -568,6 +584,8 @@ POS thật trước khi coi là xong.**
 - Mỗi stage cuối báo: hash file mới (JS/CSS), có cần migration/restart không, commit + tag stage riêng.
 - KHÔNG verify UI bằng headless (xem mục Chrome 56) — mọi prompt UI ngầm hiểu điều này, không cần nhắc "KHÔNG kiểm headless" nữa nếu mục này đã có.
 - ⚠️ KHÔNG BAO GIỜ UPDATE password_hash (bcrypt) qua psql command-line: hash bcrypt chứa nhiều ký tự '$' ($2b$12$...) → shell nuốt mất → hash hỏng → passlib UnknownHashError → login 500. Đổi mật khẩu/hash phải qua Python trong container (hash_password trong app.core.security) hoặc qua chức năng reset của app. Session maker app = SessionFactory (app.core.database). (Đã trả giá: đổi user/pass owner 2H.)
+- ⚠️ Đổi `.env` PHẢI dùng `docker compose up -d` (KHÔNG `restart`): `restart` KHÔNG nạp lại biến môi trường → app giữ env CŨ. (Đã trả giá: đổi DATABASE_URL sang laundry_app, `restart` không ăn, app vẫn connect bằng laundry.)
+- Prod PHẢI đặt `DEBUG=false` + `APP_ENV=production` trong `.env`. `DEBUG=true` → `engine.echo=True` (lộ toàn bộ SQL ra log) + lộ traceback chi tiết. (echo gắn `settings.debug` ở database.py — tắt debug là tắt echo.)
 
 ## TEST
 
