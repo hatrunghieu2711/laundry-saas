@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.errors import APIError
 from app.core.security import decode_access_token
+from app.core.tenant_ctx import set_current_tenant
 from app.models.user import User
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -37,6 +38,11 @@ async def get_current_user(
 
     if payload.get("type") != "access":
         raise APIError(401, "INVALID_TOKEN", "Sai loại token")
+
+    # RLS R2: set tenant context từ CLAIM (trước khi đọc DB) → after_begin đưa vào
+    # GUC app.current_tenant_id cho MỌI query của request (kể cả load user dưới đây).
+    # Lấy từ claim (không từ user đã load) để tránh chicken-and-egg khi users bật RLS.
+    set_current_tenant(payload.get("tenant_id"))
 
     try:
         user_id = uuid.UUID(payload["sub"])

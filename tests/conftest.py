@@ -28,14 +28,21 @@ def _derive_test_url() -> str:
     """URL DB test:
     - TEST_DATABASE_URL set → dùng NGUYÊN VĂN (không tự sửa). Safety check bên dưới
       sẽ ASSERT tên '_test'; nếu lỡ trỏ DB sản xuất → raise, KHÔNG đụng DB đó.
-    - Không set → suy ra từ DATABASE_URL bằng cách đổi tên db thành '<db>_test'.
+    - Không set → suy ra bằng cách đổi tên db thành '<db>_test'.
+
+    ⚠️ RLS R1/R2: ƯU TIÊN MIGRATION_DATABASE_URL (user OWNER `laundry`) làm gốc, vì
+    DATABASE_URL nay có thể là `laundry_app` (non-owner) — không migrate được và CHƯA
+    có grant trên DB test → test phải chạy bằng OWNER. (RLS isolation chạy bằng role
+    app sẽ dựng engine riêng ở R3, không đụng harness chung này.)
     """
     explicit = os.environ.get("TEST_DATABASE_URL")
     if explicit:
         return explicit
-    base = os.environ.get("DATABASE_URL")
+    base = os.environ.get("MIGRATION_DATABASE_URL") or os.environ.get("DATABASE_URL")
     if not base:
-        raise RuntimeError("Cần TEST_DATABASE_URL hoặc DATABASE_URL để chạy test")
+        raise RuntimeError(
+            "Cần TEST_DATABASE_URL / MIGRATION_DATABASE_URL / DATABASE_URL để chạy test"
+        )
     url = make_url(base)
     db = url.database or ""
     if db.endswith("_test"):

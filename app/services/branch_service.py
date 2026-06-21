@@ -122,8 +122,10 @@ async def create_branch(
     )
     db.add(branch)
     await db.flush()
-    # Sequence riêng cho order_code của branch (CLAUDE.md ORDER #5).
-    await db.execute(text(f'CREATE SEQUENCE IF NOT EXISTS "{_sequence_name(code)}" START 1'))
+    # Sequence riêng cho order_code của branch (CLAUDE.md ORDER #5). RLS R2 (Cách B):
+    # tạo qua function SECURITY DEFINER (owner) → role app non-owner KHÔNG cần CREATE
+    # ON SCHEMA. Function tự validate tên + GRANT USAGE cho laundry_app (nếu role có).
+    await db.execute(text("SELECT app_create_order_seq(:n)"), {"n": _sequence_name(code)})
     await db.commit()
     await db.refresh(branch)
     return branch
