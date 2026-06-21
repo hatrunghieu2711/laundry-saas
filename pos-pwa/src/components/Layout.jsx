@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useRef, useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
@@ -12,18 +12,30 @@ const NAV = [
   { to: '/', label: 'Ca', end: true },
   { to: '/history', label: 'Lịch sử', end: false },
 ]
-// Mục trong menu ☰ (chừa chỗ thêm sau). Icon = INLINE SVG (6.62, bỏ emoji — KHÔNG webfont).
-const MENU = [
-  { to: '/settings/shop', label: 'Cài đặt tiệm', icon: 'store', roles: ['owner'] },
-  { to: '/cashbook', label: 'Sổ quỹ', icon: 'cashbook' },
-  { to: '/reports', label: 'Báo cáo', icon: 'reports', roles: ['owner'] },
-  // Gom 4 màn (Danh mục/Dịch vụ&giá/Phụ thu&giảm/Hiển thị theo CN) → 1 hub tab.
-  { to: '/catalog', label: 'Dịch vụ & bảng giá', icon: 'services', roles: ['owner', 'manager'] },
-  { to: '/users', label: 'Nhân viên', icon: 'users', roles: ['owner', 'manager'] },
-  { to: '/settings/receipt', label: 'Mẫu phiếu in', icon: 'receipt', roles: ['owner', 'manager'] },
-  { to: '/branches', label: 'Chi nhánh', icon: 'branches', roles: ['owner'] },
-  // Đổi mật khẩu — MỌI role (tự đổi MK của chính mình).
-  { to: '/account/password', label: 'Đổi mật khẩu', icon: 'key' },
+// Menu ☰ chia NHÓM (icon = INLINE SVG, không emoji/webfont). Mỗi section: title (tùy
+// chọn, không bấm) + items lọc theo role. Section rỗng (role không có item) → ẩn cả title.
+const MENU_SECTIONS = [
+  {
+    items: [
+      { to: '/cashbook', label: 'Sổ quỹ', icon: 'cashbook' },
+      { to: '/reports', label: 'Báo cáo', icon: 'reports', roles: ['owner'] },
+    ],
+  },
+  {
+    title: 'Quản lý',
+    items: [
+      { to: '/settings/shop', label: 'Cài đặt tiệm', icon: 'store', roles: ['owner'] },
+      { to: '/branches', label: 'Chi nhánh', icon: 'branches', roles: ['owner'] },
+      { to: '/users', label: 'Nhân viên', icon: 'users', roles: ['owner', 'manager'] },
+      // Gom 4 màn (Danh mục/Dịch vụ&giá/Phụ thu&giảm/Hiển thị theo CN) → 1 hub tab.
+      { to: '/catalog', label: 'Dịch vụ & bảng giá', icon: 'services', roles: ['owner', 'manager'] },
+      { to: '/settings/receipt', label: 'Mẫu phiếu in', icon: 'receipt', roles: ['owner', 'manager'] },
+    ],
+  },
+  {
+    // Tài khoản — mọi role. Đăng xuất render riêng (nút danh nghĩa đỏ) sau các section.
+    items: [{ to: '/account/password', label: 'Đổi mật khẩu', icon: 'key' }],
+  },
 ]
 
 // Icon SVG inline (kiểu line-icon) — KHÔNG webfont/emoji, hợp PWA offline + Chrome 56.
@@ -64,8 +76,6 @@ export default function Layout({ children }) {
   const isOwner = user?.role === 'owner'
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef(null)
-
-  const menuItems = MENU.filter((m) => !m.roles || m.roles.includes(user?.role))
 
   // Đóng menu khi bấm ra ngoài.
   useEffect(() => {
@@ -142,11 +152,24 @@ export default function Layout({ children }) {
                   {user?.branch_name ? ` · ${user.branch_name}` : ''}
                 </small>
               </div>
-              {menuItems.map((m) => (
-                <button key={m.to} className="app-menu__item" onClick={() => go(m.to)}>
-                  <NavIcon name={m.icon} />{m.label}
-                </button>
-              ))}
+              {MENU_SECTIONS.map((sec, si) => {
+                const items = sec.items.filter((m) => !m.roles || m.roles.includes(user?.role))
+                if (!items.length) return null
+                return (
+                  <Fragment key={si}>
+                    {sec.title ? (
+                      <div className="app-menu__group-title">{sec.title}</div>
+                    ) : si > 0 ? (
+                      <div className="app-menu__divider" />
+                    ) : null}
+                    {items.map((m) => (
+                      <button key={m.to} className="app-menu__item" onClick={() => go(m.to)}>
+                        <NavIcon name={m.icon} />{m.label}
+                      </button>
+                    ))}
+                  </Fragment>
+                )
+              })}
               <button className="app-menu__item app-menu__logout" onClick={handleLogout}>
                 <NavIcon name="logout" />Đăng xuất
               </button>
