@@ -172,7 +172,7 @@ export default function CashBook() {
             className={`chip ${branchId === b.id ? 'chip--active' : ''}`}
             onClick={() => setBranchId(b.id)}
           >
-            {b.code} · {b.name}
+            {b.order_prefix} · {b.name}
           </button>
         ))}
       </div>

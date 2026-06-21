@@ -184,7 +184,7 @@ export default function UsersManage() {
               onClick={() => setBranchFilter('')}>Tất cả CN</button>
             {branches.map((b) => (
               <button key={b.id} className={`chip chip--sm ${branchFilter === b.id ? 'chip--active' : ''}`}
-                onClick={() => setBranchFilter(b.id)}>{b.code} · {b.name}</button>
+                onClick={() => setBranchFilter(b.id)}>{b.order_prefix} · {b.name}</button>
             ))}
           </div>
         </div>
@@ -266,7 +266,7 @@ export default function UsersManage() {
                 onChange={(e) => set('branch_id', e.target.value)}>
                 <option value="">— Không gắn chi nhánh (toàn chuỗi)</option>
                 {(isOwner ? branches : []).map((b) => (
-                  <option key={b.id} value={b.id}>{b.code} · {b.name}</option>
+                  <option key={b.id} value={b.id}>{b.order_prefix} · {b.name}</option>
                 ))}
                 {!isOwner && <option value={user.branch_id}>{user.branch_name || 'Chi nhánh của tôi'}</option>}
               </select>

@@ -116,7 +116,7 @@ export default function Layout({ children }) {
             <option value="">Tất cả CN</option>
             {branches.map((b) => (
               <option key={b.id} value={b.id}>
-                {b.code} · {b.name}
+                {b.order_prefix} · {b.name}
               </option>
             ))}
           </select>

@@ -27,7 +27,7 @@ export function ReportsView({
 }) {
   const branchName = (id) => {
     const b = branches.find((x) => x.id === id)
-    return b ? `${b.code} · ${b.name}` : '—'
+    return b ? `${b.order_prefix} · ${b.name}` : '—'
   }
   const cashDiff = data?.cash_diff
   // Tổng lệch quỹ kỳ = net CẢ lệch đầu ca (opening_diff) + cuối ca (cash_difference) — cộng ở
@@ -62,7 +62,7 @@ export function ReportsView({
             {branches.map((b) => (
               <button key={b.id} className={`chip ${branchId === b.id ? 'chip--active' : ''}`}
                 onClick={() => setBranchId(b.id)}>
-                {b.code} · {b.name}
+                {b.order_prefix} · {b.name}
               </button>
             ))}
           </div>
