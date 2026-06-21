@@ -140,23 +140,25 @@ export default function BranchServiceVisibility() {
         <p className="shift__hint">Chưa có dịch vụ nào trong bảng giá.</p>
       ) : (
         groups.map((g) => (
-          <div key={g.key}>
-            <div className="bsv-group__title">{g.name}</div>
+          <div className="cat-group" key={g.key}>
+            <div className="cat-group__title">{g.name}</div>
             {g.items.map((s) => {
               const isHidden = hidden.has(s.id)
               return (
-                <div className={`bsv-row ${isHidden ? 'bsv-row--off' : ''}`} key={s.id}>
-                  {/* ★ chỉ báo "hay chọn" (KHÔNG bấm — đổi ở tab Dịch vụ); chừa chỗ căn lề. */}
-                  <span className="bsv-row__star" aria-hidden="true">
+                <div className={`cat-item ${isHidden ? 'cat-item--off' : ''}`} key={s.id}>
+                  {/* ★ chỉ báo "hay chọn" (KHÔNG bấm — đổi ở tab Dịch vụ); lead chừa chỗ căn lề. */}
+                  <span className="cat-item__lead" aria-hidden="true">
                     {s.is_favorite && (
-                      <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg>
+                      <span className="cat-item__fav cat-item__fav--ro">
+                        <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg>
+                      </span>
                     )}
                   </span>
-                  <span className="bsv-row__main">
-                    <span className="bsv-row__name">{s.name}</span>
-                    <span className="bsv-row__price">{priceLabel(s)}</span>
+                  <span className="cat-item__main">
+                    <span className="cat-item__name">{s.name}</span>
+                    <span className="cat-item__meta">{priceLabel(s)}</span>
                   </span>
-                  {isHidden && <span className="bsv-row__off-tag">đang ẩn</span>}
+                  {isHidden && <span className="cat-item__off-tag">đang ẩn</span>}
                   <label className="switch">
                     <input
                       type="checkbox"

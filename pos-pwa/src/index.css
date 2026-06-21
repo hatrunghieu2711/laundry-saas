@@ -5077,18 +5077,32 @@ body {
 .switch input:checked + .switch__track::before { transform: translateX(18px); }
 .switch input:disabled + .switch__track { opacity: 0.5; }
 
-.bsv-group__title { font-size: 13px; font-weight: 600; color: var(--muted); margin: 16px 0 6px; }
-.bsv-row {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 9px 0; border-bottom: 1px solid var(--line);
+/* ── Hub /catalog: HỆ CLASS CHUNG cho 4 tab (thẻ nhóm danh mục + dòng item) ──
+   Gộp .cat-manage(catalog)/.svc-manage/.bsv-* → 1. CHUẨN STYLE + Chrome 56 safe:
+   margin (> * + *) thay flex-gap; border 1px; radius card 12 (group); KHÔNG
+   box-shadow/grid/inset/flex-wrap. (.cat-manage CŨ giữ cho Branches/Users.) */
+.cat-group { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.cat-group + .cat-group { margin-top: 14px; }
+.cat-group__title {
+  padding: 8px 14px; background: var(--bg); border-bottom: 1px solid var(--line);
+  font-size: 13px; font-weight: 600; color: var(--muted);
 }
-.bsv-row > * + * { margin-left: 12px; }
-/* ★ favorite = CHỈ BÁO (không bấm), chừa chỗ căn lề kể cả khi không favorite. */
-.bsv-row__star { flex: none; width: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--orange); }
-.bsv-row__star svg { width: 14px; height: 14px; }
-.bsv-row__main { flex: 1; min-width: 0; }
-.bsv-row__name { font-weight: 500; color: var(--ink); word-break: break-word; }
-.bsv-row__price { margin-left: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
-.bsv-row__off-tag { flex: none; font-size: 12px; color: var(--muted); }
-.bsv-row--off .bsv-row__star,
-.bsv-row--off .bsv-row__main { opacity: 0.5; }
+.cat-item { display: flex; align-items: center; padding: 10px 14px; }
+.cat-item + .cat-item { border-top: 1px solid var(--line); }
+.cat-item > * + * { margin-left: 12px; }
+.cat-item__lead { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 16px; color: var(--muted); }
+.cat-item__main { flex: 1; min-width: 0; }
+.cat-item__name { font-weight: 500; color: var(--ink); word-break: break-word; }
+.cat-item__meta { margin-left: 8px; font-size: 13px; color: var(--muted); }
+.cat-item__off-tag { flex: none; font-size: 12px; color: var(--muted); }
+.cat-item__actions { flex: none; display: flex; }
+.cat-item__actions > * + * { margin-left: 8px; }
+.cat-item--off .cat-item__lead,
+.cat-item--off .cat-item__main { opacity: 0.5; }
+/* ★ favorite: nút bấm (Dịch vụ) hoặc chỉ báo readonly (Hiển thị CN). SVG, không emoji. */
+.cat-item__fav { background: none; border: none; padding: 0; display: inline-flex; cursor: pointer; color: var(--orange); }
+.cat-item__fav--ro { cursor: default; }
+.cat-item__fav svg { width: 16px; height: 16px; }
+/* ↑↓ sắp thứ tự (Danh mục) trong lead */
+.cat-item__order { display: flex; }
+.cat-item__order > * + * { margin-left: 4px; }

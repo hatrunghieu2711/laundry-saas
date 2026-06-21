@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
-import { CATEGORY_ICONS, DEFAULT_CATEGORY_ICON, normalizeCategory } from '../lib/categories'
+import { normalizeCategory } from '../lib/categories'
 
 // Màn quản lý danh mục dịch vụ (owner/manager): thêm/sửa/xóa(soft) + sắp thứ tự ↑/↓.
+// Bỏ icon emoji (CHUẨN STYLE không emoji) — danh mục hiển thị bằng TÊN.
 function blankForm() {
-  return { id: null, name: '', icon: DEFAULT_CATEGORY_ICON }
+  return { id: null, name: '' }
 }
 
 export default function CategoriesManage() {
@@ -45,7 +46,7 @@ export default function CategoriesManage() {
     setSaving(true)
     setError('')
     try {
-      const body = { name, icon: form.icon || null }
+      const body = { name }
       if (form.id) await api.put(`/categories/${form.id}`, body)
       else await api.post('/categories', { ...body, display_order: items.length })
       setForm(null)
@@ -120,22 +121,6 @@ export default function CategoriesManage() {
             />
           </label>
 
-          <div className="field">
-            <span>Biểu tượng</span>
-            <div className="icon-picker">
-              {CATEGORY_ICONS.map((ic) => (
-                <button
-                  type="button"
-                  key={ic}
-                  className={`icon-opt ${form.icon === ic ? 'icon-opt--active' : ''}`}
-                  onClick={() => setForm((f) => ({ ...f, icon: ic }))}
-                >
-                  {ic}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="row-actions">
             <button className="btn btn--ghost btn--lg" onClick={() => setForm(null)} disabled={saving}>
               Hủy
@@ -152,45 +137,30 @@ export default function CategoriesManage() {
       ) : items.length === 0 ? (
         <p className="shift__hint">Chưa có danh mục nào. Thêm danh mục để gom dịch vụ.</p>
       ) : (
-        <div className="cat-manage-list">
+        <div className="cat-group">
           {items.map((cat, idx) => (
-            <div className="cat-manage" key={cat.id}>
-              <div className="cat-manage__order">
-                <button
-                  className="qty-btn"
-                  onClick={() => move(idx, -1)}
-                  disabled={idx === 0}
-                  aria-label="Lên"
-                >
-                  ↑
-                </button>
-                <button
-                  className="qty-btn"
-                  onClick={() => move(idx, +1)}
-                  disabled={idx === items.length - 1}
-                  aria-label="Xuống"
-                >
-                  ↓
-                </button>
+            <div className="cat-item" key={cat.id}>
+              <span className="cat-item__lead">
+                <span className="cat-item__order">
+                  <button className="btn btn--ghost btn--sm" onClick={() => move(idx, -1)}
+                    disabled={idx === 0} aria-label="Lên">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 15l-6-6-6 6" /></svg>
+                  </button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => move(idx, +1)}
+                    disabled={idx === items.length - 1} aria-label="Xuống">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6" /></svg>
+                  </button>
+                </span>
+              </span>
+              <div className="cat-item__main">
+                <span className="cat-item__name">{cat.name}</span>
               </div>
-              <span className="cat-manage__icon">{cat.icon || DEFAULT_CATEGORY_ICON}</span>
-              <span className="cat-manage__name">{cat.name}</span>
-              <div className="cat-manage__actions">
-                <button className="btn btn--ghost btn--sm" onClick={() => setForm({ ...cat })}>
-                  Sửa
-                </button>
+              <div className="cat-item__actions">
+                <button className="btn btn--ghost btn--sm" onClick={() => setForm({ ...cat })}>Sửa</button>
                 {confirmDel === cat.id ? (
-                  <button
-                    className="btn btn--danger btn--sm"
-                    onClick={() => doDelete(cat)}
-                    disabled={saving}
-                  >
-                    Xóa?
-                  </button>
+                  <button className="btn btn--danger btn--sm" onClick={() => doDelete(cat)} disabled={saving}>Xóa?</button>
                 ) : (
-                  <button className="btn btn--ghost btn--sm" onClick={() => setConfirmDel(cat.id)}>
-                    Xóa
-                  </button>
+                  <button className="btn btn--ghost btn--sm" onClick={() => setConfirmDel(cat.id)}>Xóa</button>
                 )}
               </div>
             </div>

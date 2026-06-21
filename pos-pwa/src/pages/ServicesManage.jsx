@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
@@ -168,6 +168,26 @@ export default function ServicesManage() {
     return first ? `${n} bậc · từ ${formatVND(first.price)}` : 'theo bậc'
   }
 
+  // Gom dịch vụ theo DANH MỤC (như tab Hiển thị theo CN): sort category.display_order,
+  // "Khác" (chưa phân loại) xuống cuối; trong nhóm giữ thứ tự BE.
+  const groups = useMemo(() => {
+    const map = new Map()
+    for (const s of items) {
+      const key = s.category_id || '__none'
+      if (!map.has(key)) {
+        map.set(key, {
+          name: s.category?.name || 'Khác',
+          order: s.category_id ? (s.category?.display_order ?? 0) : Infinity,
+          items: [],
+        })
+      }
+      map.get(key).items.push(s)
+    }
+    return [...map.entries()]
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+  }, [items])
+
   if (!canManage) {
     return <p className="shift__hint">Chỉ chủ chuỗi / quản lý mới quản lý bảng giá.</p>
   }
@@ -208,9 +228,7 @@ export default function ServicesManage() {
             >
               <option value="">— Chưa phân loại (nhóm “Khác”) —</option>
               {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {(c.icon ? `${c.icon} ` : '') + c.name}
-                </option>
+                <option key={c.id} value={c.id}>{c.name}</option>
               ))}
             </select>
             <Link className="svc-form__link" to="/catalog?tab=categories">
@@ -358,56 +376,48 @@ export default function ServicesManage() {
       ) : items.length === 0 ? (
         <p className="shift__hint">Chưa có dịch vụ nào.</p>
       ) : (
-        <div className="svc-manage-list">
-          {items.map((svc) => (
-            <div className={`svc-manage ${svc.is_active ? '' : 'svc-manage--off'}`} key={svc.id}>
-              <div className="svc-manage__info">
-                <span className="svc-manage__name">
-                  {svc.is_favorite && <span className="svc-manage__star" title="Hay chọn"><svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round" aria-hidden="true"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg></span>}
-                  {svc.name}
-                  {svc.category && (
-                    <span className="svc-manage__cat">
-                      {(svc.category.icon ? `${svc.category.icon} ` : '') + svc.category.name}
-                    </span>
-                  )}
-                  {!svc.is_active && <span className="svc-manage__badge">đã ẩn</span>}
-                </span>
-                <span className="svc-manage__meta">
-                  {svc.pricing_type === 'tier' ? 'Theo bậc' : 'Theo đơn vị'} · {priceLabel(svc)}
-                </span>
-              </div>
-              <div className="svc-manage__actions">
-                {svc.is_active ? (
-                  <>
+        groups.map((g) => (
+          <div className="cat-group" key={g.key}>
+            <div className="cat-group__title">{g.name}</div>
+            {g.items.map((svc) => (
+              <div className={`cat-item ${svc.is_active ? '' : 'cat-item--off'}`} key={svc.id}>
+                {/* ★ lead: bấm đổi "Hay chọn" (fill khi favorite / outline khi không). */}
+                <span className="cat-item__lead">
+                  {svc.is_active && (
                     <button
-                      className={`btn btn--ghost btn--sm ${svc.is_favorite ? 'btn--fav-on' : ''}`}
+                      className="cat-item__fav"
                       onClick={() => toggleFavorite(svc)}
+                      aria-label={svc.is_favorite ? 'Bỏ Hay chọn' : 'Đánh dấu Hay chọn'}
                       title='Bật/tắt "Hay chọn"'
                     >
-                      <svg className="ic-star" viewBox="0 0 24 24" fill={svc.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg>
+                      <svg viewBox="0 0 24 24" fill={svc.is_favorite ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" aria-hidden="true"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg>
                     </button>
-                    <button className="btn btn--ghost btn--sm" onClick={() => setForm(toForm(svc))}>
-                      Sửa
-                    </button>
-                    {confirmDel === svc.id ? (
-                      <button className="btn btn--danger btn--sm" onClick={() => doDelete(svc)} disabled={saving}>
-                        Xóa?
-                      </button>
-                    ) : (
-                      <button className="btn btn--ghost btn--sm" onClick={() => setConfirmDel(svc.id)}>
-                        Xóa
-                      </button>
-                    )}
-                  </>
-                ) : (
-                  <button className="btn btn--ghost btn--sm" onClick={() => reactivate(svc)}>
-                    Khôi phục
-                  </button>
-                )}
+                  )}
+                </span>
+                <div className="cat-item__main">
+                  <span className="cat-item__name">{svc.name}</span>
+                  <span className="cat-item__meta">
+                    {priceLabel(svc)}{!svc.is_active && ' · đã ẩn'}
+                  </span>
+                </div>
+                <div className="cat-item__actions">
+                  {svc.is_active ? (
+                    <>
+                      <button className="btn btn--ghost btn--sm" onClick={() => setForm(toForm(svc))}>Sửa</button>
+                      {confirmDel === svc.id ? (
+                        <button className="btn btn--danger btn--sm" onClick={() => doDelete(svc)} disabled={saving}>Xóa?</button>
+                      ) : (
+                        <button className="btn btn--ghost btn--sm" onClick={() => setConfirmDel(svc.id)}>Xóa</button>
+                      )}
+                    </>
+                  ) : (
+                    <button className="btn btn--ghost btn--sm" onClick={() => reactivate(svc)}>Khôi phục</button>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        ))
       )}
     </div>
   )

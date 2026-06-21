@@ -176,7 +176,7 @@ export default function PriceRulesManage() {
 
           {error && <div className="alert alert--error">{error}</div>}
 
-          <div className="modal__actions modal__actions--row">
+          <div className="row-actions">
             {editing && (
               <button className="btn btn--ghost btn--lg" onClick={resetForm} disabled={saving}>Hủy</button>
             )}
@@ -193,20 +193,21 @@ export default function PriceRulesManage() {
       ) : items.length === 0 ? (
         <p className="shift__hint">Chưa có quy tắc nào.</p>
       ) : (
-        <div className="cat-manage-list">
+        <div className="cat-group">
           {items.map((r) => (
-            <div className={`cat-manage ${r.is_active ? '' : 'blk--off'}`} key={r.id}>
-              <span className={`rule-badge ${r.type === 'surcharge' ? 'rule-badge--sur' : 'rule-badge--dis'}`}>
-                {r.type === 'surcharge' ? 'Phụ thu' : 'Giảm'}
+            <div className={`cat-item ${r.is_active ? '' : 'cat-item--off'}`} key={r.id}>
+              <span className="cat-item__lead">
+                <span className={`rule-badge ${r.type === 'surcharge' ? 'rule-badge--sur' : 'rule-badge--dis'}`}>
+                  {r.type === 'surcharge' ? 'Phụ thu' : 'Giảm'}
+                </span>
               </span>
-              <div className="cat-manage__name" style={{ flex: 1 }}>
-                <strong>{r.name}</strong> · {fmtRuleValue(r)}
-                <div className="shift__hint" style={{ margin: '2px 0 0' }}>
-                  {r.start_date} → {r.end_date}
-                  {!r.is_active && ' · (đã ẩn)'}
-                </div>
+              <div className="cat-item__main">
+                <span className="cat-item__name">{r.name}</span>
+                <span className="cat-item__meta">
+                  {fmtRuleValue(r)} · {r.start_date} → {r.end_date}{!r.is_active && ' · đã ẩn'}
+                </span>
               </div>
-              <div className="cat-manage__actions">
+              <div className="cat-item__actions">
                 <button className="btn btn--ghost btn--sm" onClick={() => toggleActive(r)}>
                   {r.is_active ? 'Ẩn' : 'Bật'}
                 </button>
