@@ -22,6 +22,8 @@ const MENU = [
   { to: '/price-rules', label: 'Phụ thu / Giảm giá', icon: 'pricerules', roles: ['owner'] },
   { to: '/settings/receipt', label: 'Mẫu phiếu in', icon: 'receipt', roles: ['owner', 'manager'] },
   { to: '/branches', label: 'Chi nhánh', icon: 'branches', roles: ['owner'] },
+  // Đổi mật khẩu — MỌI role (tự đổi MK của chính mình).
+  { to: '/account/password', label: 'Đổi mật khẩu', icon: 'key' },
 ]
 
 // Icon SVG inline (kiểu line-icon) — KHÔNG webfont/emoji, hợp PWA offline + Chrome 56.
@@ -36,6 +38,7 @@ const ICON_PATHS = {
   branches: 'M4 21V8l8-5 8 5v13 M4 21h16 M9 21v-6h6v6',
   menu: 'M4 6h16 M4 12h16 M4 18h16',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
+  key: 'M14 7a4 4 0 1 0-3.5 6.9L9 15.5V18H6.5L4 20.5 M14 7l6 6 M11.5 9.5l8.5 8.5',
 }
 function NavIcon({ name }) {
   return (

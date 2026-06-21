@@ -8,6 +8,7 @@ import Board from './pages/Board'
 import BranchesManage from './pages/BranchesManage'
 import CashBook from './pages/CashBook'
 import CategoriesManage from './pages/CategoriesManage'
+import ChangePassword from './pages/ChangePassword'
 import Login from './pages/Login'
 import OrderDetail from './pages/OrderDetail'
 import OrderNew from './pages/OrderNew'
@@ -56,6 +57,7 @@ export default function App() {
       <Route path="/branches" element={<Protected><BranchesManage /></Protected>} />
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="/settings/receipt" element={<Protected><ReceiptSettings /></Protected>} />
+      <Route path="/account/password" element={<Protected><ChangePassword /></Protected>} />
       {/* Mặc định: route lạ → về trang chủ (guard sẽ đẩy ra /login nếu chưa đăng nhập). */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

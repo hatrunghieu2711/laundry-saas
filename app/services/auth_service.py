@@ -6,7 +6,7 @@ tenant_id LUÔN lấy từ token/user, không bao giờ từ request body.
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -15,6 +15,7 @@ from app.core.security import (
     create_access_token,
     generate_csrf_token,
     generate_refresh_token,
+    hash_password,
     hash_token,
     verify_password,
 )
@@ -128,6 +129,43 @@ async def rotate_session(db: AsyncSession, refresh_raw: str) -> IssuedSession:
         csrf_token=generate_csrf_token(),
         expires_in=_settings.jwt_access_ttl_minutes * 60,
     )
+
+
+async def change_password(
+    db: AsyncSession,
+    user: User,
+    current_password: str,
+    new_password: str,
+    current_refresh_raw: str | None = None,
+) -> None:
+    """Tự đổi MK: verify MK cũ → hash MK mới (bcrypt) → ĐĂNG XUẤT THIẾT BỊ KHÁC.
+
+    - MK cũ sai → 400 INVALID_CURRENT_PASSWORD (KHÁC lỗi "MK mới yếu" = 422 ở schema).
+    - Đổi hash qua hash_password (bcrypt) — KHÔNG tự hash kiểu khác.
+    - Đăng xuất thiết bị khác: revoke MỌI refresh token còn hiệu lực của user, TRỪ
+      token đang dùng (nhận diện bằng hash của refresh cookie hiện tại) → phiên hiện
+      tại KHÔNG bị đá ra. Không có cookie → revoke hết (an toàn; user re-login).
+      (access token JWT stateless còn hạn tới ~TTL trên thiết bị khác; chúng bị đăng
+      xuất khi access hết hạn và refresh thất bại.)
+    """
+    if not verify_password(current_password, user.password_hash):
+        raise APIError(400, "INVALID_CURRENT_PASSWORD", "Mật khẩu hiện tại không đúng")
+
+    user.password_hash = hash_password(new_password)
+
+    keep_hash = hash_token(current_refresh_raw) if current_refresh_raw else None
+    stmt = (
+        update(RefreshToken)
+        .where(
+            RefreshToken.user_id == user.id,
+            RefreshToken.revoked_at.is_(None),
+        )
+        .values(revoked_at=datetime.now(timezone.utc))
+    )
+    if keep_hash is not None:
+        stmt = stmt.where(RefreshToken.token_hash != keep_hash)
+    await db.execute(stmt)
+    await db.commit()
 
 
 async def revoke_session(db: AsyncSession, refresh_raw: str | None) -> None:

@@ -11,6 +11,13 @@ class LoginRequest(BaseModel):
     slug: str | None = Field(default=None, max_length=100)
 
 
+class ChangePasswordRequest(BaseModel):
+    """Tự đổi mật khẩu (user đang đăng nhập). new_password min 6 (như UserCreate)."""
+
+    current_password: str = Field(min_length=1, max_length=128)
+    new_password: str = Field(min_length=6, max_length=128)
+
+
 class TokenResponse(BaseModel):
     """Trả về sau login/refresh. Refresh token nằm ở cookie, KHÔNG ở body."""
 

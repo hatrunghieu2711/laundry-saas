@@ -11,7 +11,12 @@ from fastapi import APIRouter, Cookie, Header, Response, status
 from app.api.deps import CurrentUser, DbSession
 from app.core.config import get_settings
 from app.core.errors import APIError
-from app.schemas.auth import LoginRequest, TokenResponse, UserOut
+from app.schemas.auth import (
+    ChangePasswordRequest,
+    LoginRequest,
+    TokenResponse,
+    UserOut,
+)
 from app.services import auth_service
 from app.services.auth_service import IssuedSession
 
@@ -91,6 +96,25 @@ async def logout(
 ) -> dict[str, bool]:
     await auth_service.revoke_session(db, refresh_token)
     _clear_session_cookies(response)
+    return {"success": True}
+
+
+@router.post("/change-password", status_code=status.HTTP_200_OK)
+async def change_password(
+    payload: ChangePasswordRequest,
+    current_user: CurrentUser,
+    db: DbSession,
+    refresh_token: Annotated[str | None, Cookie(alias=_settings.refresh_cookie_name)] = None,
+) -> dict[str, bool]:
+    """Tự đổi MK (Bearer auth). Đọc refresh cookie để CHỪA phiên hiện tại khi đăng
+    xuất thiết bị khác (cookie path /api/v1/auth gồm cả route này)."""
+    await auth_service.change_password(
+        db,
+        current_user,
+        payload.current_password,
+        payload.new_password,
+        refresh_token,
+    )
     return {"success": True}
 
 

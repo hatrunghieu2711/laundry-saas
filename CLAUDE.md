@@ -745,7 +745,7 @@ POS thật trước khi coi là xong.**
   vào login (vd tenant slug / subdomain / mã tenant), nếu không hai user khác
   tenant trùng phone + trùng password sẽ đăng nhập nhập nhằng (trả về user đầu
   tiên khớp). Xử lý trước khi mở Stage 7.
-- **NỢ: chưa có màn "đổi mật khẩu của chính mình" trong app** — mọi lần đổi MK owner phải vào DB tay (rủi ro). Nên thêm self-service đổi MK (nhất là khi nhiều tenant — chủ tenant khác không vào được DB).
+- **Tự đổi mật khẩu (self-service): ĐÃ CÓ** — `POST /auth/change-password` (bắt MK cũ + min 6 + đăng xuất thiết bị khác, chừa phiên hiện tại qua refresh cookie) + màn "Đổi mật khẩu" (menu ☰, mọi role). Reset MK nhân viên (admin) vẫn qua `POST /users/{id}/reset-password`.
 - **Sinh branch `code` bằng COUNT(*) trong tenant** (B1, B2...). Đếm cả branch đã
   soft-delete để không tái sử dụng code. Có race lý thuyết khi tạo 2 branch đồng
   thời cùng tenant (rất hiếm: chỉ owner tạo, tần suất thấp) — chấp nhận ở MVP.

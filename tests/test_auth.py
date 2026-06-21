@@ -216,6 +216,89 @@ async def test_refresh_csrf_mismatch(client: AsyncClient, owner: dict):
     assert resp.json()["code"] == "CSRF_FAILED"
 
 
+# ── change password (self-service) ─────────────────────────────────────────
+CHANGE_PW = "/api/v1/auth/change-password"
+
+
+def _bearer(session: dict) -> dict:
+    return {"Authorization": f"Bearer {session['access_token']}"}
+
+
+async def test_change_password_success(client: AsyncClient, owner: dict):
+    s = await _login(client, owner)
+    resp = await client.post(
+        CHANGE_PW,
+        json={"current_password": owner["password"], "new_password": "newpass123"},
+        headers=_bearer(s),
+    )
+    assert resp.status_code == 200, resp.text
+    # login bằng MK MỚI → OK
+    r_new = await client.post(LOGIN, json={"phone": owner["phone"], "password": "newpass123"})
+    assert r_new.status_code == 200
+    # login bằng MK CŨ → thất bại (hash đã đổi)
+    r_old = await client.post(LOGIN, json={"phone": owner["phone"], "password": owner["password"]})
+    assert r_old.status_code == 401
+
+
+async def test_change_password_wrong_current(client: AsyncClient, owner: dict):
+    s = await _login(client, owner)
+    resp = await client.post(
+        CHANGE_PW,
+        json={"current_password": "sai-mat-khau", "new_password": "newpass123"},
+        headers=_bearer(s),
+    )
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "INVALID_CURRENT_PASSWORD"
+    # MK KHÔNG đổi → login MK cũ vẫn được
+    r_old = await client.post(LOGIN, json={"phone": owner["phone"], "password": owner["password"]})
+    assert r_old.status_code == 200
+
+
+async def test_change_password_too_short(client: AsyncClient, owner: dict):
+    s = await _login(client, owner)
+    resp = await client.post(
+        CHANGE_PW,
+        json={"current_password": owner["password"], "new_password": "123"},
+        headers=_bearer(s),
+    )
+    assert resp.status_code == 422  # Pydantic min_length=6
+
+
+async def test_change_password_requires_auth(client: AsyncClient, owner: dict):
+    resp = await client.post(
+        CHANGE_PW, json={"current_password": "x", "new_password": "newpass123"}
+    )
+    assert resp.status_code == 401
+
+
+async def test_change_password_revokes_other_sessions_keeps_current(
+    client: AsyncClient, owner: dict
+):
+    """Đổi MK từ device 1 → device 2 (thiết bị khác) bị đăng xuất; device 1 giữ phiên."""
+    s1 = await _login(client, owner)  # phiên HIỆN TẠI (đổi MK ở đây)
+    s2 = await _login(client, owner)  # thiết bị KHÁC
+
+    # Đổi MK từ device 1: gửi access token + refresh cookie của device 1.
+    _set_cookies(client, **{REFRESH_COOKIE: s1["refresh_raw"], CSRF_COOKIE: s1["csrf"]})
+    resp = await client.post(
+        CHANGE_PW,
+        json={"current_password": owner["password"], "new_password": "newpass123"},
+        headers=_bearer(s1),
+    )
+    assert resp.status_code == 200, resp.text
+
+    # device 2 refresh → bị revoke (đăng xuất thiết bị khác)
+    _set_cookies(client, **{REFRESH_COOKIE: s2["refresh_raw"], CSRF_COOKIE: s2["csrf"]})
+    r2 = await client.post(REFRESH, headers={"X-CSRF-Token": s2["csrf"]})
+    assert r2.status_code == 401
+    assert r2.json()["code"] == "INVALID_REFRESH_TOKEN"
+
+    # device 1 (phiên hiện tại) refresh → VẪN dùng được
+    _set_cookies(client, **{REFRESH_COOKIE: s1["refresh_raw"], CSRF_COOKIE: s1["csrf"]})
+    r1 = await client.post(REFRESH, headers={"X-CSRF-Token": s1["csrf"]})
+    assert r1.status_code == 200
+
+
 # ── logout ────────────────────────────────────────────────────────────────
 async def test_logout_then_refresh_fails(client: AsyncClient, owner: dict):
     s = await _login(client, owner)

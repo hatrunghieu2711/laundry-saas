@@ -154,4 +154,10 @@ export const api = {
     }),
   me: () => apiFetch('/auth/me'),
   logout: () => apiFetch('/auth/logout', { method: 'POST' }),
+  // Tự đổi MK (Bearer auth + gửi cookie để BE chừa phiên hiện tại khi revoke).
+  changePassword: (current_password, new_password) =>
+    apiFetch('/auth/change-password', {
+      method: 'POST',
+      body: { current_password, new_password },
+    }),
 }
