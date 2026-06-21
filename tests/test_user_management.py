@@ -181,6 +181,61 @@ async def test_manager_list_scope_only_own_branch(client: AsyncClient, umctx: di
     assert branch_ids == {umctx["branch_a"]["id"]}  # chỉ branch A
 
 
+# ── sửa thông tin (update) + guard role owner ────────────────────────────────
+# Bug gốc: guard chặn theo SỰ CÓ MẶT của role trong payload, không theo role THAY
+# ĐỔI → FE luôn gửi role="owner" (không đổi) → đổi tên owner cũng bị chặn nhầm.
+async def test_owner_edit_full_name_role_unchanged(client: AsyncClient, umctx: dict):
+    """⭐ Case bug: sửa full_name owner, GỬI KÈM role='owner' (không đổi) → phải OK."""
+    uid = umctx["owner"]["user_id"]
+    r = await client.patch(f"{USERS}/{uid}", json={
+        "full_name": "Chủ Tiệm Mới", "role": "owner",
+    }, headers=auth_headers(umctx["owner_token"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["full_name"] == "Chủ Tiệm Mới"
+    assert r.json()["role"] == "owner"
+
+
+async def test_owner_edit_own_phone(client: AsyncClient, umctx: dict):
+    uid = umctx["owner"]["user_id"]
+    r = await client.patch(f"{USERS}/{uid}", json={
+        "phone": "0911111199", "role": "owner",
+    }, headers=auth_headers(umctx["owner_token"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["phone"] == "0911111199"
+
+
+async def test_cannot_change_owner_role(client: AsyncClient, umctx: dict):
+    """⭐ Đổi role owner THẬT (owner→staff) → vẫn 403 (bảo vệ owner cuối)."""
+    uid = umctx["owner"]["user_id"]
+    r = await client.patch(f"{USERS}/{uid}", json={"role": "staff"},
+                           headers=auth_headers(umctx["owner_token"]))
+    assert r.status_code == 403
+    assert r.json()["code"] == "FORBIDDEN"
+
+
+async def test_manager_cannot_escalate_role(client: AsyncClient, umctx: dict):
+    """Manager nâng staff→manager (leo quyền) → vẫn 403."""
+    uid = umctx["staff_a"]["id"]
+    r = await client.patch(f"{USERS}/{uid}", json={"role": "manager"},
+                           headers=auth_headers(umctx["manager_token"]))
+    assert r.status_code == 403
+    # và lên owner cũng cấm.
+    r2 = await client.patch(f"{USERS}/{uid}", json={"role": "owner"},
+                            headers=auth_headers(umctx["manager_token"]))
+    assert r2.status_code == 403
+
+
+async def test_owner_changes_staff_role_ok(client: AsyncClient, umctx: dict):
+    """Đổi role nhân viên thường (staff→shipper) → OK."""
+    uid = umctx["staff_a"]["id"]
+    r = await client.patch(f"{USERS}/{uid}", json={
+        "full_name": "NV đổi tên", "role": "shipper",
+    }, headers=auth_headers(umctx["owner_token"]))
+    assert r.status_code == 200, r.text
+    assert r.json()["role"] == "shipper"
+    assert r.json()["full_name"] == "NV đổi tên"
+
+
 # ── tenant isolation ─────────────────────────────────────────────────────────
 async def test_cross_tenant_manage_404(client: AsyncClient, umctx: dict, owner2: dict):
     t2 = await login(client, owner2["phone"], owner2["password"])

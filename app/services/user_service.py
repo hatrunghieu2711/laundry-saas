@@ -132,8 +132,10 @@ async def update_user(
     _assert_can_manage(actor, target)
     changes = data.model_dump(exclude_unset=True)
 
-    if "role" in changes:
-        # KHÔNG ai sửa được role của owner.
+    # Chỉ kiểm khi role THỰC SỰ đổi — FE luôn gửi role kèm payload (kể cả không đổi),
+    # nên check "có mặt role" sẽ chặn nhầm cả việc đổi tên/SĐT của owner.
+    if "role" in changes and changes["role"] != target.role:
+        # KHÔNG ai đổi được role của owner (bảo vệ owner cuối).
         if target.role == "owner":
             _forbid("Không được sửa vai trò của owner")
         if actor.role == "manager" and changes["role"] not in _MANAGER_MANAGEABLE:
