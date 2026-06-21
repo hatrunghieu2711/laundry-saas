@@ -17,6 +17,7 @@ import History from './pages/History'
 import PriceRulesManage from './pages/PriceRulesManage'
 import ReceiptSettings from './pages/ReceiptSettings'
 import Reports from './pages/Reports'
+import ShopSettings from './pages/ShopSettings'
 import UsersManage from './pages/UsersManage'
 import ServicesManage from './pages/ServicesManage'
 import Shift from './pages/Shift'
@@ -58,6 +59,7 @@ export default function App() {
       <Route path="/reports" element={<Protected><Reports /></Protected>} />
       <Route path="/settings/receipt" element={<Protected><ReceiptSettings /></Protected>} />
       <Route path="/account/password" element={<Protected><ChangePassword /></Protected>} />
+      <Route path="/settings/shop" element={<Protected><ShopSettings /></Protected>} />
       {/* Mặc định: route lạ → về trang chủ (guard sẽ đẩy ra /login nếu chưa đăng nhập). */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -14,6 +14,7 @@ const NAV = [
 ]
 // Mục trong menu ☰ (chừa chỗ thêm sau). Icon = INLINE SVG (6.62, bỏ emoji — KHÔNG webfont).
 const MENU = [
+  { to: '/settings/shop', label: 'Cài đặt tiệm', icon: 'store', roles: ['owner'] },
   { to: '/cashbook', label: 'Sổ quỹ', icon: 'cashbook' },
   { to: '/reports', label: 'Báo cáo', icon: 'reports', roles: ['owner'] },
   { to: '/services', label: 'Bảng giá', icon: 'services', roles: ['owner', 'manager'] },
@@ -39,6 +40,7 @@ const ICON_PATHS = {
   menu: 'M4 6h16 M4 12h16 M4 18h16',
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
   key: 'M14 7a4 4 0 1 0-3.5 6.9L9 15.5V18H6.5L4 20.5 M14 7l6 6 M11.5 9.5l8.5 8.5',
+  store: 'M4 9l1.5-5h13L20 9 M4 9h16 M5 9v11h14V9 M10 20v-5h4v5',
 }
 function NavIcon({ name }) {
   return (
