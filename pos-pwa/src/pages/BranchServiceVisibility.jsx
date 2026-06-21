@@ -1,6 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
+import { formatVND } from '../lib/format'
+import { UNIT_LABEL, normalizeService } from '../lib/services'
+
+// Giá gọn: per_unit → "25.000đ/lần"; tier → "N bậc · từ …" (đồng bộ ServicesManage).
+function priceLabel(svc) {
+  if (svc.pricing_type === 'per_unit') {
+    return `${formatVND(svc.unit_price)}/${UNIT_LABEL[svc.unit] || svc.unit}`
+  }
+  const first = svc.tiers?.[0]
+  return first ? `${svc.tiers.length} bậc · từ ${formatVND(first.price)}` : 'theo bậc'
+}
 
 // Màn "Dịch vụ theo chi nhánh" (owner): chọn CN → toggle Hiện/Ẩn từng dịch vụ.
 // Mặc định Hiện (dịch vụ KHÔNG nằm trong danh sách ẩn của CN). Ẩn = display-only:
@@ -27,7 +38,7 @@ export default function BranchServiceVisibility() {
       .then(([bp, sp]) => {
         const active = bp.items.filter((b) => b.status === 'active')
         setBranches(active)
-        setServices(sp.items)
+        setServices(sp.items.map(normalizeService))
         if (active.length) setBranchId(active[0].id)
       })
       .catch((err) => setError(err?.message || 'Không tải được dữ liệu'))
@@ -118,6 +129,7 @@ export default function BranchServiceVisibility() {
       <p className="shift__hint">
         Tắt (ẩn) dịch vụ ở chi nhánh đang chọn → màn tạo đơn của CN đó KHÔNG hiện dịch vụ này.
         Giá <strong>chung</strong>; đơn cũ không đổi. Mặc định mọi dịch vụ đều hiện.
+        Dấu sao = dịch vụ <strong>hay chọn</strong> (đổi ở tab “Dịch vụ &amp; bảng giá”).
       </p>
 
       {error && <div className="alert alert--error">{error}</div>}
@@ -134,7 +146,17 @@ export default function BranchServiceVisibility() {
               const isHidden = hidden.has(s.id)
               return (
                 <div className={`bsv-row ${isHidden ? 'bsv-row--off' : ''}`} key={s.id}>
-                  <span className="bsv-row__name">{s.name}</span>
+                  {/* ★ chỉ báo "hay chọn" (KHÔNG bấm — đổi ở tab Dịch vụ); chừa chỗ căn lề. */}
+                  <span className="bsv-row__star" aria-hidden="true">
+                    {s.is_favorite && (
+                      <svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="1" strokeLinejoin="round"><path d="M12 17.75l-6.17 3.24 1.18-6.88-5-4.87 6.9-1 3.09-6.26 3.09 6.26 6.9 1-5 4.87 1.18 6.88z" /></svg>
+                    )}
+                  </span>
+                  <span className="bsv-row__main">
+                    <span className="bsv-row__name">{s.name}</span>
+                    <span className="bsv-row__price">{priceLabel(s)}</span>
+                  </span>
+                  {isHidden && <span className="bsv-row__off-tag">đang ẩn</span>}
                   <label className="switch">
                     <input
                       type="checkbox"

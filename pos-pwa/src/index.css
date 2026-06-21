@@ -5083,5 +5083,12 @@ body {
   padding: 9px 0; border-bottom: 1px solid var(--line);
 }
 .bsv-row > * + * { margin-left: 12px; }
-.bsv-row__name { flex: 1; min-width: 0; font-weight: 500; color: var(--ink); word-break: break-word; }
-.bsv-row--off .bsv-row__name { color: var(--muted); }
+/* ★ favorite = CHỈ BÁO (không bấm), chừa chỗ căn lề kể cả khi không favorite. */
+.bsv-row__star { flex: none; width: 16px; display: inline-flex; align-items: center; justify-content: center; color: var(--orange); }
+.bsv-row__star svg { width: 14px; height: 14px; }
+.bsv-row__main { flex: 1; min-width: 0; }
+.bsv-row__name { font-weight: 500; color: var(--ink); word-break: break-word; }
+.bsv-row__price { margin-left: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+.bsv-row__off-tag { flex: none; font-size: 12px; color: var(--muted); }
+.bsv-row--off .bsv-row__star,
+.bsv-row--off .bsv-row__main { opacity: 0.5; }
