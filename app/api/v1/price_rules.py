@@ -57,5 +57,6 @@ async def update_rule(
 
 @router.delete("/{rule_id}", response_model=PriceRuleOut)
 async def delete_rule(rule_id: uuid.UUID, actor: Owner, db: DbSession) -> PriceRuleOut:
-    """Soft delete: is_active=false (đơn cũ đã snapshot nên không ảnh hưởng)."""
-    return await price_rule_service.soft_delete_rule(db, actor.tenant_id, rule_id)
+    """XÓA HẲN (hard delete) — khác "Ẩn/Bật" (PUT is_active). Đơn cũ snapshot nên
+    không ảnh hưởng; 0 FK trỏ price_rules. Trả về bản ghi vừa xóa."""
+    return await price_rule_service.delete_rule(db, actor.tenant_id, rule_id)

@@ -119,7 +119,7 @@ export default function PriceRulesManage() {
   }
 
   const remove = async (r) => {
-    if (!window.confirm(`Xóa (ẩn) quy tắc "${r.name}"? Đơn cũ không bị ảnh hưởng.`)) return
+    if (!window.confirm(`Xóa hẳn quy tắc "${r.name}"? Không khôi phục được. Đơn cũ không bị ảnh hưởng.`)) return
     try {
       await api.del(`/price-rules/${r.id}`)
       await reload()

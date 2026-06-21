@@ -8,7 +8,7 @@ import uuid
 from datetime import date, datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Pagination
@@ -103,13 +103,23 @@ async def update_rule(
     return await get_rule(db, tenant_id, rule_id)
 
 
-async def soft_delete_rule(
+async def delete_rule(
     db: AsyncSession, tenant_id: uuid.UUID, rule_id: uuid.UUID
 ) -> PriceRule:
+    """XÓA HẲN quy tắc (hard delete). KHÁC "Ẩn/Bật" (is_active toggle = tắt tạm).
+
+    An toàn: 0 FK trỏ price_rules — đơn cũ SNAPSHOT surcharge/discount amount + reason
+    (text) lúc tạo, KHÔNG phụ thuộc rule → xóa rule không ảnh hưởng đơn cũ.
+    get_rule lọc tenant_id (404 nếu khác tenant). Lấy bản ghi TRƯỚC khi xóa để trả về.
+    """
     rule = await get_rule(db, tenant_id, rule_id)
-    rule.is_active = False
+    await db.execute(
+        delete(PriceRule).where(
+            PriceRule.id == rule_id, PriceRule.tenant_id == tenant_id
+        )
+    )
     await db.commit()
-    return await get_rule(db, tenant_id, rule_id)
+    return rule
 
 
 async def applicable_rule(
