@@ -58,7 +58,7 @@ body {
   min-height: var(--tap);
   padding: 0 18px;
   border: 1px solid transparent;
-  border-radius: var(--radius);
+  border-radius: 4px; /* CHUẨN: control radius 4 (KHÔNG var(--radius)=14 — token giữ cho card cũ) */
   font-size: 17px;
   font-weight: 500; /* 6.66: 600→500 — 800/600 trên system-ui làm chữ Việt dày/méo dấu (Chrome PC) */
   cursor: pointer;
@@ -125,7 +125,7 @@ body {
   min-height: var(--tap);
   padding: 0 14px;
   border: 1.5px solid var(--line);
-  border-radius: var(--radius);
+  border-radius: 4px; /* CHUẨN: control radius 4 */
   font-size: 18px;
   background: #fff;
   color: var(--ink);
@@ -502,7 +502,7 @@ body {
   flex: none;
   min-height: 44px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: 4px; /* CHUẨN: control radius 4 (trước là pill 999px) */
   border: 1.5px solid var(--line);
   background: #fff;
   font-size: 15px;
@@ -1926,7 +1926,7 @@ body {
   min-height: var(--tap);
   border: 1.5px solid var(--line);
   background: #fff;
-  border-radius: var(--radius);
+  border-radius: 4px; /* CHUẨN: control radius 4 (tab bar hub + seg form) */
   font-size: 15px;
   font-weight: 500;
   color: var(--ink);
