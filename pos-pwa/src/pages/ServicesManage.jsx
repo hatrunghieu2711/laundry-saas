@@ -175,7 +175,6 @@ export default function ServicesManage() {
   return (
     <div className="services">
       <div className="services__head">
-        <h2 className="services__title">Bảng giá dịch vụ</h2>
         {!form && (
           <button className="btn btn--primary btn--lg" onClick={() => setForm(blankForm())}>
             ＋ Thêm dịch vụ
@@ -214,7 +213,7 @@ export default function ServicesManage() {
                 </option>
               ))}
             </select>
-            <Link className="svc-form__link" to="/categories">
+            <Link className="svc-form__link" to="/catalog?tab=categories">
               Quản lý danh mục
             </Link>
           </label>

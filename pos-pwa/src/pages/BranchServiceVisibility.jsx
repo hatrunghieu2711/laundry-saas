@@ -80,7 +80,6 @@ export default function BranchServiceVisibility() {
   return (
     <div className="services">
       <div className="services__head">
-        <h2 className="services__title">Dịch vụ theo chi nhánh</h2>
         {branches.length > 0 && (
           <select
             className="input"

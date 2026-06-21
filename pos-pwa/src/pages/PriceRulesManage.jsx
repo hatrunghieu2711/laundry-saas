@@ -134,9 +134,6 @@ export default function PriceRulesManage() {
 
   return (
     <div className="services">
-      <div className="services__head">
-        <h2 className="services__title">Phụ thu &amp; Giảm giá tự áp</h2>
-      </div>
       <p className="shift__hint">
         Quy tắc trong khoảng ngày được <strong>tự áp</strong> khi tạo đơn (nhân viên sửa được).
         Đổi/xóa chỉ ảnh hưởng đơn <strong>mới</strong> — đơn cũ giữ số tiền đã chốt.

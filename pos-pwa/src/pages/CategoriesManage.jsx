@@ -95,7 +95,6 @@ export default function CategoriesManage() {
   return (
     <div className="services">
       <div className="services__head">
-        <h2 className="services__title">Danh mục dịch vụ</h2>
         {!form && (
           <button className="btn btn--primary btn--lg" onClick={() => setForm(blankForm())}>
             ＋ Thêm danh mục

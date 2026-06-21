@@ -17,11 +17,9 @@ const MENU = [
   { to: '/settings/shop', label: 'Cài đặt tiệm', icon: 'store', roles: ['owner'] },
   { to: '/cashbook', label: 'Sổ quỹ', icon: 'cashbook' },
   { to: '/reports', label: 'Báo cáo', icon: 'reports', roles: ['owner'] },
-  { to: '/services', label: 'Bảng giá', icon: 'services', roles: ['owner', 'manager'] },
-  { to: '/services/visibility', label: 'Dịch vụ theo CN', icon: 'eye', roles: ['owner'] },
-  { to: '/categories', label: 'Danh mục', icon: 'categories', roles: ['owner', 'manager'] },
+  // Gom 4 màn (Danh mục/Dịch vụ&giá/Phụ thu&giảm/Hiển thị theo CN) → 1 hub tab.
+  { to: '/catalog', label: 'Dịch vụ & bảng giá', icon: 'services', roles: ['owner', 'manager'] },
   { to: '/users', label: 'Nhân viên', icon: 'users', roles: ['owner', 'manager'] },
-  { to: '/price-rules', label: 'Phụ thu / Giảm giá', icon: 'pricerules', roles: ['owner'] },
   { to: '/settings/receipt', label: 'Mẫu phiếu in', icon: 'receipt', roles: ['owner', 'manager'] },
   { to: '/branches', label: 'Chi nhánh', icon: 'branches', roles: ['owner'] },
   // Đổi mật khẩu — MỌI role (tự đổi MK của chính mình).
