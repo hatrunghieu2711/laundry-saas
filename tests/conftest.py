@@ -60,6 +60,25 @@ if not _TEST_DB_NAME.endswith("_test"):
         "Dừng để tránh TRUNCATE nhầm database sản xuất."
     )
 
+
+# DSN role-app (laundry_app, non-bypass) trên DB test — cho test RLS CÁCH LY (R3).
+# Lấy TỪ DATABASE_URL gốc (app connect laundry_app) TRƯỚC khi bị overwrite; swap db→_test.
+# None nếu không có (vd CI chỉ có owner) → test RLS sẽ skip thay vì fail.
+def _derive_app_role_test_url() -> str | None:
+    raw = os.environ.get("APP_ROLE_DATABASE_URL") or os.environ.get("DATABASE_URL")
+    if not raw:
+        return None
+    u = make_url(raw)
+    db = u.database or ""
+    if not db.endswith("_test"):
+        u = u.set(database=f"{db}_test")
+    if not (u.database or "").endswith("_test"):
+        return None
+    return u.render_as_string(hide_password=False)
+
+
+_APP_ROLE_TEST_URL = _derive_app_role_test_url()
+
 # Trỏ app + alembic sang DB test TRƯỚC khi import app.core.* (engine build 1 lần).
 os.environ["DATABASE_URL"] = _TEST_URL
 # ⚠️ CHỐT AN TOÀN (RLS R1): alembic/env.py nay ƯU TIÊN MIGRATION_DATABASE_URL. Nếu biến này
@@ -177,6 +196,47 @@ async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         yield c
+
+
+@pytest_asyncio.fixture
+async def app_role_engine():
+    """Engine connect bằng `laundry_app` (NON-bypass) trên DB test — test RLS CÁCH LY (R3).
+
+    Harness chung chạy bằng OWNER (bypass RLS). Để nghiệm thu RLS THẬT phải connect
+    bằng role app (bị policy chặn). Fixture: cấp quyền cho laundry_app trên DB test
+    (R1 chưa chạy trên laundry_test) RỒI tạo engine role app. SKIP nếu không có DSN
+    role-app / role không kết nối được / role vẫn bypass (cấu hình sai)."""
+    if not _APP_ROLE_TEST_URL:
+        pytest.skip("Không có DSN role-app (laundry_app) cho test RLS cách ly")
+
+    # Cấp quyền cho laundry_app trên DB test (chạy bằng owner). Idempotent.
+    async with engine.begin() as conn:
+        await conn.execute(text(f'GRANT CONNECT ON DATABASE "{_TEST_DB_NAME}" TO laundry_app'))
+        await conn.execute(text("GRANT USAGE ON SCHEMA public TO laundry_app"))
+        await conn.execute(
+            text("GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO laundry_app")
+        )
+        await conn.execute(
+            text("GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO laundry_app")
+        )
+
+    app_engine = create_async_engine(_APP_ROLE_TEST_URL)
+    try:
+        async with app_engine.connect() as c:
+            bypass = await c.scalar(
+                text("SELECT rolbypassrls FROM pg_roles WHERE rolname = current_user")
+            )
+        if bypass is not False:
+            await app_engine.dispose()
+            pytest.skip("Role app không tồn tại / vẫn BYPASSRLS — bỏ qua test cách ly")
+    except Exception as exc:  # không kết nối được (sai pw / role thiếu)
+        await app_engine.dispose()
+        pytest.skip(f"Không kết nối được role app cho test RLS: {exc}")
+
+    try:
+        yield app_engine
+    finally:
+        await app_engine.dispose()
 
 
 @pytest_asyncio.fixture
