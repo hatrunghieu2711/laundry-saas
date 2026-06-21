@@ -104,14 +104,17 @@ export default function OrderNew() {
   const [disReason, setDisReason] = useState('')
   const [disAuto, setDisAuto] = useState(false)
 
+  // Chi nhánh hiệu lực để LỌC dịch vụ ẩn: owner → CN chọn ở header; nhân viên → CN của mình.
+  // Có CN → /services?branch_id= (loại dịch vụ ẩn ở CN đó); chưa có → trả hết. Reload khi đổi CN.
+  const effBranch = isOwner ? branchId : user?.branch_id
   useEffect(() => {
     setSvcLoading(true)
     api
-      .get('/services?limit=200')
+      .get(`/services?limit=200${effBranch ? `&branch_id=${effBranch}` : ''}`)
       .then((p) => setServices(p.items.map(normalizeService)))
       .catch(() => setServices([]))
       .finally(() => setSvcLoading(false))
-  }, [])
+  }, [effBranch])
 
   // Turnaround + cờ tự-in từ tenant settings. Lỗi → turnaround 4, tự-in mặc định BẬT.
   useEffect(() => {

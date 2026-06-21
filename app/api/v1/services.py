@@ -22,9 +22,12 @@ async def list_services(
     db: DbSession,
     page: PageParams,
     include_inactive: Annotated[bool, Query()] = False,
+    branch_id: Annotated[uuid.UUID | None, Query()] = None,
 ) -> Page[ServiceOut]:
+    # branch_id (tùy chọn): loại dịch vụ bị ẩn ở CN đó (màn tạo đơn). Không có → trả hết.
     items, total = await service_service.list_services(
-        db, actor.tenant_id, page, include_inactive=include_inactive
+        db, actor.tenant_id, page,
+        include_inactive=include_inactive, visible_in_branch=branch_id,
     )
     return Page[ServiceOut](items=items, total=total, limit=page.limit, offset=page.offset)
 

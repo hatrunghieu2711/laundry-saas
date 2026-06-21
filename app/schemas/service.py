@@ -65,6 +65,18 @@ class ServiceUpdate(BaseModel):
     tiers: list[ServiceTierIn] | None = None
 
 
+class HiddenServicesOut(BaseModel):
+    """Danh sách service_id bị ẩn ở 1 chi nhánh (cho màn toggle Hiện/Ẩn)."""
+
+    hidden_service_ids: list[uuid.UUID]
+
+
+class VisibilityUpdate(BaseModel):
+    """Ẩn (hidden=true) / hiện (hidden=false) 1 dịch vụ ở 1 chi nhánh."""
+
+    hidden: bool
+
+
 class ServiceOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

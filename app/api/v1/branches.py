@@ -12,7 +12,8 @@ from app.api.deps import CurrentUser, DbSession, PageParams, require_role
 from app.models.user import User
 from app.schemas.branch import BranchCreate, BranchOut, BranchUpdate
 from app.schemas.common import Page
-from app.services import branch_service
+from app.schemas.service import HiddenServicesOut, VisibilityUpdate
+from app.services import branch_service, branch_visibility_service
 
 router = APIRouter(prefix="/branches", tags=["branches"])
 
@@ -78,3 +79,33 @@ async def delete_branch(
     branch_id: uuid.UUID, current_user: CurrentUser, db: DbSession
 ) -> BranchOut:
     return await branch_service.soft_delete_branch(db, current_user.tenant_id, branch_id)
+
+
+# ── Ẩn/hiện dịch vụ theo chi nhánh (owner-only) ─────────────────────────────
+@router.get(
+    "/{branch_id}/hidden-services",
+    response_model=HiddenServicesOut,
+    dependencies=[Depends(require_role("owner"))],
+)
+async def list_hidden_services(
+    branch_id: uuid.UUID, current_user: CurrentUser, db: DbSession
+) -> HiddenServicesOut:
+    ids = await branch_visibility_service.list_hidden(db, current_user.tenant_id, branch_id)
+    return HiddenServicesOut(hidden_service_ids=ids)
+
+
+@router.put(
+    "/{branch_id}/hidden-services/{service_id}",
+    dependencies=[Depends(require_role("owner"))],
+)
+async def set_hidden_service(
+    branch_id: uuid.UUID,
+    service_id: uuid.UUID,
+    payload: VisibilityUpdate,
+    current_user: CurrentUser,
+    db: DbSession,
+) -> dict[str, bool]:
+    await branch_visibility_service.set_visibility(
+        db, current_user.tenant_id, branch_id, service_id, payload.hidden
+    )
+    return {"success": True}

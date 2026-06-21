@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.api.deps import Pagination
 from app.core.errors import APIError
+from app.models.branch_hidden_services import BranchHiddenService
 from app.models.service import Service, ServiceTier
 from app.schemas.service import ServiceCreate, ServiceTierIn, ServiceUpdate
 from app.services import category_service
@@ -34,10 +35,18 @@ async def list_services(
     page: Pagination,
     *,
     include_inactive: bool = False,
+    visible_in_branch: uuid.UUID | None = None,
 ) -> tuple[list[Service], int]:
     base = select(Service).where(Service.tenant_id == tenant_id)
     if not include_inactive:
         base = base.where(Service.is_active.is_(True))
+    # Ẩn/hiện theo CN (display-only): có branch → loại dịch vụ bị ẩn ở CN đó.
+    # Không branch → trả hết (hành vi cũ). Subquery RLS-scope theo tenant (GUC).
+    if visible_in_branch is not None:
+        hidden = select(BranchHiddenService.service_id).where(
+            BranchHiddenService.branch_id == visible_in_branch
+        )
+        base = base.where(Service.id.not_in(hidden))
     total = await db.scalar(select(func.count()).select_from(base.subquery())) or 0
     result = await db.execute(
         base.order_by(Service.display_order, Service.created_at)

@@ -6,6 +6,7 @@ import { ShiftProvider } from './context/ShiftContext'
 import { TopbarSlotProvider } from './context/TopbarSlotContext'
 import Board from './pages/Board'
 import BranchesManage from './pages/BranchesManage'
+import BranchServiceVisibility from './pages/BranchServiceVisibility'
 import CashBook from './pages/CashBook'
 import CategoriesManage from './pages/CategoriesManage'
 import ChangePassword from './pages/ChangePassword'
@@ -60,6 +61,7 @@ export default function App() {
       <Route path="/settings/receipt" element={<Protected><ReceiptSettings /></Protected>} />
       <Route path="/account/password" element={<Protected><ChangePassword /></Protected>} />
       <Route path="/settings/shop" element={<Protected><ShopSettings /></Protected>} />
+      <Route path="/services/visibility" element={<Protected><BranchServiceVisibility /></Protected>} />
       {/* Mặc định: route lạ → về trang chủ (guard sẽ đẩy ra /login nếu chưa đăng nhập). */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

@@ -18,6 +18,7 @@ const MENU = [
   { to: '/cashbook', label: 'Sổ quỹ', icon: 'cashbook' },
   { to: '/reports', label: 'Báo cáo', icon: 'reports', roles: ['owner'] },
   { to: '/services', label: 'Bảng giá', icon: 'services', roles: ['owner', 'manager'] },
+  { to: '/services/visibility', label: 'Dịch vụ theo CN', icon: 'eye', roles: ['owner'] },
   { to: '/categories', label: 'Danh mục', icon: 'categories', roles: ['owner', 'manager'] },
   { to: '/users', label: 'Nhân viên', icon: 'users', roles: ['owner', 'manager'] },
   { to: '/price-rules', label: 'Phụ thu / Giảm giá', icon: 'pricerules', roles: ['owner'] },
@@ -41,6 +42,7 @@ const ICON_PATHS = {
   logout: 'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
   key: 'M14 7a4 4 0 1 0-3.5 6.9L9 15.5V18H6.5L4 20.5 M14 7l6 6 M11.5 9.5l8.5 8.5',
   store: 'M4 9l1.5-5h13L20 9 M4 9h16 M5 9v11h14V9 M10 20v-5h4v5',
+  eye: 'M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
 }
 function NavIcon({ name }) {
   return (
