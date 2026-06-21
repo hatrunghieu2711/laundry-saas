@@ -1,15 +1,7 @@
 // Helper danh mục dịch vụ (categories) — Stage 4.3.
+// (CATEGORY_ICONS/DEFAULT_CATEGORY_ICON đã gỡ — danh mục bỏ emoji, hiển thị bằng tên.)
 
-// Bộ icon gợi ý cho danh mục (emoji — gọn, không cần asset). Owner chọn 1 trong số này
-// hoặc dán emoji bất kỳ. Liên quan giặt ủi.
-export const CATEGORY_ICONS = [
-  '🧺', '👕', '👔', '👖', '🧥', '🧦', '🩳', '👗', '🥼', '🧣',
-  '🛏️', '🪟', '🧸', '👟', '🎽', '🧴', '🫧', '♨️', '⭐', '📦',
-]
-
-export const DEFAULT_CATEGORY_ICON = '🧺'
-
-// Chuẩn hoá category từ API.
+// Chuẩn hoá category từ API. (icon vẫn map từ API để không phá nếu BE còn trả; FE không hiển thị.)
 export function normalizeCategory(c) {
   return {
     id: c.id,

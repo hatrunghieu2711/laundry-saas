@@ -1996,63 +1996,6 @@ body {
 }
 
 /* Danh sách dịch vụ */
-.svc-manage-list {
-  display: flex;
-  flex-direction: column;
-}
-/* Danh sách dịch vụ */
-.svc-manage-list > * + * {
-  margin-top: 10px;
-}
-.svc-manage {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 12px 14px;
-}
-.svc-manage > * + * {
-  margin-left: 10px;
-}
-.svc-manage--off {
-  opacity: 0.6;
-}
-.svc-manage__info {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-.svc-manage__name {
-  font-weight: 800;
-  font-size: 17px;
-  display: flex;
-  align-items: center;
-}
-.svc-manage__name > * + * {
-  margin-left: 8px;
-}
-.svc-manage__badge {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--muted);
-  background: #eef0f2;
-  padding: 2px 8px;
-  border-radius: 999px;
-}
-.svc-manage__meta {
-  font-size: 14px;
-  color: var(--muted);
-}
-.svc-manage__actions {
-  display: flex;
-  flex: none;
-}
-.svc-manage__actions > * + * {
-  margin-left: 8px;
-}
 
 /* ══ Stage 3.7B ══════════════════════════════════════════════════════ */
 
@@ -3810,29 +3753,9 @@ body {
   width: 20px;
   height: 20px;
 }
-.svc-manage__star {
-  margin-right: 4px;
-  display: inline-flex;
-  align-items: center;
-}
-/* 6.68: icon inline SVG thay emoji ở các màn quản lý. */
-.svc-manage__star svg { width: 13px; height: 13px; color: var(--orange); }
-.ic-star { width: 16px; height: 16px; display: block; }
+/* icon inline SVG cho nút qty (cart/tier). */
 .qty-btn svg { width: 14px; height: 14px; display: block; margin: 0 auto; }
 .udot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--success); margin-right: 5px; vertical-align: middle; }
-.svc-manage__cat {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--orange-dark);
-  background: var(--orange-soft);
-  border-radius: 999px;
-  padding: 1px 8px;
-  margin-left: 8px;
-}
-.btn--fav-on {
-  color: var(--orange-dark);
-  border-color: var(--orange);
-}
 
 /* ══ Stage 4.2: Sổ quỹ thu-chi (CashBook) ══════════════════════════ */
 .btn--success {
@@ -3934,29 +3857,6 @@ body {
   text-decoration: none;
 }
 
-/* Bộ chọn icon (emoji) — flex-wrap thay grid auto-fill (Chrome cũ). */
-.icon-picker {
-  display: flex;
-  flex-wrap: wrap;
-  margin: -4px;
-}
-.icon-picker > * {
-  flex: 0 0 46px;
-  width: 46px;
-  margin: 4px;
-}
-.icon-opt {
-  min-height: 46px;
-  font-size: 22px;
-  border: 1.5px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  cursor: pointer;
-}
-.icon-opt--active {
-  border-color: var(--orange);
-  background: var(--orange-soft);
-}
 
 /* Danh sách danh mục */
 .cat-manage-list {
