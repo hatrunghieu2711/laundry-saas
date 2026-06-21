@@ -5055,3 +5055,33 @@ body {
 .hbadge--proc { background: var(--orange-soft); color: var(--orange-dark); }
 /* Tải thêm: khoảng cách nhẹ trên nút (list không margin-bottom). */
 .history .btn--block { margin-top: 8px; }
+
+/* ── Hiển thị dịch vụ theo CN: toggle switch + dòng gọn nhóm theo danh mục ──
+   Chrome 56 SAFE: checkbox ẩn + track/knob (:checked + sibling, transform translateX),
+   KHÔNG inset/flex-gap/grid/box-shadow; radius chỉ trên phần tử NHỎ (track/knob). */
+.switch { position: relative; display: inline-block; width: 42px; height: 24px; flex: none; }
+.switch input {
+  position: absolute; top: 0; left: 0; width: 42px; height: 24px;
+  margin: 0; opacity: 0; cursor: pointer;
+}
+.switch__track {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--line); border-radius: 12px; transition: background 0.15s;
+  pointer-events: none;
+}
+.switch__track::before {
+  content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px;
+  background: #fff; border-radius: 50%; transition: transform 0.15s;
+}
+.switch input:checked + .switch__track { background: var(--success); }
+.switch input:checked + .switch__track::before { transform: translateX(18px); }
+.switch input:disabled + .switch__track { opacity: 0.5; }
+
+.bsv-group__title { font-size: 13px; font-weight: 600; color: var(--muted); margin: 16px 0 6px; }
+.bsv-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 9px 0; border-bottom: 1px solid var(--line);
+}
+.bsv-row > * + * { margin-left: 12px; }
+.bsv-row__name { flex: 1; min-width: 0; font-weight: 500; color: var(--ink); word-break: break-word; }
+.bsv-row--off .bsv-row__name { color: var(--muted); }

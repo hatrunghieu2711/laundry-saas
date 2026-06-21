@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { api } from '../lib/api'
 
@@ -70,6 +70,26 @@ export default function BranchServiceVisibility() {
     }
   }
 
+  // Gom dịch vụ theo DANH MỤC (category). Nhóm "Khác" (chưa phân loại) xuống cuối;
+  // thứ tự nhóm theo category.display_order; trong nhóm giữ thứ tự services (đã sort BE).
+  const groups = useMemo(() => {
+    const map = new Map() // key → { name, order, items[] }
+    for (const s of services) {
+      const key = s.category_id || '__none'
+      if (!map.has(key)) {
+        map.set(key, {
+          name: s.category?.name || 'Khác',
+          order: s.category_id ? (s.category?.display_order ?? 0) : Infinity, // Khác cuối
+          items: [],
+        })
+      }
+      map.get(key).items.push(s)
+    }
+    return [...map.entries()]
+      .map(([key, v]) => ({ key, ...v }))
+      .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name))
+  }, [services])
+
   if (!canManage) {
     return <p className="shift__hint">Chỉ chủ chuỗi mới quản lý dịch vụ theo chi nhánh.</p>
   }
@@ -107,30 +127,29 @@ export default function BranchServiceVisibility() {
       ) : services.length === 0 ? (
         <p className="shift__hint">Chưa có dịch vụ nào trong bảng giá.</p>
       ) : (
-        <div className="cat-manage-list">
-          {services.map((s) => {
-            const isHidden = hidden.has(s.id)
-            return (
-              <div className={`cat-manage ${isHidden ? 'blk--off' : ''}`} key={s.id}>
-                <div className="cat-manage__name" style={{ flex: 1, minWidth: 0 }}>
-                  <strong>{s.name}</strong>
-                  <div className="shift__hint" style={{ margin: '2px 0 0' }}>
-                    {isHidden ? 'Đang ẩn ở CN này' : 'Đang hiện'}
-                  </div>
+        groups.map((g) => (
+          <div key={g.key}>
+            <div className="bsv-group__title">{g.name}</div>
+            {g.items.map((s) => {
+              const isHidden = hidden.has(s.id)
+              return (
+                <div className={`bsv-row ${isHidden ? 'bsv-row--off' : ''}`} key={s.id}>
+                  <span className="bsv-row__name">{s.name}</span>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={!isHidden}
+                      disabled={savingId === s.id}
+                      onChange={() => toggle(s)}
+                      aria-label={`${isHidden ? 'Hiện' : 'Ẩn'} ${s.name} ở chi nhánh này`}
+                    />
+                    <span className="switch__track" />
+                  </label>
                 </div>
-                <div className="cat-manage__actions">
-                  <button
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => toggle(s)}
-                    disabled={savingId === s.id}
-                  >
-                    {savingId === s.id ? '…' : isHidden ? 'Hiện' : 'Ẩn'}
-                  </button>
-                </div>
-              </div>
-            )
-          })}
-        </div>
+              )
+            })}
+          </div>
+        ))
       )}
     </div>
   )
