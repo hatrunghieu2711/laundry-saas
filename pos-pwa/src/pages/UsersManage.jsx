@@ -114,6 +114,7 @@ export default function UsersManage() {
       if (editing) {
         await api.patch(`/users/${editing.id}`, {
           full_name: form.full_name.trim(),
+          phone: form.phone.trim(),
           role: form.role,
           branch_id,
         })
@@ -239,9 +240,12 @@ export default function UsersManage() {
             </label>
             <label className="field">
               <span>Tên đăng nhập (SĐT hoặc tên ca)</span>
-              <input className="input" type="text" value={form.phone} disabled={!!editing}
+              <input className="input" type="text" value={form.phone}
                 placeholder="VD: nv_ca_sang hoặc 0905..."
                 onChange={(e) => set('phone', e.target.value)} />
+              {editing && (
+                <span className="field-note">Đổi SĐT → nhân viên đăng nhập bằng SĐT mới từ lần sau.</span>
+              )}
             </label>
             {!editing && (
               <label className="field">
