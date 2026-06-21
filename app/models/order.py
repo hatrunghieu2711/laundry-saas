@@ -16,6 +16,7 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
+    from app.models.branch import Branch
     from app.models.customer import Customer
     from app.models.user import User
 
@@ -76,6 +77,11 @@ class Order(TimestampMixin, UpdatedAtMixin, Base):
     )
     customer: Mapped["Customer | None"] = relationship(
         "Customer", foreign_keys=[customer_id], lazy="selectin"
+    )
+    # Branch ĐỌC SỐNG (selectin, tránh lazy-load lỗi trong async) — cho bill in liên
+    # hệ theo CN (name/address/phone hiện tại). viewonly: chỉ đọc, không sửa qua đây.
+    branch: Mapped["Branch"] = relationship(
+        "Branch", foreign_keys=[branch_id], lazy="selectin", viewonly=True
     )
 
     @property

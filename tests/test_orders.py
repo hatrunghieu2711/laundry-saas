@@ -815,3 +815,90 @@ async def test_cross_tenant_isolation(client: AsyncClient, octx: dict, owner2: d
     assert got.json()["code"] == "ORDER_NOT_FOUND"
     lst = await client.get(ORDERS, headers=auth_headers(other))
     assert lst.status_code == 200 and lst.json()["total"] == 0
+
+
+# ── branch (liên hệ) nhúng vào OrderOut — ĐỌC SỐNG, cho bill in theo CN ───────
+# Stage R-BE: OrderOut.branch = {name, address, phone, order_prefix} đọc thẳng từ
+# branch hiện tại (không snapshot). Rủi ro chính = lazy-load async ở list_orders.
+async def _set_branch(client: AsyncClient, token: str, bid: str, **fields) -> None:
+    r = await client.patch(f"/api/v1/branches/{bid}", json=fields,
+                           headers=auth_headers(token))
+    assert r.status_code == 200, r.text
+
+
+async def test_order_detail_includes_branch(client: AsyncClient, octx: dict):
+    """⭐ GET /orders/{id} → branch có name/address/phone đúng của branch đơn đó."""
+    await _set_branch(client, octx["owner_token"], octx["branch_a"]["id"],
+                      address="12 Trần Phú, Nha Trang", phone="0258 123 456")
+    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
+    r = await client.get(f"{ORDERS}/{oid}", headers=auth_headers(octx["staff_token"]))
+    assert r.status_code == 200, r.text
+    br = r.json()["branch"]
+    assert br is not None
+    assert br["name"] == "CN A"
+    assert br["address"] == "12 Trần Phú, Nha Trang"
+    assert br["phone"] == "0258 123 456"
+    assert br["order_prefix"] == octx["branch_a"]["order_prefix"]
+
+
+async def test_list_orders_includes_branch_no_lazy_error(client: AsyncClient, octx: dict):
+    """⭐ GET /orders (list) → mỗi đơn có branch, KHÔNG lỗi lazy-load async."""
+    await _set_branch(client, octx["owner_token"], octx["branch_a"]["id"],
+                      address="12 Trần Phú", phone="0258 999")
+    await _create_order(client, octx["staff_token"], _ITEMS)
+    await _create_order(client, octx["staff_token"], _ITEMS)
+    r = await client.get(ORDERS, headers=auth_headers(octx["staff_token"]))
+    assert r.status_code == 200, r.text
+    items = r.json()["items"]
+    assert len(items) == 2
+    for it in items:
+        assert it["branch"] is not None
+        assert it["branch"]["name"] == "CN A"
+        assert it["branch"]["address"] == "12 Trần Phú"
+
+
+async def test_create_order_response_includes_branch(client: AsyncClient, octx: dict):
+    await _set_branch(client, octx["owner_token"], octx["branch_a"]["id"],
+                      address="9 Lê Lợi", phone="0258 111")
+    r = await _create_order(client, octx["staff_token"], _ITEMS)
+    assert r.status_code == 201, r.text
+    br = r.json()["branch"]
+    assert br is not None and br["name"] == "CN A" and br["address"] == "9 Lê Lợi"
+
+
+async def test_branch_null_address_no_error(client: AsyncClient, octx: dict):
+    """branch chưa điền address/phone → branch có mặt nhưng address/phone = null, không lỗi."""
+    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
+    r = await client.get(f"{ORDERS}/{oid}", headers=auth_headers(octx["staff_token"]))
+    assert r.status_code == 200, r.text
+    br = r.json()["branch"]
+    assert br is not None
+    assert br["name"] == "CN A"
+    assert br["address"] is None
+    assert br["phone"] is None
+
+
+async def test_orders_two_branches_correct_branch(client: AsyncClient, octx: dict):
+    """Đơn ở 2 branch khác nhau → mỗi đơn ra ĐÚNG branch của nó (B1 vs B2)."""
+    await _set_branch(client, octx["owner_token"], octx["branch_a"]["id"],
+                      address="A-addr", phone="A-phone")
+    await _set_branch(client, octx["owner_token"], octx["branch_b"]["id"],
+                      address="B-addr", phone="B-phone")
+    oa = (await _create_order(client, octx["owner_token"], _ITEMS,
+                              branch_id=octx["branch_a"]["id"])).json()
+    ob = (await _create_order(client, octx["owner_token"], _ITEMS,
+                              branch_id=octx["branch_b"]["id"])).json()
+    assert oa["branch"]["address"] == "A-addr"
+    assert ob["branch"]["address"] == "B-addr"
+    assert oa["branch"]["name"] == "CN A"
+    assert ob["branch"]["name"] == "CN B"
+
+
+async def test_branch_serialize_tenant_isolated(client: AsyncClient, octx: dict, owner2: dict):
+    """RLS giữ nguyên: tenant khác vẫn 404, branch nhúng không rò sang tenant khác."""
+    await _set_branch(client, octx["owner_token"], octx["branch_a"]["id"],
+                      address="secret-addr", phone="secret")
+    oid = (await _create_order(client, octx["staff_token"], _ITEMS)).json()["id"]
+    other = await login(client, owner2["phone"], owner2["password"])
+    got = await client.get(f"{ORDERS}/{oid}", headers=auth_headers(other))
+    assert got.status_code == 404  # không thấy đơn → không thấy branch của tenant 1
