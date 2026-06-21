@@ -544,12 +544,12 @@ POS thật trước khi coi là xong.**
 - `var(--ns-*)` — palette riêng của board (Kanban); KHÔNG dùng ngoài board.
 - Cảnh báo / ghi chú nổi bật: token warning/amber (vd `--ns-warn` / `--ns-warn-bg`).
 
-### Radius (KHÔNG dùng var(--radius)=14 cũ cho component mới)
-- Panel / khung lớn: radius 6.
-- Control (input, select, nút, chip, badge): radius 4.
+### Radius (khớp code thật sau stage migrate radius — set giá trị CỤ THỂ, KHÔNG var(--radius))
+- **Control: radius 4px — ĐÃ migrate TOÀN APP.** `.btn` (mọi biến thể: --sm/--lg/--xl/--ghost/--primary/--danger/--block…), `.input` (gồm `<select className="input">`), `.seg__btn`, `.chip` đều = **4px** trong index.css. Component control mới: set `border-radius: 4px` cụ thể, KHÔNG kế thừa var(--radius).
+- **Card có viền: radius 12px** — `.shift__card`, `.cat-group` (= card 12, border 1px, KHÔNG shadow).
+- **Panel / Modal: radius 6px** — `.panel`, `.modal` (+ `.panel--modal`/`.cfm`).
 - Metric card (ô số): radius 8.
-- Card (thẻ thông tin có viền): radius 12.
-- var(--radius)=14 là hệ CŨ — chỉ giữ cho màn chưa refactor (.modal/.diff cũ). Component mới KHÔNG kế thừa giá trị này.
+- ⚠️ **Token `var(--radius)` = 14px là HỆ CŨ (LEGACY)** — chỉ còn `.card` cũ + vài chỗ chưa refactor dùng. **Component MỚI KHÔNG kế thừa var(--radius)** — luôn set số cụ thể (4 control / 6 panel-modal / 8 metric / 12 card). KHÔNG đổi token (vẫn 14 cho legacy) — đổi sẽ đụng lan.
 
 ### Spacing
 - Khoảng cách giữa phần tử dùng `margin` hoặc `> * + * { margin-* }`. TUYỆT ĐỐI KHÔNG dùng `flex gap` (Chrome 56 không hỗ trợ — xem mục Chrome 56).
@@ -568,11 +568,24 @@ POS thật trước khi coi là xong.**
 - `.panel` / `.panel__*` — khung/section chuẩn (head/body/group/row/foot/hint).
 - `.cfm` — token/quy ước style mới (nguồn gốc OrderNew).
 - `.od__*` — Chi tiết đơn. `.history__*` — Lịch sử. `.hexp__*` — hàng mở rộng. `.sheet` — bottom-sheet popup ☰.
+- **`.cat-group` / `.cat-group__title` / `.cat-item` — HỆ CLASS CHUẨN cho LIST QUẢN LÝ** (gom nhóm danh mục + dòng item). Dùng cho mọi màn list nhóm-theo-danh-mục về sau (hub /catalog: Danh mục/Dịch vụ/Phụ thu/Hiển thị-theo-CN đều dùng).
+  - `.cat-group` = thẻ nhóm (border 1px, radius 12, KHÔNG shadow); `.cat-group__title` = tiêu đề nhóm (nền `--bg`, 600). List PHẲNG (không nhóm) = 1 `.cat-group` không title.
+  - `.cat-item` = 1 dòng compact (border-top giữa các dòng, no shadow). Slot: `.cat-item__lead` (trái: ★/badge/↑↓), `.cat-item__main` (`__name` + `__meta`), `.cat-item__actions` (phải: nút). `.cat-item--off` = mờ (opacity lead+main) cho item ẩn/tắt — DÙNG CHUNG 1 cách (thay blk--off/svc-manage--off/bsv-row--off cũ).
+  - `.cat-manage*` CŨ (radius14+shadow) chỉ còn ở Branches/Users — màn list MỚI dùng `.cat-group`/`.cat-item`, KHÔNG dùng `.cat-manage`.
 - Khi làm màn mới: dùng các class/token này, KHÔNG tạo style rời rạc mâu thuẫn.
 
 ### Border (Chrome 56 thực dụng — xem thêm mục Chrome 56)
 - Border 1px, KHÔNG 0.5px (máy POS DPI thấp làm tròn 0.5px về 0 → mất viền). Mockup có thể vẽ 0.5px nhưng code LUÔN 1px.
 - `overflow:hidden` chỉ an toàn trên span nhỏ (cắt chữ ellipsis); KHÔNG dùng trên khối lớn có radius (bug paint Chrome 56).
+
+## QUY TẮC LÀM UI MỚI (chống lệch style — BẮT BUỘC)
+
+⚠️ Khi làm UI mới HOẶC sửa layout: **KHÔNG tự diễn giải style từ mô tả chữ.** PHẢI:
+- **(a) Mở 1 màn THAM CHIẾU đã đúng chuẩn** rồi xem class + radius + cấu trúc THẬT mà sao y — KHÔNG đoán từ prompt. Tham chiếu: hub /catalog (`Catalog.jsx` + `.cat-group`/`.cat-item`) cho list quản lý; `Shift.jsx` cho `.shift__card`; `OrderNew.jsx`/`.cfm` cho form/popup.
+- **(b) Nút/input/chip dùng ĐÚNG class có sẵn** `.btn`/`.input`/`.chip`/`.seg__btn` (radius 4) — TUYỆT ĐỐI KHÔNG tạo class nút/input mới (sẽ lệch radius/weight).
+- **(c) Thẻ nhóm dùng `.cat-group` (radius 12); dòng list dùng `.cat-item`** (flat, border-top, `__lead`/`__main`/`__actions`, `--off` cho item ẩn). KHÔNG tự chế card list mới.
+- **(d) UI lớn: render MOCKUP HTML cho chủ duyệt TRƯỚC**, KHÔNG code thẳng từ prompt chữ.
+- **Lý do:** mô tả chữ để lại khoảng diễn giải → mỗi lần một kiểu → phải sửa lại nhiều lần (đã trả giá: radius hub lệch 14 vs 4, 3 họ class list trùng chức năng). Đối chiếu màn thật + class sẵn có = nhất quán ngay lần đầu.
 
 ## DEPLOY / MIGRATION (ai chạy, thứ tự)
 
