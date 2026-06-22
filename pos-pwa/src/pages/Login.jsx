@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { ApiError } from '../lib/api'
@@ -20,6 +20,7 @@ export default function Login() {
   const [slug, setSlug] = useState(() => getTenantSlug())
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const slugInputRef = useRef(null)
 
   const onSubmit = async (e) => {
     e.preventDefault()
@@ -28,12 +29,17 @@ export default function Login() {
     const slugClean = slug.trim().toLowerCase()
     try {
       const user = await login(phone.trim(), password, slugClean)
-      // Đăng nhập OK → nhớ mã trên máy này (bền qua logout); rỗng → xóa mã đã lưu.
-      setTenantSlug(slugClean)
+      // Đăng nhập OK → nhớ mã trên máy này (bền qua logout). CHỈ lưu khi CÓ gõ mã;
+      // login KHÔNG gõ mã (1 tenant) → GIỮ mã đã nhớ, KHÔNG xóa.
+      if (slugClean) setTenantSlug(slugClean)
       const dest = location.state?.from?.pathname || homeFor(user.role)
       navigate(dest, { replace: true })
     } catch (err) {
-      if (err instanceof ApiError && err.code === 'INVALID_CREDENTIALS') {
+      if (err instanceof ApiError && err.code === 'SLUG_REQUIRED') {
+        // Server có nhiều cửa hàng → cần mã. KHÔNG gộp vào lỗi sai mật khẩu.
+        setError('Vui lòng nhập mã cửa hàng.')
+        slugInputRef.current?.focus()
+      } else if (err instanceof ApiError && err.code === 'INVALID_CREDENTIALS') {
         setError('Sai số điện thoại hoặc mật khẩu.')
       } else if (err instanceof ApiError) {
         setError(err.message)
@@ -84,6 +90,7 @@ export default function Login() {
         <label className="field">
           <span>Mã cửa hàng</span>
           <input
+            ref={slugInputRef}
             className="input"
             type="text"
             inputMode="text"

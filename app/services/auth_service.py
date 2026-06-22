@@ -6,7 +6,7 @@ tenant_id LUÔN lấy từ token/user, không bao giờ từ request body.
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -20,6 +20,7 @@ from app.core.security import (
     verify_password,
 )
 from app.models.refresh_token import RefreshToken
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services import tenant_service
 
@@ -52,18 +53,30 @@ async def authenticate(
     """Tìm user active theo phone và verify password.
 
     phone unique theo (tenant_id, phone) — có thể trùng giữa các tenant.
-    slug (mã cửa hàng) optional — tenant context chống nhập nhằng đa tenant:
-    - CÓ slug → giới hạn ứng viên về đúng tenant (uq tenant_id+phone → tối đa 1).
-    - KHÔNG slug (rỗng/space coi như không có) → tìm TOÀN CỤC (backward-compat
-      giai đoạn 1; sẽ siết bắt buộc ở giai đoạn 2).
-    Mọi lỗi (sai slug/phone/password) → cùng 401 INVALID_CREDENTIALS (chống dò tenant).
+    slug (mã cửa hàng) chống nhập nhằng đa tenant (GĐ2 — Cách A):
+    - CÓ slug → giới hạn ứng viên về đúng tenant (uq tenant_id+phone → tối đa 1);
+      tenant khóa (status != active) → chặn (403 TENANT_INACTIVE).
+    - KHÔNG slug + >1 tenant active → 400 SLUG_REQUIRED (bắt buộc nhập mã, không trả
+      nhầm tenant; KHÔNG lộ phone tồn tại).
+    - KHÔNG slug + ≤1 tenant → tìm TOÀN CỤC (backward-compat — 2H một mình không cần gõ).
+    Sai slug/phone/password → cùng 401 INVALID_CREDENTIALS (chống dò tenant).
     """
     stmt = select(User).where(User.phone == phone, User.status == "active")
     if slug is not None and slug.strip():
         tenant = await tenant_service.get_tenant_by_slug(db, slug)
         if tenant is None:
             raise APIError(401, "INVALID_CREDENTIALS", "Sai số điện thoại hoặc mật khẩu")
+        if tenant.status != "active":
+            raise APIError(403, "TENANT_INACTIVE", "Cửa hàng tạm ngưng hoạt động")
         stmt = stmt.where(User.tenant_id == tenant.id)
+    else:
+        # GĐ2: thiếu slug + nhiều tenant → bắt buộc nhập mã (chống trả nhầm tenant).
+        # tenants NGOÀI RLS → count đúng dù GUC rỗng (login chưa set tenant context).
+        active_tenants = await db.scalar(
+            select(func.count()).select_from(Tenant).where(Tenant.status == "active")
+        )
+        if (active_tenants or 0) > 1:
+            raise APIError(400, "SLUG_REQUIRED", "Vui lòng nhập mã cửa hàng")
     result = await db.execute(stmt)
     for user in result.scalars().all():
         if verify_password(password, user.password_hash):

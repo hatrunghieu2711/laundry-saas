@@ -148,11 +148,25 @@ def auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-async def login(client: AsyncClient, phone: str, password: str) -> str:
-    """Đăng nhập, trả access_token (raise nếu fail)."""
-    resp = await client.post(
-        "/api/v1/auth/login", json={"phone": phone, "password": password}
-    )
+# Registry phone→slug do owner/owner2 fixture điền — để login() TỰ kèm slug khi
+# môi trường có >1 tenant (GĐ2 siết slug bắt buộc). Test body không phải sửa.
+_SLUG_BY_PHONE: dict[str, str] = {}
+
+
+async def login(
+    client: AsyncClient, phone: str, password: str, slug: str | None = None
+) -> str:
+    """Đăng nhập, trả access_token (raise nếu fail).
+
+    slug None → tự tra registry (owner/owner2). Có >1 tenant active mà thiếu slug,
+    BE sẽ 400 SLUG_REQUIRED; helper tự kèm slug đã biết để lấy token đúng tenant.
+    """
+    if slug is None:
+        slug = _SLUG_BY_PHONE.get(phone)
+    body = {"phone": phone, "password": password}
+    if slug:
+        body["slug"] = slug
+    resp = await client.post("/api/v1/auth/login", json=body)
     assert resp.status_code == 200, resp.text
     return resp.json()["access_token"]
 
@@ -259,12 +273,14 @@ async def owner():
         )
         db.add(user)
         await db.commit()
+        _SLUG_BY_PHONE[user.phone] = tenant.slug  # để login() tự kèm slug (GĐ2)
         return {
             "user_id": user.id,
             "tenant_id": tenant.id,
             "phone": user.phone,
             "password": password,
             "role": user.role,
+            "slug": tenant.slug,
         }
 
 
@@ -287,12 +303,14 @@ async def owner2():
         )
         db.add(user)
         await db.commit()
+        _SLUG_BY_PHONE[user.phone] = tenant.slug  # để login() tự kèm slug (GĐ2)
         return {
             "user_id": user.id,
             "tenant_id": tenant.id,
             "phone": user.phone,
             "password": password,
             "role": user.role,
+            "slug": tenant.slug,
         }
 
 

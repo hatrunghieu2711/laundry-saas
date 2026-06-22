@@ -152,11 +152,54 @@ async def test_login_dup_phone_slug_matches_right_tenant(client: AsyncClient):
         assert await _tenant_of(client, resp.json()["access_token"]) == str(ids[slug])
 
 
-async def test_login_dup_phone_no_slug_still_authenticates(client: AsyncClient):
-    """2 tenant trùng phone+pass: KHÔNG slug → vẫn login (lấy ứng viên đầu — siết ở GĐ 2)."""
+# ── GĐ2: siết slug bắt buộc khi >1 tenant active (Cách A) ────────────────────
+async def test_login_dup_phone_no_slug_requires_slug(client: AsyncClient):
+    """⭐ 2 tenant trùng phone+pass, KHÔNG slug → 400 SLUG_REQUIRED (KHÔNG trả nhầm tenant)."""
     phone, password, _ = await _make_dup_phone_tenants()
     resp = await client.post(LOGIN, json={"phone": phone, "password": password})
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "SLUG_REQUIRED"
+
+
+async def test_login_single_tenant_no_slug_ok(client: AsyncClient, owner: dict):
+    """⭐ SỐNG CÒN: 1 tenant (2H) KHÔNG slug → vẫn login OK (backward-compat, 2H không gãy)."""
+    resp = await client.post(LOGIN, json={"phone": owner["phone"], "password": owner["password"]})
     assert resp.status_code == 200, resp.text
+
+
+async def test_login_multi_tenant_no_slug_requires_slug(
+    client: AsyncClient, owner: dict, owner2: dict
+):
+    """⭐ >1 tenant active, KHÔNG slug → 400 SLUG_REQUIRED."""
+    resp = await client.post(LOGIN, json={"phone": owner["phone"], "password": owner["password"]})
+    assert resp.status_code == 400
+    assert resp.json()["code"] == "SLUG_REQUIRED"
+
+
+async def test_login_multi_tenant_with_slug_ok(
+    client: AsyncClient, owner: dict, owner2: dict
+):
+    """>1 tenant + slug đúng + phone + pass → login ĐÚNG tenant đó."""
+    resp = await client.post(
+        LOGIN,
+        json={"phone": owner["phone"], "password": owner["password"], "slug": owner["slug"]},
+    )
+    assert resp.status_code == 200, resp.text
+    assert await _tenant_of(client, resp.json()["access_token"]) == str(owner["tenant_id"])
+
+
+async def test_login_tenant_locked_blocked(client: AsyncClient, owner: dict):
+    """⭐ Guard tenant khóa: status != active + slug đúng → chặn login (403 TENANT_INACTIVE)."""
+    async with SessionFactory() as db:
+        tenant = await db.get(Tenant, owner["tenant_id"])
+        tenant.status = "suspended"
+        await db.commit()
+    resp = await client.post(
+        LOGIN,
+        json={"phone": owner["phone"], "password": owner["password"], "slug": owner["slug"]},
+    )
+    assert resp.status_code == 403
+    assert resp.json()["code"] == "TENANT_INACTIVE"
 
 
 # ── me ──────────────────────────────────────────────────────────────────
