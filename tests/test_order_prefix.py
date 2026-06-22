@@ -107,7 +107,9 @@ async def test_order_code_format_and_sequential(client: AsyncClient, ctx: dict):
 # ── nới chữ số khi vượt 99999 (KHÔNG reset, KHÔNG trần) ──────────────────────
 async def test_order_code_widens_past_99999(client: AsyncClient, ctx: dict):
     # Chưa có đơn nào → sequence ở mức START. Đặt sát trần 5 chữ số.
-    await _setval("order_code_seq_b1", 99998)
+    # Tên sequence per-tenant: order_code_seq_{tenant_hex}_b1.
+    seq = f"order_code_seq_{ctx['owner']['tenant_id'].hex}_b1"
+    await _setval(seq, 99998)
     r1 = await _create_order(client, ctx["staff_token"])
     assert r1.json()["order_code"] == "B1-99999"  # vẫn 5 chữ số
     r2 = await _create_order(client, ctx["staff_token"])

@@ -102,14 +102,16 @@ async def test_create_branch_auto_code_and_sequence(client: AsyncClient, owner: 
     assert r1.json()["code"] == "B1"
     assert r2.json()["code"] == "B2"
 
-    # Sequence order_code_seq_b1 / _b2 phải tồn tại trong DB.
+    # Sequence per-tenant: order_code_seq_{tenant_hex}_b1 / _b2 phải tồn tại.
     async with SessionFactory() as db:
+        thex = owner["tenant_id"].hex
         for code in ("b1", "b2"):
+            name = f"order_code_seq_{thex}_{code}"
             exists = await db.scalar(
                 text("SELECT 1 FROM pg_class WHERE relkind='S' AND relname=:n"),
-                {"n": f"order_code_seq_{code}"},
+                {"n": name},
             )
-            assert exists == 1, f"thiếu sequence order_code_seq_{code}"
+            assert exists == 1, f"thiếu sequence {name}"
 
 
 # ── branches: phân quyền ────────────────────────────────────────────────────

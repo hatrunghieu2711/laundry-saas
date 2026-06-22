@@ -49,11 +49,13 @@ _ITEMS_EDITABLE = {"created", "washing", "drying"}
 # Trạng thái đơn còn hoạt động — hiển thị trên dashboard vận hành (ẩn terminal).
 _BOARD_STATUSES = ["created", "washing", "drying", "ready", "delivered"]
 
-_SEQ_RE = re.compile(r"^order_code_seq_b[0-9]+$")
+# Tên sequence order_code PER-TENANT: order_code_seq_{tenant_id_hex}_{code}.
+_SEQ_RE = re.compile(r"^order_code_seq_[0-9a-f]{32}_b[0-9]+$")
 
 
-def _sequence_name(branch_code: str) -> str:
-    name = f"order_code_seq_{branch_code.lower()}"
+def _sequence_name(tenant_id: uuid.UUID, branch_code: str) -> str:
+    tenant_hex = uuid.UUID(str(tenant_id)).hex
+    name = f"order_code_seq_{tenant_hex}_{branch_code.lower()}"
     if not _SEQ_RE.match(name):
         raise APIError(500, "INVALID_BRANCH_CODE", "Mã chi nhánh không hợp lệ")
     return name
@@ -230,8 +232,9 @@ def _format_order_code(prefix: str, seq_val: int) -> str:
 
 
 async def _next_order_code(db: AsyncSession, branch) -> str:
-    # Sequence vẫn keyed theo CODE hệ thống (bất biến) — đổi prefix KHÔNG đụng sequence.
-    seq = _sequence_name(branch.code)  # đã validate -> an toàn để nhúng
+    # Sequence keyed theo (tenant_id, CODE) — mỗi tenant đếm riêng; đổi prefix KHÔNG
+    # đụng sequence (prefix chỉ vào phần hiển thị order_code).
+    seq = _sequence_name(branch.tenant_id, branch.code)  # đã validate -> an toàn để nhúng
     val = await db.scalar(text(f"SELECT nextval('{seq}')"))
     prefix = branch.order_prefix or branch.code
     return _format_order_code(prefix, int(val))

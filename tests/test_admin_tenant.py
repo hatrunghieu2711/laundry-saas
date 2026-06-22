@@ -7,6 +7,7 @@ Tâm điểm sống còn:
 - owner login được bằng temp_password qua luồng user thường + slug mới.
 """
 import uuid
+from datetime import datetime, timedelta, timezone
 
 import pytest_asyncio
 from httpx import AsyncClient
@@ -97,13 +98,45 @@ async def test_create_tenant_full(client: AsyncClient, admin: dict):
 
         assert await db.get(TenantSettings, tid) is not None
 
-        # sequence order_code order_code_seq_b1 đã tạo (tạo đơn sau không 500).
+        # sequence order_code per-tenant (order_code_seq_{tenant_hex}_b1) đã tạo.
         seq = await db.scalar(
-            text(
-                "SELECT 1 FROM pg_class WHERE relkind='S' AND relname='order_code_seq_b1'"
-            )
+            text("SELECT 1 FROM pg_class WHERE relkind='S' AND relname=:n"),
+            {"n": f"order_code_seq_{tid.hex}_b1"},
         )
         assert seq == 1
+
+
+async def test_new_tenant_first_order_starts_at_one(client: AsyncClient, admin: dict):
+    """⭐ Tenant MỚI (A2) → sequence riêng → đơn đầu = B1-00001 (không nhảy theo 2H)."""
+    token = await _admin_token(client, admin)
+    resp = await client.post(
+        CREATE_TENANT,
+        json=_payload(slug="first-order-shop", owner_phone="0900700700"),
+        headers=_bearer(token),
+    )
+    assert resp.status_code == 201, resp.text
+    pw = resp.json()["temp_password"]
+
+    lo = await client.post(
+        USER_LOGIN,
+        json={"phone": "0900700700", "password": pw, "slug": "first-order-shop"},
+    )
+    assert lo.status_code == 200, lo.text
+    utok = lo.json()["access_token"]
+
+    # owner cần branch_id → lấy CN B1 vừa tạo.
+    br = await client.get(BRANCHES, headers=_bearer(utok))
+    assert br.status_code == 200, br.text
+    bid = br.json()["items"][0]["id"]
+
+    body = {
+        "items": [{"service_name": "Giặt", "quantity": 1, "unit_price": 10000}],
+        "pickup_at": (datetime.now(timezone.utc) + timedelta(hours=4)).isoformat(),
+        "branch_id": bid,
+    }
+    ro = await client.post("/api/v1/orders", json=body, headers=_bearer(utok))
+    assert ro.status_code == 201, ro.text
+    assert ro.json()["order_code"] == "B1-00001"
 
 
 async def test_create_tenant_custom_branch_name(client: AsyncClient, admin: dict):

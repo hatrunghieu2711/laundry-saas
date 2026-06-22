@@ -17,17 +17,22 @@ from app.models.branch import Branch
 from app.models.shift import Shift
 from app.schemas.branch import BranchCreate, BranchUpdate
 
-# code do hệ thống sinh: "B" + số. Validate trước khi nhúng vào tên sequence.
-_SEQ_RE = re.compile(r"^order_code_seq_b[0-9]+$")
+# Tên sequence order_code PER-TENANT: order_code_seq_{tenant_id_hex}_{code}.
+# Validate trước khi nhúng vào SQL (chống injection). hex = 32 ký tự [0-9a-f].
+_SEQ_RE = re.compile(r"^order_code_seq_[0-9a-f]{32}_b[0-9]+$")
 
 # order_prefix do owner đặt: chỉ chữ/số (không dấu, không khoảng trắng/ký tự đặc biệt).
 _PREFIX_RE = re.compile(r"^[A-Za-z0-9]+$")
 _PREFIX_MAX = 16
 
 
-def _sequence_name(code: str) -> str:
-    """Tên sequence order_code cho branch, vd B1 -> order_code_seq_b1 (lowercase)."""
-    name = f"order_code_seq_{code.lower()}"
+def _sequence_name(tenant_id: uuid.UUID, code: str) -> str:
+    """Tên sequence order_code PER-TENANT, vd (2H,B1) -> order_code_seq_{hex}_b1.
+
+    Kèm tenant_id → mỗi tenant một sequence riêng (đếm độc lập từ 1). hex bỏ dấu '-'.
+    """
+    tenant_hex = uuid.UUID(str(tenant_id)).hex
+    name = f"order_code_seq_{tenant_hex}_{code.lower()}"
     if not _SEQ_RE.match(name):
         raise APIError(500, "INVALID_BRANCH_CODE", "Mã chi nhánh không hợp lệ")
     return name
@@ -125,7 +130,10 @@ async def create_branch(
     # Sequence riêng cho order_code của branch (CLAUDE.md ORDER #5). RLS R2 (Cách B):
     # tạo qua function SECURITY DEFINER (owner) → role app non-owner KHÔNG cần CREATE
     # ON SCHEMA. Function tự validate tên + GRANT USAGE cho laundry_app (nếu role có).
-    await db.execute(text("SELECT app_create_order_seq(:n)"), {"n": _sequence_name(code)})
+    await db.execute(
+        text("SELECT app_create_order_seq(:n)"),
+        {"n": _sequence_name(tenant_id, code)},
+    )
     await db.commit()
     await db.refresh(branch)
     return branch

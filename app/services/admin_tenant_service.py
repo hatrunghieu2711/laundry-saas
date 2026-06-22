@@ -40,8 +40,9 @@ class CreatedTenant:
     branch_code: str
 
 
-def _seq_name(code: str) -> str:
-    return f"order_code_seq_{code.lower()}"
+def _seq_name(tenant_id: uuid.UUID, code: str) -> str:
+    """Tên sequence order_code PER-TENANT (kèm tenant_id hex) — mỗi tenant đếm riêng."""
+    return f"order_code_seq_{uuid.UUID(str(tenant_id)).hex}_{code.lower()}"
 
 
 async def create_tenant(db: AsyncSession, data: TenantCreate) -> CreatedTenant:
@@ -79,7 +80,7 @@ async def create_tenant(db: AsyncSession, data: TenantCreate) -> CreatedTenant:
         await db.flush()
         await db.execute(
             text("SELECT app_create_order_seq(:n)"),
-            {"n": _seq_name(_FIRST_BRANCH_CODE)},
+            {"n": _seq_name(tenant.id, _FIRST_BRANCH_CODE)},
         )
 
         # e. Owner đầu (role=owner, branch_id=None → quản mọi CN). pw đã hash.

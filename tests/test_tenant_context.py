@@ -93,19 +93,29 @@ async def test_guc_bound_param_no_injection():
         reset_current_tenant()
 
 
-# ── Sequence Cách B: function SECURITY DEFINER (migration e5f6a7b8c9d0) ──────
+# ── Sequence Cách B: function SECURITY DEFINER (regex per-tenant) ────────────
+# Tên sequence mới kèm tenant_id hex: order_code_seq_{32 hex}_b{n}.
+_SEQ_NEW = "order_code_seq_" + "0" * 32 + "_b1"
+
+
 async def test_app_create_order_seq_creates_and_nextval():
     """Tạo sequence qua function + nextval sinh mã đơn (path branch_service mới)."""
     async with SessionFactory() as s:
-        await s.execute(text("SELECT app_create_order_seq('order_code_seq_b1')"))
+        await s.execute(text("SELECT app_create_order_seq(:n)"), {"n": _SEQ_NEW})
         await s.commit()
-        assert await s.scalar(text("SELECT nextval('order_code_seq_b1')")) == 1
+        assert await s.scalar(text(f"SELECT nextval('{_SEQ_NEW}')")) == 1
 
 
 async def test_app_create_order_seq_rejects_bad_name():
-    """Function validate tên (chống injection qua tên sequence) → tên sai RAISE."""
+    """Function validate tên (chống injection + chặn tên CŨ thiếu tenant_id) → RAISE."""
     async with SessionFactory() as s:
         with pytest.raises(Exception):
             await s.execute(
                 text("SELECT app_create_order_seq(:n)"), {"n": "evil; DROP TABLE x"}
+            )
+    # Tên CŨ (order_code_seq_b1) nay cũng bị regex mới chặn.
+    async with SessionFactory() as s:
+        with pytest.raises(Exception):
+            await s.execute(
+                text("SELECT app_create_order_seq(:n)"), {"n": "order_code_seq_b1"}
             )
