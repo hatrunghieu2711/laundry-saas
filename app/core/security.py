@@ -50,6 +50,25 @@ def decode_access_token(token: str) -> dict[str, Any]:
     return jwt.decode(token, _settings.jwt_secret, algorithms=[_settings.jwt_algorithm])
 
 
+# ── Admin access token (Super Admin — TÁCH HẲN user) ────────────────────────
+def create_admin_access_token(*, admin_id: uuid.UUID, role: str) -> str:
+    """JWT access token cho ADMIN. type='admin_access', sub=admin_id, KHÔNG tenant_id.
+
+    Tách HẲN create_access_token (user): admin đứng TRÊN tenant nên token KHÔNG mang
+    tenant_id/branch_id. `type` khác ('admin_access' vs 'access') → guard cách ly 2
+    chiều (get_current_admin/get_current_user kiểm type). Verify dùng chung
+    decode_access_token (chỉ verify chữ ký + hạn)."""
+    now = datetime.now(timezone.utc)
+    payload: dict[str, Any] = {
+        "sub": str(admin_id),
+        "role": role,
+        "type": "admin_access",
+        "iat": now,
+        "exp": now + timedelta(minutes=_settings.jwt_access_ttl_minutes),
+    }
+    return jwt.encode(payload, _settings.jwt_secret, algorithm=_settings.jwt_algorithm)
+
+
 # ── Refresh token (opaque, stateful trong DB) ───────────────────────────
 def generate_refresh_token() -> str:
     """Sinh refresh token ngẫu nhiên (raw, chỉ nằm trong cookie httpOnly)."""

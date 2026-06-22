@@ -1,4 +1,5 @@
 """ORM models — import tất cả để Base.metadata thấy mọi bảng (Alembic autogenerate)."""
+from app.models.admin import Admin  # noqa: F401
 from app.models.log import AuditLog, OrderTrackingLog  # noqa: F401
 from app.models.billing import Plan, Subscription  # noqa: F401
 from app.models.branch import Branch  # noqa: F401
@@ -19,6 +20,7 @@ from app.models.tenant_settings import TenantSettings  # noqa: F401
 from app.models.user import User  # noqa: F401
 
 __all__ = [
+    "Admin",
     "AuditLog",
     "Branch",
     "BranchHiddenService",

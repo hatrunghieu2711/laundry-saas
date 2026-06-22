@@ -136,10 +136,11 @@ _provision_test_db()
 get_settings().cookie_secure = False
 
 # Các bảng test chạm tới — dọn giữa mỗi test (CASCADE lo FK).
+# admins: NGOÀI RLS, không FK — dọn để test admin (Stage A1) idempotent giữa các test.
 _CLEAN_TABLES = (
     "discount_logs, cash_transactions, payments, order_items, orders, price_rules, "
     "service_tiers, services, categories, shifts, refresh_tokens, users, branches, "
-    "customers, tenant_settings, tenants"
+    "customers, tenant_settings, tenants, admins"
 )
 
 

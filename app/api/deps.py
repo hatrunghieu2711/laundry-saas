@@ -12,6 +12,7 @@ from app.core.database import get_db
 from app.core.errors import APIError
 from app.core.security import decode_access_token
 from app.core.tenant_ctx import set_current_tenant
+from app.models.admin import Admin
 from app.models.user import User
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
@@ -68,6 +69,62 @@ def require_role(*roles: str) -> Callable[[User], Awaitable[User]]:
         if current_user.role not in roles:
             raise APIError(403, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này")
         return current_user
+
+    return _dep
+
+
+# ── Admin (Super Admin) — NHÁNH MỚI, TÁCH HẲN get_current_user/require_role ──
+async def get_current_admin(
+    db: DbSession,
+    authorization: Annotated[str | None, Header()] = None,
+) -> Admin:
+    """Verify admin JWT (Bearer), load admin từ bảng `admins`.
+
+    TÁCH HẲN get_current_user (KHÔNG đụng tới nó):
+    - assert type=='admin_access' → token user (type='access') bị 401 → cách ly 2 chiều.
+    - KHÔNG gọi set_current_tenant: admin không thuộc tenant nào → GUC giữ rỗng (mặc
+      định None → ''); nếu admin lỡ query bảng tenant thì RLS chặn (thấy 0 dòng).
+    - load từ `admins` (KHÔNG db.get(User)) → admin id không nằm ở users vẫn OK.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise APIError(401, "NOT_AUTHENTICATED", "Thiếu access token")
+    token = authorization[7:].strip()
+
+    try:
+        payload = decode_access_token(token)
+    except jwt.ExpiredSignatureError as exc:
+        raise APIError(401, "TOKEN_EXPIRED", "Access token đã hết hạn") from exc
+    except jwt.PyJWTError as exc:
+        raise APIError(401, "INVALID_TOKEN", "Access token không hợp lệ") from exc
+
+    if payload.get("type") != "admin_access":
+        raise APIError(401, "INVALID_TOKEN", "Sai loại token")
+
+    try:
+        admin_id = uuid.UUID(payload["sub"])
+    except (KeyError, ValueError) as exc:
+        raise APIError(401, "INVALID_TOKEN", "Access token không hợp lệ") from exc
+
+    admin = await db.get(Admin, admin_id)
+    if admin is None or admin.status != "active":
+        raise APIError(401, "ADMIN_INACTIVE", "Tài khoản admin không hoạt động")
+    return admin
+
+
+CurrentAdmin = Annotated[Admin, Depends(get_current_admin)]
+
+
+def require_admin(*roles: str) -> Callable[[Admin], Awaitable[Admin]]:
+    """Guard admin (Super Admin). A1: mọi admin active đi qua.
+
+    Truyền roles để siết theo cấp admin về sau (vd require_admin("super_admin")) —
+    chỗ mở rộng; A1 chưa cần nên gọi require_admin() không tham số.
+    """
+
+    async def _dep(current_admin: CurrentAdmin) -> Admin:
+        if roles and current_admin.role not in roles:
+            raise APIError(403, "FORBIDDEN", "Bạn không có quyền thực hiện thao tác này")
+        return current_admin
 
     return _dep
 
