@@ -1,6 +1,8 @@
-"""Pydantic v2 schemas cho admin (Super Admin). A1: auth; A2: tạo tenant."""
+"""Pydantic v2 schemas cho admin (Super Admin). A1: auth; A2: tạo tenant; A3: quản tenant."""
 import re
 import uuid
+from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -60,3 +62,67 @@ class TenantCreateOut(BaseModel):
     owner_phone: str
     temp_password: str
     branch_code: str
+
+
+# ── A3: list / detail / sửa / khóa / reset MK owner ─────────────────────────
+class TenantListItem(BaseModel):
+    """1 dòng danh sách tenant + số liệu nhẹ (đếm trực tiếp qua set_config loop)."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    status: str
+    created_at: datetime
+    n_branches: int
+    n_users: int
+    last_order_at: datetime | None
+
+
+class TenantAdminUpdate(BaseModel):
+    """Admin sửa tenant. status đổi → service revoke refresh nếu khóa (chống khóa giả)."""
+
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    slug: str | None = Field(default=None, min_length=1, max_length=100)
+    status: Literal["active", "suspended"] | None = None
+
+    @field_validator("slug")
+    @classmethod
+    def _normalize_slug(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        v = v.strip().lower()
+        if not _SLUG_RE.match(v):
+            raise ValueError("Slug chỉ gồm chữ thường, số và dấu gạch ngang")
+        return v
+
+
+class TenantAdminUpdateOut(BaseModel):
+    """Kết quả sửa tenant. slug_changed=True → FE cảnh báo user phải nhập mã mới."""
+
+    id: uuid.UUID
+    name: str
+    slug: str
+    status: str
+    slug_changed: bool
+
+
+class TenantStatusOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    slug: str
+    status: str
+
+
+class ResetOwnerPasswordIn(BaseModel):
+    # Chỉ định owner khi tenant có >1 owner; bỏ trống nếu đúng 1 owner.
+    user_id: uuid.UUID | None = None
+
+
+class ResetOwnerPasswordOut(BaseModel):
+    """temp_password plaintext — admin gửi owner, HIỆN 1 LẦN."""
+
+    owner_phone: str
+    temp_password: str

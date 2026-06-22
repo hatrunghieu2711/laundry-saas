@@ -6,6 +6,7 @@ Stage A1: access-token ONLY (KHÔNG cookie/refresh/csrf). Prefix /admin → /api
 Stage A2:
 - POST /admin/tenants: tạo tenant mới (tiệm + CN B1 + owner + settings) 1 transaction.
 """
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, status
@@ -16,8 +17,14 @@ from app.schemas.admin import (
     AdminLoginRequest,
     AdminOut,
     AdminTokenResponse,
+    ResetOwnerPasswordIn,
+    ResetOwnerPasswordOut,
+    TenantAdminUpdate,
+    TenantAdminUpdateOut,
     TenantCreate,
     TenantCreateOut,
+    TenantListItem,
+    TenantStatusOut,
 )
 from app.services import admin_auth_service, admin_tenant_service
 
@@ -54,3 +61,54 @@ async def create_tenant(
         temp_password=result.temp_password,
         branch_code=result.branch_code,
     )
+
+
+# ── A3: list / detail / sửa / khóa / reset MK owner ─────────────────────────
+@router.get("/tenants", response_model=list[TenantListItem])
+async def admin_list_tenants(_admin: CurrentAdminDep, db: DbSession) -> list:
+    """Danh sách tenant + số liệu nhẹ (CN/nhân viên/đơn gần nhất) qua set_config loop."""
+    return await admin_tenant_service.list_tenants_with_stats(db)
+
+
+@router.get("/tenants/{tenant_id}", response_model=TenantListItem)
+async def admin_get_tenant(
+    tenant_id: uuid.UUID, _admin: CurrentAdminDep, db: DbSession
+):
+    return await admin_tenant_service.get_tenant_detail(db, tenant_id)
+
+
+@router.patch("/tenants/{tenant_id}", response_model=TenantAdminUpdateOut)
+async def admin_update_tenant(
+    tenant_id: uuid.UUID, payload: TenantAdminUpdate, _admin: CurrentAdminDep, db: DbSession
+) -> TenantAdminUpdateOut:
+    tenant, slug_changed = await admin_tenant_service.update_tenant_admin(db, tenant_id, payload)
+    return TenantAdminUpdateOut(
+        id=tenant.id, name=tenant.name, slug=tenant.slug,
+        status=tenant.status, slug_changed=slug_changed,
+    )
+
+
+@router.post("/tenants/{tenant_id}/lock", response_model=TenantStatusOut)
+async def admin_lock_tenant(
+    tenant_id: uuid.UUID, _admin: CurrentAdminDep, db: DbSession
+):
+    """Khóa tenant (status=suspended) + REVOKE refresh mọi user (khóa hiệu lực ≤30')."""
+    return await admin_tenant_service.set_tenant_locked(db, tenant_id, locked=True)
+
+
+@router.post("/tenants/{tenant_id}/unlock", response_model=TenantStatusOut)
+async def admin_unlock_tenant(
+    tenant_id: uuid.UUID, _admin: CurrentAdminDep, db: DbSession
+):
+    return await admin_tenant_service.set_tenant_locked(db, tenant_id, locked=False)
+
+
+@router.post("/tenants/{tenant_id}/reset-owner-password", response_model=ResetOwnerPasswordOut)
+async def admin_reset_owner_password(
+    tenant_id: uuid.UUID, payload: ResetOwnerPasswordIn, _admin: CurrentAdminDep, db: DbSession
+) -> ResetOwnerPasswordOut:
+    """Đặt lại MK owner (sinh ngẫu nhiên) + revoke refresh owner. temp_password HIỆN 1 LẦN."""
+    phone, temp_password = await admin_tenant_service.reset_owner_password(
+        db, tenant_id, payload.user_id
+    )
+    return ResetOwnerPasswordOut(owner_phone=phone, temp_password=temp_password)
