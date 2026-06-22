@@ -26,7 +26,7 @@ def _block(bid, btype, *, enabled=True, row=0, col="full", content=None) -> dict
 _VALID_TYPES = {
     "logo", "customer_name", "customer_phone", "receiving_time", "delivery_time",
     "items_table", "totals", "payment_status", "qr_tracking", "order_no",
-    "custom_text", "divider", "spacer",
+    "custom_text", "divider", "spacer", "branch_contact",
 }
 _DROP_TYPES = {"note", "footer_contact", "surcharge_discount"}
 

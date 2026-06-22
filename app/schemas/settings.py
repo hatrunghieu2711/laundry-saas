@@ -47,7 +47,7 @@ class SettingsUpdate(BaseModel):
 BlockType = Literal[
     "logo", "customer_name", "customer_phone", "receiving_time", "delivery_time",
     "items_table", "totals", "payment_status", "qr_tracking", "order_no",
-    "custom_text", "divider", "spacer",
+    "custom_text", "divider", "spacer", "branch_contact",
 ]
 
 

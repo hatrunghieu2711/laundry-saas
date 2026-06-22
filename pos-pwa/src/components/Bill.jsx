@@ -17,7 +17,7 @@ const LDEF = {
   order_no: { label: ['Số', 'No'] },
   payment_status: { paid: ['ĐÃ THANH TOÁN', 'PAID'], unpaid: ['CHƯA THANH TOÁN', 'UNPAID'] },
 }
-const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center' }
+const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center', branch_contact: 'center' }
 const DEFAULT_TRACK_BASE = 'https://track.giatui2h.com/track/'
 
 export default function BillContent({ config, order }) {
@@ -139,6 +139,19 @@ export default function BillContent({ config, order }) {
             {bilingual && c.en && <div className="rcp__custom-en">{c.en}</div>}
           </div>
         )
+      case 'branch_contact': {
+        // Liên hệ theo CHI NHÁNH của đơn (R-FE) — đọc SỐNG order.branch (R-BE serialize).
+        // Sao y style khối liên hệ custom_text: mỗi dòng riêng. Cả 2 rỗng → ẩn (không vỡ).
+        const addr = (order.branch?.address || '').trim()
+        const tel = (order.branch?.phone || '').trim()
+        if (!addr && !tel) return null
+        return (
+          <div className="rcp__custom">
+            {addr && <div>{addr}</div>}
+            {tel && <div>{tel}</div>}
+          </div>
+        )
+      }
       case 'divider':
         return <div className={`rcp__hr rcp__hr--${c.style === 'solid' ? 'solid' : 'dashed'}`} />
       case 'spacer':

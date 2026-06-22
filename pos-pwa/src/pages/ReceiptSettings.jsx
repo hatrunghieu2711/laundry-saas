@@ -26,6 +26,8 @@ const SAMPLE_ORDER = {
   total_amount: 188500, payment_status: 'paid',
   pickup_at: '2026-06-14T03:30:00Z', created_at: '2026-06-13T09:15:00Z',
   customer_name: 'Chị Lan', customer_phone: '0905 123 456',
+  // Mẫu cho khối "Liên hệ chi nhánh" (branch_contact) — preview đọc order.branch.
+  branch: { name: 'CN Trần Phú', address: '12 Trần Phú, Nha Trang', phone: '0258 123 456', order_prefix: '01' },
   items: [
     { id: 1, service_name: 'Giặt sấy (≤3kg)', quantity: 1, unit_price: 60000, subtotal: 60000 },
     { id: 2, service_name: 'Áo Vest', quantity: 2, unit_price: 60000, subtotal: 120000 },
