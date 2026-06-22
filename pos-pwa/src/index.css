@@ -1827,6 +1827,17 @@ body {
   resize: vertical;
   font-family: inherit;
 }
+/* Khối branch_contact: nhóm các CN + nhãn phân mục trong modal sửa khối. */
+.rcfg__bc > * + * {
+  margin-top: 10px;
+}
+.rcfg__bc-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink);
+  border-top: 1px solid var(--line);
+  padding-top: 10px;
+}
 .rcfg__card-head {
   display: flex;
   align-items: center;

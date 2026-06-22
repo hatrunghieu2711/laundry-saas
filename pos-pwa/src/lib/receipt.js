@@ -24,7 +24,7 @@ export const BLOCK_META = {
   custom_text:    { label: 'Văn bản tự do', align: 'center' },
   divider:        { label: 'Đường kẻ phân cách', align: 'center' },
   spacer:         { label: 'Khoảng trống', align: 'center' },
-  // Liên hệ theo CN: địa chỉ + SĐT của chi nhánh thuộc đơn (đọc sống order.branch).
+  // Liên hệ theo CN: nội dung gõ tay theo từng chi nhánh (map branch_id) + web chung.
   branch_contact: { label: 'Liên hệ chi nhánh', align: 'center' },
 }
 

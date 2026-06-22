@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
+import { useBranch } from '../context/BranchContext'
 import BillContent from '../components/Bill'
 import { ApiError, api } from '../lib/api'
 import {
@@ -26,8 +27,7 @@ const SAMPLE_ORDER = {
   total_amount: 188500, payment_status: 'paid',
   pickup_at: '2026-06-14T03:30:00Z', created_at: '2026-06-13T09:15:00Z',
   customer_name: 'Chị Lan', customer_phone: '0905 123 456',
-  // Mẫu cho khối "Liên hệ chi nhánh" (branch_contact) — preview đọc order.branch.
-  branch: { name: 'CN Trần Phú', address: '12 Trần Phú, Nha Trang', phone: '0258 123 456', order_prefix: '01' },
+  // branch_id gán động ở preview (= CN đầu) để khối branch_contact xem trước được.
   items: [
     { id: 1, service_name: 'Giặt sấy (≤3kg)', quantity: 1, unit_price: 60000, subtotal: 60000 },
     { id: 2, service_name: 'Áo Vest', quantity: 2, unit_price: 60000, subtotal: 120000 },
@@ -56,6 +56,7 @@ function Ico({ name }) {
 
 export default function ReceiptSettings() {
   const { user } = useAuth()
+  const { branches } = useBranch() // owner: list CN active (sẵn) — cho khối branch_contact
   const canEdit = user?.role === 'owner'
 
   const [bilingual, setBilingual] = useState(true)
@@ -72,6 +73,9 @@ export default function ReceiptSettings() {
 
   const [editBlk, setEditBlk] = useState(null) // {ri, ci, type}
   const [editContent, setEditContent] = useState({})
+  // Khối branch_contact: nội dung gõ tay theo CN (branch_id→{vi,en}) + web chung.
+  const [editBranchContents, setEditBranchContents] = useState({})
+  const [editWeb, setEditWeb] = useState('')
   const [editFmt, setEditFmt] = useState({ bold: false, align: 'left', size: 'normal' })
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
@@ -169,6 +173,8 @@ export default function ReceiptSettings() {
     const b = rows[ri][ci]
     setEditBlk({ ri, ci, type: b.type })
     setEditContent({ ...(b.content || {}) })
+    setEditBranchContents({ ...(b.branch_contents || {}) })
+    setEditWeb(b.web || '')
     // Khối field: bold tách nhãn/giá trị (None → fallback bold cũ). Khác: 1 cờ bold.
     setEditFmt({
       bold: !!b.bold,
@@ -186,12 +192,21 @@ export default function ReceiptSettings() {
     dirty()
     setRows((rs) => {
       const copy = rs.map((r) => r.slice())
-      copy[ri][ci] = { ...copy[ri][ci], content: { ...editContent }, ...editFmt }
+      const next = { ...copy[ri][ci], content: { ...editContent }, ...editFmt }
+      // Chỉ khối branch_contact mới mang branch_contents + web (gõ tay theo CN).
+      if (next.type === 'branch_contact') {
+        next.branch_contents = { ...editBranchContents }
+        next.web = editWeb.trim()
+      }
+      copy[ri][ci] = next
       return copy
     })
     setEditBlk(null)
   }
   const setC = (k, v) => setEditContent((c) => ({ ...c, [k]: v }))
+  // Ghi nội dung 1 CN (vi/en) vào map branch_contents.
+  const setBC = (bid, k, v) =>
+    setEditBranchContents((m) => ({ ...m, [bid]: { ...(m[bid] || {}), [k]: v } }))
   const setF = (k, v) => setEditFmt((f) => ({ ...f, [k]: v }))
 
   const onPickLogo = async (e) => {
@@ -251,6 +266,12 @@ export default function ReceiptSettings() {
   const previewConfig = useMemo(
     () => (rows ? { bilingual, logo_url: logoUrl, track_base_url: trackBaseUrl, blocks: rowsToBlocks(rows) } : null),
     [rows, bilingual, logoUrl, trackBaseUrl],
+  )
+  // Đơn mẫu cho Xem trước: gán branch_id = CN đầu → khối branch_contact hiện nội
+  // dung CN đó (owner soạn cho CN đầu là thấy ngay). branches rỗng → giữ undefined.
+  const previewOrder = useMemo(
+    () => ({ ...SAMPLE_ORDER, branch_id: branches[0]?.id }),
+    [branches],
   )
 
   if (!rows) return <p className="shift__hint">{error || 'Đang tải cấu hình phiếu…'}</p>
@@ -388,7 +409,7 @@ export default function ReceiptSettings() {
       <div className="rcfg__preview">
         <div className="rcfg__preview-label">Xem trước (khổ 80mm)</div>
         <div className="rcp-preview">
-          <BillContent config={previewConfig} order={SAMPLE_ORDER} />
+          <BillContent config={previewConfig} order={previewOrder} />
         </div>
       </div>
 
@@ -427,6 +448,41 @@ export default function ReceiptSettings() {
                   <button className={`seg__btn ${(editContent.height || 'small') === 'small' ? 'seg__btn--active' : ''}`} onClick={() => setC('height', 'small')}>Nhỏ</button>
                   <button className={`seg__btn ${editContent.height === 'medium' ? 'seg__btn--active' : ''}`} onClick={() => setC('height', 'medium')}>Vừa</button>
                 </div>
+              </div>
+            )}
+
+            {/* Liên hệ chi nhánh: nội dung GÕ TAY theo TỪNG CN + Web dùng chung */}
+            {editBlk.type === 'branch_contact' && (
+              <div className="rcfg__bc">
+                <p className="rcfg__hint">
+                  Mỗi chi nhánh soạn riêng (địa chỉ · SĐT…). Bill chỉ in nội dung của
+                  chi nhánh tạo đơn. CN chưa soạn → ẩn cả khối trên bill của CN đó.
+                </p>
+                <div className="rcfg__bc-label">Theo từng chi nhánh</div>
+                {branches.length === 0 && (
+                  <p className="rcfg__hint">Chưa có chi nhánh nào (active).</p>
+                )}
+                {branches.map((b) => (
+                  <div className="field" key={b.id}>
+                    <span>{b.order_prefix} · {b.name}</span>
+                    <textarea className="input rcfg__ta" rows={2}
+                      placeholder="Địa chỉ · SĐT chi nhánh"
+                      value={editBranchContents[b.id]?.vi || ''}
+                      onChange={(e) => setBC(b.id, 'vi', e.target.value)} />
+                    {bilingual && (
+                      <textarea className="input rcfg__ta" rows={2}
+                        placeholder="Nội dung tiếng Anh (tùy chọn)"
+                        value={editBranchContents[b.id]?.en || ''}
+                        onChange={(e) => setBC(b.id, 'en', e.target.value)} />
+                    )}
+                  </div>
+                ))}
+                <div className="rcfg__bc-label">Dùng chung mọi chi nhánh</div>
+                <label className="field">
+                  <span>Web</span>
+                  <input className="input" placeholder="vd: giatui2h.com"
+                    value={editWeb} onChange={(e) => setEditWeb(e.target.value)} />
+                </label>
               </div>
             )}
 

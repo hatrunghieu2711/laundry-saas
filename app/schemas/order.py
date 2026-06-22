@@ -45,18 +45,6 @@ class OrderItemOut(BaseModel):
     subtotal: Decimal
 
 
-class BranchBrief(BaseModel):
-    """Liên hệ CN nhúng vào đơn (Stage R-BE) — cho bill in địa chỉ/SĐT theo chi nhánh.
-    ĐỌC SỐNG từ branch hiện tại (không snapshot); đơn cũ in địa chỉ CN hiện tại."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    name: str
-    address: str | None
-    phone: str | None
-    order_prefix: str
-
-
 class OrderAdjustmentIn(BaseModel):
     """Phụ thu/giảm nhập tay khi tạo đơn (Stage 5.4). value theo value_type:
     percent (% trên tổng món) hoặc fixed (số tiền VND). Có thì GHI ĐÈ rule tự áp."""
@@ -137,8 +125,6 @@ class OrderOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemOut]
-    # Liên hệ CN (đọc sống) — bill in địa chỉ/SĐT theo chi nhánh của đơn.
-    branch: BranchBrief | None = None
 
 
 class OrderTrackingEntry(BaseModel):

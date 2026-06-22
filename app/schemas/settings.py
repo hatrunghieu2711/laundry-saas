@@ -76,6 +76,11 @@ class ReceiptBlock(BaseModel):
     # content: nhãn (key `<name>_vi`/`<name>_en`) + giá trị text owner nhập +
     # tùy chọn khối (divider.style, spacer.height).
     content: dict[str, str] = Field(default_factory=dict)
+    # Khối branch_contact (Stage R-FE v2): địa chỉ/SĐT GÕ TAY theo từng CN
+    # (map branch_id → {vi, en}) + web DÙNG CHUNG mọi CN. PHẢI khai báo ở đây vì
+    # extra="ignore" sẽ nuốt field không khai báo khi PUT (mất dữ liệu lúc lưu).
+    branch_contents: dict[str, dict[str, str]] | None = None
+    web: str | None = Field(default=None, max_length=255)
 
 
 class ReceiptConfig(BaseModel):

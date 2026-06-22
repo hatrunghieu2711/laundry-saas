@@ -140,15 +140,19 @@ export default function BillContent({ config, order }) {
           </div>
         )
       case 'branch_contact': {
-        // Liên hệ theo CHI NHÁNH của đơn (R-FE) — đọc SỐNG order.branch (R-BE serialize).
-        // Sao y style khối liên hệ custom_text: mỗi dòng riêng. Cả 2 rỗng → ẩn (không vỡ).
-        const addr = (order.branch?.address || '').trim()
-        const tel = (order.branch?.phone || '').trim()
-        if (!addr && !tel) return null
+        // Liên hệ theo CHI NHÁNH của đơn (R-FE v2): nội dung GÕ TAY theo branch_id
+        // (vi/en) + web DÙNG CHUNG. CN chưa soạn → ẩn CẢ khối (kể cả web). Dùng
+        // order.branch_id (có sẵn trong OrderOut). KHÔNG đụng gom-row/sort/fmtClass.
+        const bc = blk.branch_contents?.[order.branch_id]
+        const vi = (bc?.vi || '').trim()
+        const en = (bc?.en || '').trim()
+        if (!vi && !en) return null
+        const web = (blk.web || '').trim()
         return (
           <div className="rcp__custom">
-            {addr && <div>{addr}</div>}
-            {tel && <div>{tel}</div>}
+            {vi && <div>{vi}</div>}
+            {bilingual && en && <div className="rcp__custom-en">{en}</div>}
+            {web && <div>{web}</div>}
           </div>
         )
       }

@@ -121,6 +121,46 @@ async def test_receipt_update_blocks_format_italic_title_track(client: AsyncClie
     assert next(b for b in again["blocks"] if b["id"] == "title")["title"] is True
 
 
+async def test_receipt_branch_contact_persists_contents_and_web(client: AsyncClient, owner: dict):
+    """⭐ Khối branch_contact: branch_contents (branch_id→{vi,en}) + web phải SỐNG
+    QUA PUT/GET — chống ReceiptBlock(extra='ignore') nuốt field không khai báo."""
+    t = await login(client, owner["phone"], owner["password"])
+    bid = "11111111-1111-1111-1111-111111111111"
+    body = {
+        "bilingual": True,
+        "blocks": [
+            {"id": "logo", "type": "logo", "enabled": True, "row": 0, "col": "full"},
+            {"id": "bc", "type": "branch_contact", "enabled": True, "row": 1, "col": "full",
+             "branch_contents": {bid: {"vi": "12 Trần Phú · 0258 111", "en": "12 Tran Phu St"}},
+             "web": "giatui2h.com"},
+        ],
+    }
+    upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
+    assert upd.status_code == 200, upd.text
+    bc = next(b for b in upd.json()["blocks"] if b["id"] == "bc")
+    assert bc["branch_contents"][bid]["vi"] == "12 Trần Phú · 0258 111"
+    assert bc["branch_contents"][bid]["en"] == "12 Tran Phu St"
+    assert bc["web"] == "giatui2h.com"
+    # ⭐ đọc LẠI (qua _migrate_blocks + schema) vẫn còn — chống nuốt.
+    again = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    bc2 = next(b for b in again["blocks"] if b["id"] == "bc")
+    assert bc2["branch_contents"][bid]["vi"] == "12 Trần Phú · 0258 111"
+    assert bc2["web"] == "giatui2h.com"
+
+
+async def test_receipt_branch_contact_empty_ok(client: AsyncClient, owner: dict):
+    """branch_contents/web None → validate + lưu OK, không lỗi."""
+    t = await login(client, owner["phone"], owner["password"])
+    body = {"bilingual": True, "blocks": [
+        {"id": "bc", "type": "branch_contact", "enabled": True, "row": 0, "col": "full"},
+    ]}
+    upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
+    assert upd.status_code == 200, upd.text
+    bc = next(b for b in upd.json()["blocks"] if b["id"] == "bc")
+    assert bc.get("branch_contents") in (None, {})
+    assert bc.get("web") in (None, "")
+
+
 async def test_receipt_logo_title_migrates_to_custom_text(client: AsyncClient, owner: dict):
     """Stage 5.8: logo cũ chứa tên tiệm/tiêu đề → tách thành custom_text (giữ nội
     dung); logo còn lại CHỈ ẢNH (content rỗng)."""
