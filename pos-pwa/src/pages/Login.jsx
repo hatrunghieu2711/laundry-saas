@@ -48,8 +48,9 @@ export default function Login() {
   return (
     <div className="login">
       <form className="login__card" onSubmit={onSubmit}>
-        <div className="login__logo">2H</div>
-        <h1 className="login__title">Giặt Ủi 2H POS</h1>
+        {/* Pre-login CHƯA biết tenant → tiêu đề/logo GIỮ generic (không hardcode tên tiệm). */}
+        <div className="login__logo">POS</div>
+        <h1 className="login__title">Đăng nhập</h1>
         <p className="login__sub">Đăng nhập để bắt đầu ca làm</p>
 
         <label className="field">

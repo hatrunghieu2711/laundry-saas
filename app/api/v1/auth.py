@@ -11,6 +11,7 @@ from fastapi import APIRouter, Cookie, Header, Response, status
 from app.api.deps import CurrentUser, DbSession
 from app.core.config import get_settings
 from app.core.errors import APIError
+from app.models.tenant import Tenant
 from app.schemas.auth import (
     ChangePasswordRequest,
     LoginRequest,
@@ -119,5 +120,12 @@ async def change_password(
 
 
 @router.get("/me", response_model=UserOut)
-async def me(current_user: CurrentUser) -> UserOut:
+async def me(current_user: CurrentUser, db: DbSession) -> UserOut:
+    """Thông tin user + TÊN TIỆM (tenant.name) cho FE hiển thị.
+
+    tenants NGOÀI RLS → đọc được dù GUC = tenant của user. Gán transient
+    tenant_name lên current_user rồi validate (cùng pattern branch_name ở list_users).
+    """
+    tenant = await db.get(Tenant, current_user.tenant_id)
+    current_user.tenant_name = tenant.name if tenant is not None else None
     return UserOut.model_validate(current_user)

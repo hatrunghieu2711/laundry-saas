@@ -29,6 +29,8 @@ export function AuthProvider({ children }) {
     const full = { ...me, role_label: ROLE_LABEL[me.role] || me.role, branch_name: branchName }
     setSession({ user: full })
     setUser(full)
+    // Tab title động theo TÊN TIỆM của user đang đăng nhập (pre-login giữ generic).
+    if (full.tenant_name) document.title = `${full.tenant_name} POS`
     return full
   }, [])
 
@@ -49,6 +51,7 @@ export function AuthProvider({ children }) {
     }
     clearSession()
     setUser(null)
+    document.title = 'POS'  // reset tab title về generic khi đăng xuất
   }, [])
 
   // Nếu mở app khi đã có phiên, validate lại nhẹ nhàng qua /auth/me.

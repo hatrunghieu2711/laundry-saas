@@ -171,6 +171,17 @@ async def test_me_valid_token(client: AsyncClient, owner: dict):
     assert body["branch_id"] is None
 
 
+async def test_me_includes_tenant_name(client: AsyncClient, owner: dict):
+    """⭐ /auth/me trả TÊN TIỆM (tenant.name) cho FE hiển thị menu/topbar."""
+    session = await _login(client, owner)
+    resp = await client.get(ME, headers={"Authorization": f"Bearer {session['access_token']}"})
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["tenant_name"] == "Giặt Ủi 2H"  # owner fixture tạo tenant tên này
+    # tách bạch: tên TIỆM khác tên NGƯỜI.
+    assert body["full_name"] == "Chủ Giặt Ủi 2H"
+
+
 async def test_me_no_token(client: AsyncClient, owner: dict):
     resp = await client.get(ME)
     assert resp.status_code == 401

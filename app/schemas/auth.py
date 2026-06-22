@@ -37,3 +37,6 @@ class UserOut(BaseModel):
     full_name: str
     phone: str
     email: str | None
+    # Tên TIỆM (tenant.name) — FE hiển thị ở menu/topbar. Gán transient ở /auth/me
+    # (join tenant theo tenant_id). None nếu không đọc được tenant.
+    tenant_name: str | None = None

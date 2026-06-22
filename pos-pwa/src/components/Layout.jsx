@@ -146,9 +146,11 @@ export default function Layout({ children }) {
           {menuOpen && (
             <div className="app-menu">
               <div className="app-menu__head">
-                <strong>{user?.full_name || 'Giặt Ủi 2H'}</strong>
+                {/* Dòng chính = TÊN TIỆM (tenant.name); dòng phụ = tên NGƯỜI + role + CN. */}
+                <strong>{user?.tenant_name || 'POS'}</strong>
                 <small>
-                  {user?.role_label}
+                  {user?.full_name}
+                  {user?.role_label ? ` · ${user.role_label}` : ''}
                   {user?.branch_name ? ` · ${user.branch_name}` : ''}
                 </small>
               </div>
