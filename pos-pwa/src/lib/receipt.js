@@ -24,14 +24,11 @@ export const BLOCK_META = {
   custom_text:    { label: 'Văn bản tự do', align: 'center' },
   divider:        { label: 'Đường kẻ phân cách', align: 'center' },
   spacer:         { label: 'Khoảng trống', align: 'center' },
-  // Liên hệ theo CN: nội dung gõ tay theo từng chi nhánh (map branch_id) + web chung.
-  branch_contact: { label: 'Liên hệ chi nhánh', align: 'center' },
 }
 
 // Khối text có toggle IN NGHIÊNG (italic). Logo là ảnh → không.
 export const ITALIC_TYPES = ['customer_name', 'customer_phone', 'receiving_time',
-  'delivery_time', 'items_table', 'totals', 'payment_status', 'order_no', 'custom_text',
-  'branch_contact']
+  'delivery_time', 'items_table', 'totals', 'payment_status', 'order_no', 'custom_text']
 export const canItalic = (type) => ITALIC_TYPES.includes(type)
 
 // Nhãn TEXT cố định mỗi khối (sửa được, song ngữ). key → {vi,en} mặc định.
@@ -68,7 +65,6 @@ export const BLOCK_VALUES = {
 // Loại khối owner THÊM được (nhiều bản): văn bản tự do / đường kẻ / khoảng trống.
 export const ADDABLE = [
   { type: 'custom_text', label: '＋ Văn bản tự do' },
-  { type: 'branch_contact', label: '＋ Liên hệ chi nhánh' },
   { type: 'divider', label: '＋ Đường kẻ' },
   { type: 'spacer', label: '＋ Khoảng trống' },
 ]

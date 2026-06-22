@@ -121,44 +121,79 @@ async def test_receipt_update_blocks_format_italic_title_track(client: AsyncClie
     assert next(b for b in again["blocks"] if b["id"] == "title")["title"] is True
 
 
-async def test_receipt_branch_contact_persists_contents_and_web(client: AsyncClient, owner: dict):
-    """⭐ Khối branch_contact: branch_contents (branch_id→{vi,en}) + web phải SỐNG
-    QUA PUT/GET — chống ReceiptBlock(extra='ignore') nuốt field không khai báo."""
+async def test_receipt_branch_contact_blocks_persist_through_3_gates(client: AsyncClient, owner: dict):
+    """⭐ branch_contact_blocks (map branch_id → MẢNG khối) phải SỐNG qua CẢ 3 cổng:
+    (1) PUT ReceiptConfig extra='ignore'; (2) get_receipt dựng dict TAY (dễ quên nhất);
+    (3) _migrate_blocks mỗi mảng CN. Mỗi khối CN giữ content/col/align/bold như thường."""
     t = await login(client, owner["phone"], owner["password"])
-    bid = "11111111-1111-1111-1111-111111111111"
+    b1 = "11111111-1111-1111-1111-111111111111"
     body = {
         "bilingual": True,
         "blocks": [
             {"id": "logo", "type": "logo", "enabled": True, "row": 0, "col": "full"},
-            {"id": "bc", "type": "branch_contact", "enabled": True, "row": 1, "col": "full",
-             "branch_contents": {bid: {"vi": "12 Trần Phú · 0258 111", "en": "12 Tran Phu St"}},
-             "web": "giatui2h.com"},
         ],
+        "branch_contact_blocks": {
+            b1: [
+                {"id": "a1", "type": "custom_text", "enabled": True, "row": 0, "col": "left",
+                 "bold": True, "align": "left", "content": {"vi": "12 Trần Phú", "en": "12 Tran Phu"}},
+                {"id": "a2", "type": "custom_text", "enabled": True, "row": 0, "col": "right",
+                 "content": {"vi": "0258 111"}},
+                {"id": "a3", "type": "divider", "enabled": True, "row": 1, "col": "full",
+                 "content": {"style": "solid"}},
+            ],
+        },
     }
     upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
     assert upd.status_code == 200, upd.text
-    bc = next(b for b in upd.json()["blocks"] if b["id"] == "bc")
-    assert bc["branch_contents"][bid]["vi"] == "12 Trần Phú · 0258 111"
-    assert bc["branch_contents"][bid]["en"] == "12 Tran Phu St"
-    assert bc["web"] == "giatui2h.com"
-    # ⭐ đọc LẠI (qua _migrate_blocks + schema) vẫn còn — chống nuốt.
+    arr = upd.json()["branch_contact_blocks"][b1]
+    assert len(arr) == 3
+    a1 = next(b for b in arr if b["id"] == "a1")
+    assert a1["content"]["vi"] == "12 Trần Phú" and a1["bold"] is True and a1["col"] == "left"
+    assert next(b for b in arr if b["id"] == "a2")["col"] == "right"
+    # ⭐ CỔNG 2 — đọc LẠI: get_receipt dựng dict tay vẫn phải trả key này.
     again = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
-    bc2 = next(b for b in again["blocks"] if b["id"] == "bc")
-    assert bc2["branch_contents"][bid]["vi"] == "12 Trần Phú · 0258 111"
-    assert bc2["web"] == "giatui2h.com"
+    arr2 = again["branch_contact_blocks"][b1]
+    assert {b["id"] for b in arr2} == {"a1", "a2", "a3"}
+    assert next(b for b in arr2 if b["id"] == "a1")["content"]["vi"] == "12 Trần Phú"
 
 
-async def test_receipt_branch_contact_empty_ok(client: AsyncClient, owner: dict):
-    """branch_contents/web None → validate + lưu OK, không lỗi."""
+async def test_receipt_branch_contact_blocks_default_empty(client: AsyncClient, owner: dict):
+    """Không gửi branch_contact_blocks (config kiểu 2H 28-khối) → validate + lưu OK,
+    GET ra branch_contact_blocks = {} (phần cuối rỗng, bill khối chung không đổi)."""
     t = await login(client, owner["phone"], owner["password"])
     body = {"bilingual": True, "blocks": [
-        {"id": "bc", "type": "branch_contact", "enabled": True, "row": 0, "col": "full"},
+        {"id": "logo", "type": "logo", "enabled": True, "row": 0, "col": "full"},
+        {"id": "brand", "type": "custom_text", "enabled": True, "row": 1, "col": "full",
+         "title": True, "content": {"vi": "Giặt Ủi 2H"}},
+        {"id": "items_table", "type": "items_table", "enabled": True, "row": 2, "col": "full"},
     ]}
     upd = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
     assert upd.status_code == 200, upd.text
-    bc = next(b for b in upd.json()["blocks"] if b["id"] == "bc")
-    assert bc.get("branch_contents") in (None, {})
-    assert bc.get("web") in (None, "")
+    assert upd.json()["branch_contact_blocks"] == {}
+    again = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
+    assert again["branch_contact_blocks"] == {}
+    # khối chung giữ nguyên.
+    assert [b["id"] for b in again["blocks"]] == ["logo", "brand", "items_table"]
+
+
+async def test_receipt_branch_contact_old_type_dropped(client: AsyncClient, owner: dict):
+    """GỠ v2: type 'branch_contact' nay là khối LẠ → _migrate_blocks loại bỏ (422 hoặc
+    drop). Gửi kèm trong blocks → không còn ở GET."""
+    t = await login(client, owner["phone"], owner["password"])
+    body = {"bilingual": True, "blocks": [
+        {"id": "logo", "type": "logo", "enabled": True, "row": 0, "col": "full"},
+    ]}
+    # type branch_contact đã bị bỏ khỏi BlockType → gửi sẽ 422 (validate chặn).
+    bad = {"bilingual": True, "blocks": [
+        {"id": "x", "type": "branch_contact", "enabled": True, "row": 0, "col": "full"},
+    ]}
+    r = await client.put(f"{SETTINGS}/receipt", json=bad, headers=auth_headers(t))
+    assert r.status_code == 422
+    # config hợp lệ vẫn lưu được.
+    ok = await client.put(f"{SETTINGS}/receipt", json=body, headers=auth_headers(t))
+    assert ok.status_code == 200, ok.text
+    types = [b["type"] for b in ok.json()["blocks"]]
+    assert "branch_contact" not in types
 
 
 async def test_receipt_logo_title_migrates_to_custom_text(client: AsyncClient, owner: dict):

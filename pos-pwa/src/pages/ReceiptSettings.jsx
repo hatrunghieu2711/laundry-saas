@@ -27,7 +27,7 @@ const SAMPLE_ORDER = {
   total_amount: 188500, payment_status: 'paid',
   pickup_at: '2026-06-14T03:30:00Z', created_at: '2026-06-13T09:15:00Z',
   customer_name: 'Chị Lan', customer_phone: '0905 123 456',
-  // branch_id gán động ở preview (= CN đầu) để khối branch_contact xem trước được.
+  // branch_id gán động ở preview (= CN đang xem) → khu "Liên hệ theo CN" hiện đúng.
   items: [
     { id: 1, service_name: 'Giặt sấy (≤3kg)', quantity: 1, unit_price: 60000, subtotal: 60000 },
     { id: 2, service_name: 'Áo Vest', quantity: 2, unit_price: 60000, subtotal: 120000 },
@@ -54,28 +54,144 @@ function Ico({ name }) {
   )
 }
 
+// Trình sửa DANH SÁCH khối (list + thêm + sắp xếp/ghép/tách + kéo-thả) — DÙNG LẠI
+// cho cả khối CHUNG lẫn từng CN (khu "Liên hệ theo chi nhánh"). Mỗi instance giữ
+// dragRi riêng (kéo-thả không lẫn giữa 2 khu). Sửa nội dung 1 khối → gọi
+// onOpenEdit(scopeKey, ri, ci) lên cha (modal dùng chung). mutate(fn): cha truyền
+// hàm áp đổi vào ĐÚNG mảng theo scope (đã đánh dấu dirty + slice sẵn).
+function BlockListEditor({ rows, mutate, canEdit, scopeKey, onOpenEdit }) {
+  const [dragRi, setDragRi] = useState(null)
+
+  const toggle = (ri, ci) => mutate((rs) => { rs[ri][ci] = { ...rs[ri][ci], enabled: !rs[ri][ci].enabled }; return rs })
+  const moveRow = (ri, dir) => mutate((rs) => {
+    const j = ri + dir
+    if (j < 0 || j >= rs.length) return rs
+    ;[rs[ri], rs[j]] = [rs[j], rs[ri]]
+    return rs
+  })
+  const canPairDown = (ri) => rows[ri].length === 1 && rows[ri + 1]?.length === 1
+  const pairDown = (ri) => mutate((rs) => { rs[ri] = [rs[ri][0], rs[ri + 1][0]]; rs.splice(ri + 1, 1); return rs })
+  const splitRow = (ri) => mutate((rs) => { const [a, b] = rs[ri]; rs.splice(ri, 1, [a], [b]); return rs })
+  const removeBlock = (ri, ci) => mutate((rs) => removeCellFromRows(rs, ri, ci))
+  const copyBlock = (ri, ci) => mutate((rs) => {
+    const src = rs[ri][ci]
+    const clone = {
+      ...src, id: `${src.type}_${Date.now()}`, col: 'full', enabled: true,
+      removable: true, content: { ...(src.content || {}) },
+    }
+    rs.splice(ri + 1, 0, [clone])
+    return rs
+  })
+  const addBlock = (type) => mutate((rs) => {
+    const id = `${type}_${Date.now()}`
+    const content = type === 'custom_text' ? { vi: 'Nội dung tự do…', en: 'Custom text…' }
+      : type === 'divider' ? { style: 'dashed' }
+        : type === 'spacer' ? { height: 'small' } : {}
+    rs.push([{ id, type, enabled: true, row: rs.length, col: 'full', bold: false, italic: false, title: false, align: null, size: 'normal', removable: true, content }])
+    return rs
+  })
+  const reorderTo = (ti) => mutate((rs) => {
+    const di = dragRi
+    if (di == null || di === ti) return rs
+    const [m] = rs.splice(di, 1)
+    rs.splice(di < ti ? ti - 1 : ti, 0, m)
+    return rs
+  })
+  const pairWith = (ti) => mutate((rs) => {
+    const di = dragRi
+    if (di == null || di === ti || rs[di].length !== 1 || rs[ti].length !== 1) return rs
+    const dragged = rs[di][0]
+    return rs.map((r, i) => (i === ti ? [r[0], dragged] : r)).filter((_, i) => i !== di)
+  })
+  const draggedSingle = dragRi != null && rows[dragRi]?.length === 1
+
+  return (
+    <>
+      <div className="bld-list">
+        {rows.map((row, ri) => (
+          <div
+            key={row.map((b) => b.id).join('+')}
+            className={`bld-row ${dragRi === ri ? 'bld-row--drag' : ''}`}
+            draggable={canEdit}
+            onDragStart={() => setDragRi(ri)}
+            onDragEnd={() => setDragRi(null)}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={() => { reorderTo(ri); setDragRi(null) }}
+          >
+            <span className="bld-row__grip" title="Kéo để sắp xếp / ghép">⠿</span>
+            <div className="bld-row__cells">
+              {row.map((blk, ci) => (
+                <div className={`bld-cell ${blk.enabled ? '' : 'bld-cell--off'}`} key={blk.id}>
+                  <label className="bld-cell__toggle">
+                    <input type="checkbox" checked={blk.enabled} disabled={!canEdit} onChange={() => toggle(ri, ci)} />
+                  </label>
+                  <span className="bld-cell__label" title={blockListLabel(blk)}>
+                    {blockListLabel(blk)}
+                    {row.length === 2 && <span className="bld-cell__half">½</span>}
+                  </span>
+                  <span className="bld-cell__acts">
+                    <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => onOpenEdit(scopeKey, ri, ci)}><Ico name="edit" /></button>
+                    <button className="icon-btn" disabled={!canEdit} title="Nhân bản khối" onClick={() => copyBlock(ri, ci)}><Ico name="copy" /></button>
+                    {blk.removable && (
+                      <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri, ci)}><Ico name="trash" /></button>
+                    )}
+                  </span>
+                </div>
+              ))}
+              {/* Ô đích ghép: hiện khi đang kéo 1 khối đơn khác. */}
+              {canEdit && draggedSingle && dragRi !== ri && row.length === 1 && (
+                <div className="bld-pairzone" onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => { e.stopPropagation(); pairWith(ri); setDragRi(null) }}>
+                  ＋ ghép cạnh
+                </div>
+              )}
+            </div>
+            <div className="bld-row__ops">
+              <button className="icon-btn" disabled={!canEdit || ri === 0} title="Lên" onClick={() => moveRow(ri, -1)}><Ico name="up" /></button>
+              <button className="icon-btn" disabled={!canEdit || ri === rows.length - 1} title="Xuống" onClick={() => moveRow(ri, +1)}><Ico name="down" /></button>
+              {row.length === 1 && canPairDown(ri) && (
+                <button className="icon-btn icon-btn--wide" disabled={!canEdit} title="Ghép với hàng dưới" onClick={() => pairDown(ri)}><Ico name="merge" /></button>
+              )}
+              {row.length === 2 && (
+                <button className="icon-btn icon-btn--wide" disabled={!canEdit} title="Tách thành 2 hàng" onClick={() => splitRow(ri)}>⊟</button>
+              )}
+            </div>
+          </div>
+        ))}
+        {rows.length === 0 && <p className="rcfg__hint">Chưa có khối nào — bấm thêm bên dưới.</p>}
+      </div>
+      {canEdit && (
+        <div className="bld-add">
+          {ADDABLE.map((a) => (
+            <button key={a.type} className="btn btn--ghost btn--sm" onClick={() => addBlock(a.type)}>{a.label}</button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
+
 export default function ReceiptSettings() {
   const { user } = useAuth()
-  const { branches } = useBranch() // owner: list CN active (sẵn) — cho khối branch_contact
+  const { branches } = useBranch() // owner: list CN active (sẵn) — cho khu "Liên hệ theo CN"
   const canEdit = user?.role === 'owner'
 
   const [bilingual, setBilingual] = useState(true)
   const [logoUrl, setLogoUrl] = useState('')
   const [trackBaseUrl, setTrackBaseUrl] = useState('')
-  const [rows, setRows] = useState(null)
+  const [rows, setRows] = useState(null)                 // khối CHUNG
+  const [bcRowsByBranch, setBcRowsByBranch] = useState({}) // {branch_id: rows[]} theo CN
+  const [editCn, setEditCn] = useState(null)             // CN đang soạn ở khu liên hệ
+  const [previewCn, setPreviewCn] = useState(null)       // CN đang xem trước
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [dragRi, setDragRi] = useState(null)
   const [hasDefault, setHasDefault] = useState(false) // mẫu mặc định tenant đã lưu?
   const [autoPrint, setAutoPrint] = useState(true) // tự in sau khi tạo đơn (6.8.2)
   const [autoSaving, setAutoSaving] = useState(false)
 
-  const [editBlk, setEditBlk] = useState(null) // {ri, ci, type}
+  const [editBlk, setEditBlk] = useState(null) // {scope, ri, ci, type}; scope=null → khối chung
   const [editContent, setEditContent] = useState({})
-  // Khối branch_contact: nội dung gõ tay theo CN (branch_id→{vi,en}) + web chung.
-  const [editBranchContents, setEditBranchContents] = useState({})
-  const [editWeb, setEditWeb] = useState('')
   const [editFmt, setEditFmt] = useState({ bold: false, align: 'left', size: 'normal' })
   const [uploading, setUploading] = useState(false)
   const fileRef = useRef(null)
@@ -86,6 +202,11 @@ export default function ReceiptSettings() {
     setLogoUrl(n.logo_url)
     setTrackBaseUrl(n.track_base_url)
     setRows(blocksToRows(n.blocks))
+    // branch_contact_blocks (map branch_id → mảng khối) → rows theo CN.
+    const bcb = c?.branch_contact_blocks || {}
+    setBcRowsByBranch(Object.fromEntries(
+      Object.entries(bcb).map(([bid, blks]) => [bid, blocksToRows(blks || [])]),
+    ))
   }
 
   useEffect(() => {
@@ -99,6 +220,13 @@ export default function ReceiptSettings() {
       .then((s) => setAutoPrint(s.auto_print_receipt !== false))
       .catch(() => {})
   }, [])
+
+  // Mặc định chọn CN đầu cho khu soạn + preview khi danh sách CN đã nạp.
+  useEffect(() => {
+    if (branches.length === 0) return
+    setEditCn((cur) => cur || branches[0].id)
+    setPreviewCn((cur) => cur || branches[0].id)
+  }, [branches])
 
   // Lưu NGAY cờ tự-in (PUT /settings, owner). Optimistic + revert nếu lỗi.
   const saveAutoPrint = async (next) => {
@@ -117,64 +245,20 @@ export default function ReceiptSettings() {
   }
 
   const dirty = () => setSaved(false)
-  const mutate = (fn) => { dirty(); setRows((rs) => fn(rs.map((r) => r.slice()))) }
+  // Áp hàm đổi vào ĐÚNG mảng theo scope (null = khối chung; else = CN). Slice sẵn +
+  // đánh dấu dirty để BlockListEditor chỉ cần trả mảng mới.
+  const commonMutate = (fn) => { dirty(); setRows((rs) => fn(rs.map((r) => r.slice()))) }
+  const bcMutate = (bid) => (fn) => {
+    dirty()
+    setBcRowsByBranch((m) => ({ ...m, [bid]: fn((m[bid] || []).map((r) => r.slice())) }))
+  }
+  const rowsForScope = (scope) => (scope == null ? rows : (bcRowsByBranch[scope] || []))
+  const mutateForScope = (scope) => (scope == null ? commonMutate : bcMutate(scope))
 
-  const toggle = (ri, ci) => mutate((rs) => { rs[ri][ci] = { ...rs[ri][ci], enabled: !rs[ri][ci].enabled }; return rs })
-  const moveRow = (ri, dir) => mutate((rs) => {
-    const j = ri + dir
-    if (j < 0 || j >= rs.length) return rs
-    ;[rs[ri], rs[j]] = [rs[j], rs[ri]]
-    return rs
-  })
-  const canPairDown = (ri) => rows[ri].length === 1 && rows[ri + 1]?.length === 1
-  const pairDown = (ri) => mutate((rs) => { rs[ri] = [rs[ri][0], rs[ri + 1][0]]; rs.splice(ri + 1, 1); return rs })
-  const splitRow = (ri) => mutate((rs) => { const [a, b] = rs[ri]; rs.splice(ri, 1, [a], [b]); return rs })
-  // Xóa ĐÚNG khối (ri,ci) — không đụng khối khác cùng hàng; hàng còn 1 → full.
-  const removeBlock = (ri, ci) => { dirty(); setRows((rs) => removeCellFromRows(rs, ri, ci)) }
-
-  // Nhân bản khối: chèn khối mới ngay dưới (giữ type + nội dung + định dạng),
-  // đặt full hàng + enabled (Stage 5.9).
-  const copyBlock = (ri, ci) => mutate((rs) => {
-    const src = rs[ri][ci]
-    const clone = {
-      ...src, id: `${src.type}_${Date.now()}`, col: 'full', enabled: true,
-      removable: true, content: { ...(src.content || {}) },
-    }
-    rs.splice(ri + 1, 0, [clone])
-    return rs
-  })
-
-  const addBlock = (type) => mutate((rs) => {
-    const id = `${type}_${Date.now()}`
-    const content = type === 'custom_text' ? { vi: 'Nội dung tự do…', en: 'Custom text…' }
-      : type === 'divider' ? { style: 'dashed' }
-        : type === 'spacer' ? { height: 'small' } : {}
-    rs.push([{ id, type, enabled: true, row: rs.length, col: 'full', bold: false, italic: false, title: false, align: null, size: 'normal', removable: true, content }])
-    return rs
-  })
-
-  // Kéo-thả: thả lên thân hàng = sắp xếp; thả lên ô "ghép" của hàng đơn khác = ghép.
-  const reorderTo = (ti) => mutate((rs) => {
-    const di = dragRi
-    if (di == null || di === ti) return rs
-    const [m] = rs.splice(di, 1)
-    rs.splice(di < ti ? ti - 1 : ti, 0, m)
-    return rs
-  })
-  const pairWith = (ti) => mutate((rs) => {
-    const di = dragRi
-    if (di == null || di === ti || rs[di].length !== 1 || rs[ti].length !== 1) return rs
-    const dragged = rs[di][0]
-    const next = rs.map((r, i) => (i === ti ? [r[0], dragged] : r)).filter((_, i) => i !== di)
-    return next
-  })
-
-  const openEdit = (ri, ci) => {
-    const b = rows[ri][ci]
-    setEditBlk({ ri, ci, type: b.type })
+  const openEdit = (scope, ri, ci) => {
+    const b = rowsForScope(scope)[ri][ci]
+    setEditBlk({ scope, ri, ci, type: b.type })
     setEditContent({ ...(b.content || {}) })
-    setEditBranchContents({ ...(b.branch_contents || {}) })
-    setEditWeb(b.web || '')
     // Khối field: bold tách nhãn/giá trị (None → fallback bold cũ). Khác: 1 cờ bold.
     setEditFmt({
       bold: !!b.bold,
@@ -188,25 +272,14 @@ export default function ReceiptSettings() {
     setError('')
   }
   const saveEdit = () => {
-    const { ri, ci } = editBlk
-    dirty()
-    setRows((rs) => {
-      const copy = rs.map((r) => r.slice())
-      const next = { ...copy[ri][ci], content: { ...editContent }, ...editFmt }
-      // Chỉ khối branch_contact mới mang branch_contents + web (gõ tay theo CN).
-      if (next.type === 'branch_contact') {
-        next.branch_contents = { ...editBranchContents }
-        next.web = editWeb.trim()
-      }
-      copy[ri][ci] = next
-      return copy
+    const { scope, ri, ci } = editBlk
+    mutateForScope(scope)((rs) => {
+      rs[ri][ci] = { ...rs[ri][ci], content: { ...editContent }, ...editFmt }
+      return rs
     })
     setEditBlk(null)
   }
   const setC = (k, v) => setEditContent((c) => ({ ...c, [k]: v }))
-  // Ghi nội dung 1 CN (vi/en) vào map branch_contents.
-  const setBC = (bid, k, v) =>
-    setEditBranchContents((m) => ({ ...m, [bid]: { ...(m[bid] || {}), [k]: v } }))
   const setF = (k, v) => setEditFmt((f) => ({ ...f, [k]: v }))
 
   const onPickLogo = async (e) => {
@@ -225,10 +298,20 @@ export default function ReceiptSettings() {
     } finally { setUploading(false); if (fileRef.current) fileRef.current.value = '' }
   }
 
+  // branch_contact_blocks gửi PUT: map branch_id → mảng khối (rowsToBlocks). CN có
+  // mảng rỗng vẫn gửi {} entry — BE migrate ra rỗng, không sao.
+  const buildBcb = () => Object.fromEntries(
+    Object.entries(bcRowsByBranch).map(([bid, rws]) => [bid, rowsToBlocks(rws)]),
+  )
+  const putConfig = () => api.put('/settings/receipt', {
+    bilingual, track_base_url: trackBaseUrl.trim(),
+    blocks: rowsToBlocks(rows), branch_contact_blocks: buildBcb(),
+  })
+
   const save = async () => {
     setSaving(true); setError('')
     try {
-      await api.put('/settings/receipt', { bilingual, track_base_url: trackBaseUrl.trim(), blocks: rowsToBlocks(rows) })
+      await putConfig()
       clearReceiptCache(); setSaved(true)
     } catch (e) {
       setError(e instanceof ApiError && e.status === 403 ? 'Chỉ owner mới lưu được mẫu phiếu.' : e?.message || 'Không lưu được cấu hình')
@@ -240,7 +323,7 @@ export default function ReceiptSettings() {
     if (!window.confirm('Lưu cấu hình hiện tại làm MẪU MẶC ĐỊNH của tiệm? (dùng cho nút Khôi phục sau này)')) return
     setSaving(true); setError('')
     try {
-      await api.put('/settings/receipt', { bilingual, track_base_url: trackBaseUrl.trim(), blocks: rowsToBlocks(rows) })
+      await putConfig()
       await api.post('/settings/receipt/save-default')
       clearReceiptCache(); setHasDefault(true); setSaved(true)
     } catch (e) {
@@ -264,19 +347,17 @@ export default function ReceiptSettings() {
   }
 
   const previewConfig = useMemo(
-    () => (rows ? { bilingual, logo_url: logoUrl, track_base_url: trackBaseUrl, blocks: rowsToBlocks(rows) } : null),
-    [rows, bilingual, logoUrl, trackBaseUrl],
+    () => (rows ? {
+      bilingual, logo_url: logoUrl, track_base_url: trackBaseUrl,
+      blocks: rowsToBlocks(rows),
+      // Chỉ đổ bộ khối của CN đang xem trước → khu cuối hiện đúng CN đó.
+      branch_contact_blocks: previewCn ? { [previewCn]: rowsToBlocks(bcRowsByBranch[previewCn] || []) } : {},
+    } : null),
+    [rows, bilingual, logoUrl, trackBaseUrl, previewCn, bcRowsByBranch],
   )
-  // Đơn mẫu cho Xem trước: gán branch_id = CN đầu → khối branch_contact hiện nội
-  // dung CN đó (owner soạn cho CN đầu là thấy ngay). branches rỗng → giữ undefined.
-  const previewOrder = useMemo(
-    () => ({ ...SAMPLE_ORDER, branch_id: branches[0]?.id }),
-    [branches],
-  )
+  const previewOrder = useMemo(() => ({ ...SAMPLE_ORDER, branch_id: previewCn }), [previewCn])
 
   if (!rows) return <p className="shift__hint">{error || 'Đang tải cấu hình phiếu…'}</p>
-
-  const draggedSingle = dragRi != null && rows[dragRi]?.length === 1
 
   return (
     <div className="rcfg">
@@ -317,64 +398,39 @@ export default function ReceiptSettings() {
 
         <div className="shift__card">
           <h3 className="card__title">Các khối trên phiếu</h3>
-          <div className="bld-list">
-            {rows.map((row, ri) => (
-              <div
-                key={row.map((b) => b.id).join('+')}
-                className={`bld-row ${dragRi === ri ? 'bld-row--drag' : ''}`}
-                draggable={canEdit}
-                onDragStart={() => setDragRi(ri)}
-                onDragEnd={() => setDragRi(null)}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={() => { reorderTo(ri); setDragRi(null) }}
-              >
-                <span className="bld-row__grip" title="Kéo để sắp xếp / ghép">⠿</span>
-                <div className="bld-row__cells">
-                  {row.map((blk, ci) => (
-                    <div className={`bld-cell ${blk.enabled ? '' : 'bld-cell--off'}`} key={blk.id}>
-                      <label className="bld-cell__toggle">
-                        <input type="checkbox" checked={blk.enabled} disabled={!canEdit} onChange={() => toggle(ri, ci)} />
-                      </label>
-                      <span className="bld-cell__label" title={blockListLabel(blk)}>
-                        {blockListLabel(blk)}
-                        {row.length === 2 && <span className="bld-cell__half">½</span>}
-                      </span>
-                      <span className="bld-cell__acts">
-                        <button className="icon-btn" disabled={!canEdit} title="Sửa nhãn / nội dung / định dạng" onClick={() => openEdit(ri, ci)}><Ico name="edit" /></button>
-                        <button className="icon-btn" disabled={!canEdit} title="Nhân bản khối" onClick={() => copyBlock(ri, ci)}><Ico name="copy" /></button>
-                        {blk.removable && (
-                          <button className="icon-btn" disabled={!canEdit} title="Xóa khối" onClick={() => removeBlock(ri, ci)}><Ico name="trash" /></button>
-                        )}
-                      </span>
-                    </div>
+          <BlockListEditor rows={rows} mutate={commonMutate} canEdit={canEdit} scopeKey={null} onOpenEdit={openEdit} />
+        </div>
+
+        {/* Khu liên hệ theo chi nhánh — IN CUỐI bill, mỗi CN một bộ khối riêng. */}
+        <div className="shift__card">
+          <h3 className="card__title">Liên hệ theo chi nhánh (in cuối bill)</h3>
+          <p className="rcfg__hint">
+            Mỗi chi nhánh một bộ khối riêng (địa chỉ · SĐT… — khối thật, đầy đủ định dạng).
+            Bill chỉ in bộ của chi nhánh tạo đơn. CN chưa soạn → không in phần này.
+          </p>
+          {branches.length === 0 ? (
+            <p className="rcfg__hint">Chưa có chi nhánh nào (active).</p>
+          ) : (
+            <>
+              <label className="field">
+                <span>Soạn cho chi nhánh</span>
+                <select className="input" value={editCn || ''} disabled={!canEdit}
+                  onChange={(e) => setEditCn(e.target.value)}>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.id}>{b.order_prefix} · {b.name}</option>
                   ))}
-                  {/* Ô đích ghép: hiện khi đang kéo 1 khối đơn khác. */}
-                  {canEdit && draggedSingle && dragRi !== ri && row.length === 1 && (
-                    <div className="bld-pairzone" onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => { e.stopPropagation(); pairWith(ri); setDragRi(null) }}>
-                      ＋ ghép cạnh
-                    </div>
-                  )}
-                </div>
-                <div className="bld-row__ops">
-                  <button className="icon-btn" disabled={!canEdit || ri === 0} title="Lên" onClick={() => moveRow(ri, -1)}><Ico name="up" /></button>
-                  <button className="icon-btn" disabled={!canEdit || ri === rows.length - 1} title="Xuống" onClick={() => moveRow(ri, +1)}><Ico name="down" /></button>
-                  {row.length === 1 && canPairDown(ri) && (
-                    <button className="icon-btn icon-btn--wide" disabled={!canEdit} title="Ghép với hàng dưới" onClick={() => pairDown(ri)}><Ico name="merge" /></button>
-                  )}
-                  {row.length === 2 && (
-                    <button className="icon-btn icon-btn--wide" disabled={!canEdit} title="Tách thành 2 hàng" onClick={() => splitRow(ri)}>⊟</button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-          {canEdit && (
-            <div className="bld-add">
-              {ADDABLE.map((a) => (
-                <button key={a.type} className="btn btn--ghost btn--sm" onClick={() => addBlock(a.type)}>{a.label}</button>
-              ))}
-            </div>
+                </select>
+              </label>
+              {editCn && (
+                <BlockListEditor
+                  rows={bcRowsByBranch[editCn] || []}
+                  mutate={bcMutate(editCn)}
+                  canEdit={canEdit}
+                  scopeKey={editCn}
+                  onOpenEdit={openEdit}
+                />
+              )}
+            </>
           )}
         </div>
 
@@ -408,6 +464,16 @@ export default function ReceiptSettings() {
 
       <div className="rcfg__preview">
         <div className="rcfg__preview-label">Xem trước (khổ 80mm)</div>
+        {branches.length > 0 && (
+          <label className="field rcfg__preview-cn">
+            <span>Xem theo chi nhánh</span>
+            <select className="input" value={previewCn || ''} onChange={(e) => setPreviewCn(e.target.value)}>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.order_prefix} · {b.name}</option>
+              ))}
+            </select>
+          </label>
+        )}
         <div className="rcp-preview">
           <BillContent config={previewConfig} order={previewOrder} />
         </div>
@@ -448,41 +514,6 @@ export default function ReceiptSettings() {
                   <button className={`seg__btn ${(editContent.height || 'small') === 'small' ? 'seg__btn--active' : ''}`} onClick={() => setC('height', 'small')}>Nhỏ</button>
                   <button className={`seg__btn ${editContent.height === 'medium' ? 'seg__btn--active' : ''}`} onClick={() => setC('height', 'medium')}>Vừa</button>
                 </div>
-              </div>
-            )}
-
-            {/* Liên hệ chi nhánh: nội dung GÕ TAY theo TỪNG CN + Web dùng chung */}
-            {editBlk.type === 'branch_contact' && (
-              <div className="rcfg__bc">
-                <p className="rcfg__hint">
-                  Mỗi chi nhánh soạn riêng (địa chỉ · SĐT…). Bill chỉ in nội dung của
-                  chi nhánh tạo đơn. CN chưa soạn → ẩn cả khối trên bill của CN đó.
-                </p>
-                <div className="rcfg__bc-label">Theo từng chi nhánh</div>
-                {branches.length === 0 && (
-                  <p className="rcfg__hint">Chưa có chi nhánh nào (active).</p>
-                )}
-                {branches.map((b) => (
-                  <div className="field" key={b.id}>
-                    <span>{b.order_prefix} · {b.name}</span>
-                    <textarea className="input rcfg__ta" rows={2}
-                      placeholder="Địa chỉ · SĐT chi nhánh"
-                      value={editBranchContents[b.id]?.vi || ''}
-                      onChange={(e) => setBC(b.id, 'vi', e.target.value)} />
-                    {bilingual && (
-                      <textarea className="input rcfg__ta" rows={2}
-                        placeholder="Nội dung tiếng Anh (tùy chọn)"
-                        value={editBranchContents[b.id]?.en || ''}
-                        onChange={(e) => setBC(b.id, 'en', e.target.value)} />
-                    )}
-                  </div>
-                ))}
-                <div className="rcfg__bc-label">Dùng chung mọi chi nhánh</div>
-                <label className="field">
-                  <span>Web</span>
-                  <input className="input" placeholder="vd: giatui2h.com"
-                    value={editWeb} onChange={(e) => setEditWeb(e.target.value)} />
-                </label>
               </div>
             )}
 

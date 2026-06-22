@@ -26,7 +26,7 @@ def _block(bid, btype, *, enabled=True, row=0, col="full", content=None) -> dict
 _VALID_TYPES = {
     "logo", "customer_name", "customer_phone", "receiving_time", "delivery_time",
     "items_table", "totals", "payment_status", "qr_tracking", "order_no",
-    "custom_text", "divider", "spacer", "branch_contact",
+    "custom_text", "divider", "spacer",
 }
 _DROP_TYPES = {"note", "footer_contact", "surcharge_discount"}
 
@@ -70,7 +70,17 @@ def _default_blocks() -> list[dict]:
 
 
 def _default_receipt() -> dict:
-    return {"bilingual": True, "logo_url": "", "track_base_url": "", "blocks": _default_blocks()}
+    return {"bilingual": True, "logo_url": "", "track_base_url": "", "blocks": _default_blocks(),
+            "branch_contact_blocks": {}}
+
+
+def _migrate_branch_contact_blocks(raw) -> dict:
+    """Khu "Liên hệ theo chi nhánh": mỗi CN một MẢNG khối → chạy _migrate_blocks
+    (validate/loại khối lạ, chunk ≤2/hàng, gán removable) như khối thường. raw
+    None/không phải dict → {}; mảng không phải list → bỏ CN đó."""
+    if not isinstance(raw, dict):
+        return {}
+    return {bid: _migrate_blocks(blks) for bid, blks in raw.items() if isinstance(blks, list)}
 
 
 def _split_customer(b: dict) -> list[dict]:
@@ -154,7 +164,7 @@ def _migrate_legacy(cfg: dict) -> dict:
     # blocks[1] là custom_text 'brand' (title).
     blocks[1]["content"] = {"vi": brand}
     return {"bilingual": True, "logo_url": cfg.get("logo_url", ""),
-            "track_base_url": "", "blocks": blocks}
+            "track_base_url": "", "blocks": blocks, "branch_contact_blocks": {}}
 
 
 async def get_or_create(db: AsyncSession, tenant_id: uuid.UUID) -> TenantSettings:
@@ -193,6 +203,9 @@ async def get_receipt(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
             "logo_url": cfg.get("logo_url", ""),
             "track_base_url": cfg.get("track_base_url", ""),
             "blocks": _migrate_blocks(cfg["blocks"]),
+            # ⚠️ Cổng 2: phải thêm key này (dict trả dựng tay), nếu không GET drop dù
+            # đã lưu được. Mỗi mảng CN chạy _migrate_blocks như khối thường.
+            "branch_contact_blocks": _migrate_branch_contact_blocks(cfg.get("branch_contact_blocks")),
         }
     return _migrate_legacy(cfg)  # cấu hình 5.3/5.4 cũ
 

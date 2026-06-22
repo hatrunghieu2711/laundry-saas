@@ -17,7 +17,7 @@ const LDEF = {
   order_no: { label: ['Số', 'No'] },
   payment_status: { paid: ['ĐÃ THANH TOÁN', 'PAID'], unpaid: ['CHƯA THANH TOÁN', 'UNPAID'] },
 }
-const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center', branch_contact: 'center' }
+const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center' }
 const DEFAULT_TRACK_BASE = 'https://track.giatui2h.com/track/'
 
 export default function BillContent({ config, order }) {
@@ -139,23 +139,6 @@ export default function BillContent({ config, order }) {
             {bilingual && c.en && <div className="rcp__custom-en">{c.en}</div>}
           </div>
         )
-      case 'branch_contact': {
-        // Liên hệ theo CHI NHÁNH của đơn (R-FE v2): nội dung GÕ TAY theo branch_id
-        // (vi/en) + web DÙNG CHUNG. CN chưa soạn → ẩn CẢ khối (kể cả web). Dùng
-        // order.branch_id (có sẵn trong OrderOut). KHÔNG đụng gom-row/sort/fmtClass.
-        const bc = blk.branch_contents?.[order.branch_id]
-        const vi = (bc?.vi || '').trim()
-        const en = (bc?.en || '').trim()
-        if (!vi && !en) return null
-        const web = (blk.web || '').trim()
-        return (
-          <div className="rcp__custom">
-            {vi && <div>{vi}</div>}
-            {bilingual && en && <div className="rcp__custom-en">{en}</div>}
-            {web && <div>{web}</div>}
-          </div>
-        )
-      }
       case 'divider':
         return <div className={`rcp__hr rcp__hr--${c.style === 'solid' ? 'solid' : 'dashed'}`} />
       case 'spacer':
@@ -182,30 +165,40 @@ export default function BillContent({ config, order }) {
     return cls
   }
 
-  // Gom khối ĐANG BẬT theo hàng; trong hàng: left → right. KHÔNG kẻ ngang tự động
-  // (Stage 5.8) — kẻ chỉ từ khối divider owner chèn.
-  const rowsMap = new Map()
-  blocks.filter((b) => b.enabled).forEach((b) => {
-    const r = b.row ?? 0
-    if (!rowsMap.has(r)) rowsMap.set(r, [])
-    rowsMap.get(r).push(b)
-  })
+  // Gom 1 MẢNG khối ĐANG BẬT theo hàng; trong hàng: left → right. KHÔNG kẻ ngang tự
+  // động (Stage 5.8) — kẻ chỉ từ khối divider owner chèn. Tách hàm để dùng lại cho
+  // cả khối CHUNG (blocks) lẫn khu "Liên hệ theo chi nhánh" (mảng khối theo CN).
   const colOrder = { left: 0, full: 0, right: 1 }
-  const nodes = []
-  ;[...rowsMap.keys()].sort((a, b) => a - b).forEach((rk) => {
-    const cells = rowsMap.get(rk).slice().sort((a, b) => (colOrder[a.col] ?? 0) - (colOrder[b.col] ?? 0))
-    const rendered = cells.map((b) => ({ b, el: renderBlock(b) })).filter((x) => x.el)
-    if (!rendered.length) return
-    if (rendered.length === 1) {
-      nodes.push(<div className={fmtClass(rendered[0].b)} key={`r-${rk}`}>{rendered[0].el}</div>)
-    } else {
-      nodes.push(
-        <div className="rcp__brow" key={`r-${rk}`}>
-          {rendered.map((x) => <div className={`rcp__bcell ${fmtClass(x.b)}`} key={x.b.id}>{x.el}</div>)}
-        </div>,
-      )
-    }
-  })
+  const renderBlocks = (arr, keyPrefix) => {
+    const rowsMap = new Map()
+    arr.filter((b) => b.enabled).forEach((b) => {
+      const r = b.row ?? 0
+      if (!rowsMap.has(r)) rowsMap.set(r, [])
+      rowsMap.get(r).push(b)
+    })
+    const out = []
+    ;[...rowsMap.keys()].sort((a, b) => a - b).forEach((rk) => {
+      const cells = rowsMap.get(rk).slice().sort((a, b) => (colOrder[a.col] ?? 0) - (colOrder[b.col] ?? 0))
+      const rendered = cells.map((b) => ({ b, el: renderBlock(b) })).filter((x) => x.el)
+      if (!rendered.length) return
+      if (rendered.length === 1) {
+        out.push(<div className={fmtClass(rendered[0].b)} key={`${keyPrefix}-${rk}`}>{rendered[0].el}</div>)
+      } else {
+        out.push(
+          <div className="rcp__brow" key={`${keyPrefix}-${rk}`}>
+            {rendered.map((x) => <div className={`rcp__bcell ${fmtClass(x.b)}`} key={x.b.id}>{x.el}</div>)}
+          </div>,
+        )
+      }
+    })
+    return out
+  }
 
-  return <div className="rcp">{nodes}</div>
+  const nodes = renderBlocks(blocks, 'r')
+  // Khu "Liên hệ theo chi nhánh" in CUỐI bill: mảng khối riêng của CN tạo đơn. CN
+  // không có mảng (chưa soạn) → không in gì. order.branch_id có sẵn trong OrderOut.
+  const bc = config?.branch_contact_blocks?.[order.branch_id]
+  const bcNodes = Array.isArray(bc) ? renderBlocks(bc, 'bc') : []
+
+  return <div className="rcp">{nodes}{bcNodes}</div>
 }
