@@ -7,6 +7,9 @@ const K = {
   // Mã cửa hàng (slug tenant) — BỀN qua logout: mỗi máy POS nhớ mã, lần sau tự điền.
   // KHÔNG xóa trong clearSession; chỉ đổi khi user nhập mã khác lúc đăng nhập.
   tenantSlug: 'pos.tenant_slug',
+  // Token Super Admin (khu /admin) — TÁCH HẲN token POS (pos.access_token) để admin
+  // và owner cùng máy không đá nhau. A1 access-token only (không refresh/csrf).
+  adminToken: 'pos.admin_token',
 }
 
 export const getAccessToken = () => localStorage.getItem(K.access)
@@ -35,7 +38,19 @@ export function setSession({ access_token, csrf_token, user }) {
 }
 
 export function clearSession() {
+  // Chỉ xóa phiên POS — KHÔNG đụng admin token (phiên admin tách biệt).
   localStorage.removeItem(K.access)
   localStorage.removeItem(K.csrf)
   localStorage.removeItem(K.user)
+}
+
+// ── Phiên Super Admin (/admin) — RIÊNG, không lẫn POS ───────────────────────
+export const getAdminToken = () => localStorage.getItem(K.adminToken)
+export function setAdminToken(token) {
+  if (token) localStorage.setItem(K.adminToken, token)
+  else localStorage.removeItem(K.adminToken)
+}
+export function clearAdminSession() {
+  // Chỉ xóa token admin — KHÔNG đụng phiên POS.
+  localStorage.removeItem(K.adminToken)
 }

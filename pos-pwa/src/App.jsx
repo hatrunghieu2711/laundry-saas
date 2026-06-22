@@ -1,4 +1,5 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
+import AdminApp from './AdminApp'
 import Layout from './components/Layout'
 import ProtectedRoute from './components/ProtectedRoute'
 import { BranchProvider } from './context/BranchContext'
@@ -37,6 +38,8 @@ function Protected({ children }) {
 export default function App() {
   return (
     <Routes>
+      {/* Khu Super Admin — TÁCH HẲN POS (auth/layout/token riêng). Đặt TRƯỚC catch-all. */}
+      <Route path="/admin/*" element={<AdminApp />} />
       <Route path="/login" element={<Login />} />
       <Route path="/" element={<Protected><Shift /></Protected>} />
       <Route path="/board" element={<Protected><Board /></Protected>} />

@@ -1,7 +1,9 @@
 // API client: base /api/v1, tự gắn Bearer, refresh-on-401 (single-flight) + retry.
 import {
+  clearAdminSession,
   clearSession,
   getAccessToken,
+  getAdminToken,
   getCsrf,
   setSession,
 } from './storage'
@@ -136,6 +138,36 @@ export async function apiUpload(path, formData, { _retry = false } = {}) {
   return data
 }
 
+// ── Super Admin client (/api/v1/admin/*) — TÁCH HẲN apiFetch POS ────────────
+// Dùng admin token (pos.admin_token), KHÔNG refresh (A1 access-only), 401 → xóa
+// phiên admin + về /admin/login (KHÔNG redirect /login POS).
+function redirectToAdminLogin() {
+  if (window.location.pathname !== '/admin/login') {
+    window.location.assign('/admin/login')
+  }
+}
+
+async function adminFetch(path, { method = 'GET', body, auth = true } = {}) {
+  const h = {}
+  const token = getAdminToken()
+  if (auth && token) h['Authorization'] = `Bearer ${token}`
+  const init = { method, headers: h }
+  if (body !== undefined && body !== null) {
+    h['Content-Type'] = 'application/json'
+    init.body = JSON.stringify(body)
+  }
+  const resp = await fetch(`${BASE}/admin${path}`, init)
+  const data = await parseJson(resp)
+  if (!resp.ok) {
+    if (resp.status === 401 && auth) {
+      clearAdminSession()
+      redirectToAdminLogin()
+    }
+    throw new ApiError(resp.status, data?.code || 'ERROR', data?.message || 'Có lỗi xảy ra, thử lại sau')
+  }
+  return data
+}
+
 export const api = {
   get: (path, opts) => apiFetch(path, { ...opts, method: 'GET' }),
   post: (path, body, opts) => apiFetch(path, { ...opts, method: 'POST', body }),
@@ -160,4 +192,22 @@ export const api = {
       method: 'POST',
       body: { current_password, new_password },
     }),
+
+  // ── Super Admin (/admin) — token RIÊNG, không refresh ──
+  admin: {
+    login: (phone, password) =>
+      adminFetch('/auth/login', { method: 'POST', body: { phone, password }, auth: false }),
+    me: () => adminFetch('/me'),
+    listTenants: () => adminFetch('/tenants'),
+    getTenant: (id) => adminFetch(`/tenants/${id}`),
+    createTenant: (body) => adminFetch('/tenants', { method: 'POST', body }),
+    updateTenant: (id, body) => adminFetch(`/tenants/${id}`, { method: 'PATCH', body }),
+    lockTenant: (id) => adminFetch(`/tenants/${id}/lock`, { method: 'POST' }),
+    unlockTenant: (id) => adminFetch(`/tenants/${id}/unlock`, { method: 'POST' }),
+    resetOwnerPassword: (id, user_id) =>
+      adminFetch(`/tenants/${id}/reset-owner-password`, {
+        method: 'POST',
+        body: user_id ? { user_id } : {},
+      }),
+  },
 }
