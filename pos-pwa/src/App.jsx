@@ -21,6 +21,10 @@ import ShopSettings from './pages/ShopSettings'
 import UsersManage from './pages/UsersManage'
 import Shift from './pages/Shift'
 
+// Subdomain admin.* (vd admin.giatui.app) → CHỈ khu /admin (cùng 1 bundle SPA).
+// Host thường (giatui.app/localhost/…) → POS như cũ. KHÔNG host POS hợp lệ nào bắt đầu 'admin.'.
+const ADMIN_HOST = window.location.hostname.startsWith('admin.')
+
 function Protected({ children }) {
   return (
     <ProtectedRoute>
@@ -36,6 +40,16 @@ function Protected({ children }) {
 }
 
 export default function App() {
+  // Host admin.* → CHỈ đăng ký /admin: route POS không tồn tại → chặn POS tự nhiên;
+  // mọi path khác → /admin (AdminProtectedRoute tự đẩy /admin/login nếu chưa đăng nhập).
+  if (ADMIN_HOST) {
+    return (
+      <Routes>
+        <Route path="/admin/*" element={<AdminApp />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+    )
+  }
   return (
     <Routes>
       {/* Khu Super Admin — TÁCH HẲN POS (auth/layout/token riêng). Đặt TRƯỚC catch-all. */}
