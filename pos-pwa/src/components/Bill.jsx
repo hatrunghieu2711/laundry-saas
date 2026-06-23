@@ -18,7 +18,7 @@ const LDEF = {
   payment_status: { paid: ['ĐÃ THANH TOÁN', 'PAID'], unpaid: ['CHƯA THANH TOÁN', 'UNPAID'] },
 }
 const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center' }
-const DEFAULT_TRACK_BASE = 'https://track.giatui2h.com/track/'
+const DEFAULT_TRACK_BASE = 'https://track.giatui.app/track/'
 
 export default function BillContent({ config, order }) {
   if (!order) return null

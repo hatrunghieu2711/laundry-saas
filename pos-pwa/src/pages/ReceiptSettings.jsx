@@ -381,10 +381,10 @@ export default function ReceiptSettings() {
           <label className="field">
             <span>Link tra cứu cho QR (base URL + mã đơn)</span>
             <input className="input" type="text" value={trackBaseUrl} disabled={!canEdit}
-              placeholder="https://track.giatui2h.com/track/"
+              placeholder="https://track.giatui.app/track/"
               onChange={(e) => { dirty(); setTrackBaseUrl(e.target.value) }} />
           </label>
-          <p className="rcfg__hint">Để trống = dùng mặc định track.giatui2h.com. QR = link này + mã đơn.</p>
+          <p className="rcfg__hint">Để trống = dùng mặc định track.giatui.app. QR = link này + mã đơn.</p>
 
           <label className="rcfg__switch rcfg__switch--row">
             <input type="checkbox" checked={autoPrint} disabled={!canEdit || autoSaving}
