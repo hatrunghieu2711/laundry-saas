@@ -78,6 +78,11 @@ class TenantListItem(BaseModel):
     n_branches: int
     n_users: int
     last_order_at: datetime | None
+    # Plans-3: gói hiện tại (None khi chưa có subscription). Tên khớp SubscriptionOut.
+    plan_id: uuid.UUID | None = None
+    plan_name: str | None = None
+    custom_max_branches: int | None = None
+    effective_max_branches: int | None = None
 
 
 class TenantAdminUpdate(BaseModel):

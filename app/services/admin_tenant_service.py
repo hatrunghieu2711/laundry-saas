@@ -28,7 +28,7 @@ from app.models.tenant import Tenant
 from app.models.tenant_settings import TenantSettings
 from app.models.user import User
 from app.schemas.admin import TenantAdminUpdate, TenantCreate
-from app.services import tenant_service
+from app.services import branch_service, tenant_service
 
 # CN đầu của tenant mới: code/order_prefix = "B1" (theo convention branch_service).
 _FIRST_BRANCH_CODE = "B1"
@@ -150,6 +150,11 @@ class TenantStats:
     n_branches: int
     n_users: int
     last_order_at: datetime | None
+    # Plans-3: gói hiện tại (None khi chưa có subscription) — FE hiện gói + pre-select.
+    plan_id: uuid.UUID | None
+    plan_name: str | None
+    custom_max_branches: int | None
+    effective_max_branches: int | None
 
 
 async def _stats_for(db: AsyncSession, tenant: Tenant) -> TenantStats:
@@ -167,10 +172,16 @@ async def _stats_for(db: AsyncSession, tenant: Tenant) -> TenantStats:
     last_order_at = await db.scalar(
         select(func.max(Order.created_at)).where(Order.tenant_id == tenant.id)
     )
+    # Plans-3: gói hiện tại — GUC=tenant ĐÃ set ở trên (cho strict subscriptions),
+    # KHÔNG set_config thêm; tái dùng helper dùng chung với enforce.
+    sub = await branch_service.subscription_info(db, tenant.id)
     return TenantStats(
         id=tenant.id, name=tenant.name, slug=tenant.slug, status=tenant.status,
         created_at=tenant.created_at, n_branches=n_branches or 0, n_users=n_users or 0,
         last_order_at=last_order_at,
+        plan_id=sub.plan_id, plan_name=sub.plan_name,
+        custom_max_branches=sub.custom_max_branches,
+        effective_max_branches=sub.effective_max_branches,
     )
 
 

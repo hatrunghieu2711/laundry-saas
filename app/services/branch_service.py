@@ -7,6 +7,7 @@
 """
 import re
 import uuid
+from dataclasses import dataclass
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -101,29 +102,59 @@ async def get_branch(
     return branch
 
 
-async def effective_max_branches(
-    db: AsyncSession, tenant_id: uuid.UUID
-) -> int | None:
-    """Giới hạn chi nhánh hiệu lực của tenant.
+@dataclass
+class SubscriptionInfo:
+    """Gói hiệu lực của tenant. effective_max_branches=None ⇔ KHÔNG có subscription."""
 
-    None = KHÔNG có subscription active → caller CHẶN (không có 'unlimited mặc định').
-    Có subscription → custom_max_branches ?? plan.max_branches (NULL cả hai → 0 = chặn,
-    KHÔNG coi NULL là vô hạn; ca lớn đặt custom_max_branches số cụ thể). subscriptions
-    STRICT (đọc trong context có GUC); plans NGOÀI RLS.
+    plan_id: uuid.UUID | None
+    plan_name: str | None
+    plan_max_branches: int | None
+    custom_max_branches: int | None
+    effective_max_branches: int | None
+
+
+async def subscription_info(
+    db: AsyncSession, tenant_id: uuid.UUID
+) -> SubscriptionInfo:
+    """Đọc subscription active + plan của tenant (DÙNG CHUNG: enforce + detail).
+
+    None hết (effective=None) = KHÔNG subscription → caller quyết (enforce CHẶN; detail
+    hiện 'chưa có gói'). Có sub → effective = custom_max_branches ?? plan.max_branches
+    (NULL cả hai → 0). subscriptions STRICT (đọc trong context có GUC=tenant); plans
+    NGOÀI RLS.
     """
     row = (
         await db.execute(
-            select(Subscription.custom_max_branches, Plan.max_branches)
+            select(
+                Subscription.plan_id,
+                Subscription.custom_max_branches,
+                Plan.name,
+                Plan.max_branches,
+            )
             .join(Plan, Plan.id == Subscription.plan_id)
             .where(Subscription.tenant_id == tenant_id, Subscription.status == "active")
             .limit(1)
         )
     ).first()
     if row is None:
-        return None
-    custom, plan_max = row
+        return SubscriptionInfo(None, None, None, None, None)
+    plan_id, custom, plan_name, plan_max = row
     effective = custom if custom is not None else plan_max
-    return effective if effective is not None else 0
+    return SubscriptionInfo(
+        plan_id=plan_id, plan_name=plan_name, plan_max_branches=plan_max,
+        custom_max_branches=custom,
+        effective_max_branches=effective if effective is not None else 0,
+    )
+
+
+async def effective_max_branches(
+    db: AsyncSession, tenant_id: uuid.UUID
+) -> int | None:
+    """Giới hạn chi nhánh hiệu lực (số). None = KHÔNG subscription → caller CHẶN.
+
+    Tái dùng subscription_info → enforce (Plans-1) & detail (Plans-3) nhất quán.
+    """
+    return (await subscription_info(db, tenant_id)).effective_max_branches
 
 
 async def create_branch(

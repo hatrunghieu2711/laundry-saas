@@ -193,6 +193,51 @@ async def test_set_subscription_upsert(client: AsyncClient, admin: dict):
     assert cnt == 1
 
 
+# ── Plans-3: GET detail trả gói hiện tại ─────────────────────────────────────
+async def test_detail_returns_subscription(client: AsyncClient, admin: dict):
+    """GET /admin/tenants/{id} trả gói hiện tại (Gói 1 mặc định)."""
+    atok = await _admin_token(client, admin)
+    t = await _create_tenant(client, atok, "detail-sub", "0903000010", "ds-123")
+    r = await client.get(f"{TENANTS}/{t['tenant_id']}", headers=auth_headers(atok))
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["plan_name"] == "Gói 1 chi nhánh"
+    assert d["effective_max_branches"] == 1
+    assert d["custom_max_branches"] is None
+    assert d["plan_id"]
+
+
+async def test_detail_custom_effective(client: AsyncClient, admin: dict):
+    """custom_max_branches có → detail effective = custom (không phải plan.max_branches)."""
+    atok = await _admin_token(client, admin)
+    t = await _create_tenant(client, atok, "detail-custom", "0903000011", "dc-123")
+    goi3 = next(p for p in await _plans(client, atok) if p["max_branches"] == 3)
+    await client.put(
+        f"{TENANTS}/{t['tenant_id']}/subscription",
+        json={"plan_id": goi3["id"], "custom_max_branches": 7}, headers=auth_headers(atok),
+    )
+    d = (await client.get(f"{TENANTS}/{t['tenant_id']}", headers=auth_headers(atok))).json()
+    assert d["plan_name"] == "Gói 3 chi nhánh"
+    assert d["effective_max_branches"] == 7
+    assert d["custom_max_branches"] == 7
+
+
+async def test_detail_no_subscription(client: AsyncClient, admin: dict):
+    """(phòng thủ) tenant không gói → 4 field None, detail vẫn 200."""
+    atok = await _admin_token(client, admin)
+    async with SessionFactory() as db:
+        tenant = Tenant(name="No Sub Detail", slug="no-sub-detail", status="active")
+        db.add(tenant)
+        await db.flush()
+        tid = tenant.id
+        await db.commit()
+    r = await client.get(f"{TENANTS}/{tid}", headers=auth_headers(atok))
+    assert r.status_code == 200, r.text
+    d = r.json()
+    assert d["plan_id"] is None and d["plan_name"] is None
+    assert d["effective_max_branches"] is None and d["custom_max_branches"] is None
+
+
 async def test_plans_endpoints_require_admin(client: AsyncClient, owner: dict):
     utok = await login(client, owner["phone"], owner["password"])
     r1 = await client.get(PLANS, headers=auth_headers(utok))

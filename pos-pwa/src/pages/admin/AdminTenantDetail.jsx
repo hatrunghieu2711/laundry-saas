@@ -27,8 +27,7 @@ export default function AdminTenantDetail() {
   const [resetResult, setResetResult] = useState(null) // {owner_phone, temp_password}
   const [resetErr, setResetErr] = useState('')
 
-  // Gói dịch vụ. ⚠️ GET detail KHÔNG trả gói hiện tại (chỉ n_branches) → `sub` chỉ có
-  // sau khi Lưu (từ response PUT). Trước đó hiển thị tối thiểu (n_branches + form chọn gói).
+  // Gói dịch vụ (Plans-3: GET detail trả gói hiện tại → hiện ngay khi mở + pre-select).
   const [plans, setPlans] = useState([])
   const [sub, setSub] = useState(null) // {plan_name, effective_max_branches, custom_max_branches, plan_id}
   const [planId, setPlanId] = useState('')
@@ -49,6 +48,17 @@ export default function AdminTenantDetail() {
       setName(data.name)
       setSlug(data.slug)
       setPlans(planList)
+      // Plans-3: gói hiện tại có sẵn trong detail → hiện NGAY + pre-select dropdown.
+      if (data.plan_id) {
+        setSub({
+          plan_name: data.plan_name,
+          effective_max_branches: data.effective_max_branches,
+          custom_max_branches: data.custom_max_branches,
+          plan_id: data.plan_id,
+        })
+        setPlanId(data.plan_id)
+        setCustomMax(data.custom_max_branches != null ? String(data.custom_max_branches) : '')
+      }
     } catch (e) {
       setError(e?.message || 'Không tải được cửa hàng')
     } finally {
@@ -210,7 +220,7 @@ export default function AdminTenantDetail() {
               {sub.custom_max_branches != null && <span className="shift__hint"> (tùy chỉnh)</span>}
             </>
           ) : (
-            <>Số chi nhánh đang dùng: <strong>{t.n_branches}</strong>. Chọn gói bên dưới để đặt giới hạn.</>
+            <>Chưa có gói · <strong>{t.n_branches}</strong> chi nhánh đang dùng. Chọn gói bên dưới để đặt giới hạn.</>
           )}
         </div>
 
