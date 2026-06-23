@@ -209,5 +209,9 @@ export const api = {
         method: 'POST',
         body: user_id ? { user_id } : {},
       }),
+    // Plans-2: gói cước.
+    listPlans: () => adminFetch('/plans'),
+    setSubscription: (id, body) =>
+      adminFetch(`/tenants/${id}/subscription`, { method: 'PUT', body }),
   },
 }

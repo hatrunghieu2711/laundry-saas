@@ -27,14 +27,28 @@ export default function AdminTenantDetail() {
   const [resetResult, setResetResult] = useState(null) // {owner_phone, temp_password}
   const [resetErr, setResetErr] = useState('')
 
+  // Gói dịch vụ. ⚠️ GET detail KHÔNG trả gói hiện tại (chỉ n_branches) → `sub` chỉ có
+  // sau khi Lưu (từ response PUT). Trước đó hiển thị tối thiểu (n_branches + form chọn gói).
+  const [plans, setPlans] = useState([])
+  const [sub, setSub] = useState(null) // {plan_name, effective_max_branches, custom_max_branches, plan_id}
+  const [planId, setPlanId] = useState('')
+  const [customMax, setCustomMax] = useState('')
+  const [planMsg, setPlanMsg] = useState('')
+  const [planErr, setPlanErr] = useState('')
+  const [planBusy, setPlanBusy] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true)
     setError('')
     try {
-      const data = await api.admin.getTenant(id)
+      const [data, planList] = await Promise.all([
+        api.admin.getTenant(id),
+        api.admin.listPlans().catch(() => []),
+      ])
       setT(data)
       setName(data.name)
       setSlug(data.slug)
+      setPlans(planList)
     } catch (e) {
       setError(e?.message || 'Không tải được cửa hàng')
     } finally {
@@ -68,6 +82,40 @@ export default function AdminTenantDetail() {
       }
     } finally {
       setBusy(false)
+    }
+  }
+
+  const savePlan = async () => {
+    if (!planId) return setPlanErr('Chọn gói trước khi lưu.')
+    const custom = customMax.trim() ? parseInt(customMax.trim(), 10) : null
+    if (custom !== null && (Number.isNaN(custom) || custom < 1)) {
+      return setPlanErr('Giới hạn tùy chỉnh phải là số nguyên ≥ 1.')
+    }
+    const selected = plans.find((p) => p.id === planId)
+    const newLimit = custom !== null ? custom : selected?.max_branches ?? 0
+    // ⚠️ Cảnh báo hạ gói: giới hạn mới < số CN đang dùng (backend KHÔNG xóa CN, chỉ chặn thêm).
+    if (newLimit < t.n_branches) {
+      const ok = window.confirm(
+        `Cửa hàng đang dùng ${t.n_branches} chi nhánh; giới hạn mới (${newLimit}) thấp hơn — ` +
+        'sẽ KHÔNG thêm được CN mới (chi nhánh hiện có vẫn giữ). Vẫn lưu?',
+      )
+      if (!ok) return
+    }
+    setPlanBusy(true)
+    setPlanErr('')
+    setPlanMsg('')
+    try {
+      const body = { plan_id: planId }
+      if (custom !== null) body.custom_max_branches = custom
+      const res = await api.admin.setSubscription(id, body)
+      setSub(res)
+      setPlanId(res.plan_id)
+      setCustomMax(res.custom_max_branches != null ? String(res.custom_max_branches) : '')
+      setPlanMsg('Đã lưu gói.')
+    } catch (e) {
+      setPlanErr(e?.message || 'Không lưu được gói')
+    } finally {
+      setPlanBusy(false)
     }
   }
 
@@ -144,6 +192,48 @@ export default function AdminTenantDetail() {
         {saveMsg && <div className="alert alert--success">{saveMsg}</div>}
         <button className="btn btn--primary btn--sm" onClick={saveInfo} disabled={busy}>
           {busy ? 'Đang lưu…' : 'Lưu thông tin'}
+        </button>
+      </div>
+
+      {/* Gói dịch vụ */}
+      <div className="card" style={{ marginTop: 12 }}>
+        <div className="card__title">Gói dịch vụ</div>
+
+        {/* Trạng thái hiện tại (nền nhạt). GET detail không trả gói → chỉ có sau khi Lưu. */}
+        <div style={{
+          background: 'var(--bg)', border: '1px solid var(--line)',
+          borderRadius: 8, padding: '10px 12px', marginBottom: 12,
+        }}>
+          {sub ? (
+            <>
+              Đang dùng: <strong>{sub.plan_name}</strong> · {t.n_branches}/{sub.effective_max_branches} chi nhánh
+              {sub.custom_max_branches != null && <span className="shift__hint"> (tùy chỉnh)</span>}
+            </>
+          ) : (
+            <>Số chi nhánh đang dùng: <strong>{t.n_branches}</strong>. Chọn gói bên dưới để đặt giới hạn.</>
+          )}
+        </div>
+
+        <label className="field">
+          <span>Gói</span>
+          <select className="input" value={planId} onChange={(e) => setPlanId(e.target.value)}>
+            <option value="">— Chọn gói —</option>
+            {plans.map((p) => (
+              <option key={p.id} value={p.id}>{p.name} ({p.max_branches} CN)</option>
+            ))}
+          </select>
+        </label>
+        <label className="field">
+          <span>Giới hạn tùy chỉnh (số chi nhánh)</span>
+          <input className="input" type="number" min="1" value={customMax}
+            placeholder="Bỏ trống = theo gói"
+            onChange={(e) => setCustomMax(e.target.value)} />
+          <span className="field-note">Bỏ trống = dùng số của gói; nhập số cho ca cần nhiều CN hơn.</span>
+        </label>
+        {planErr && <div className="alert alert--error">{planErr}</div>}
+        {planMsg && <div className="alert alert--success">{planMsg}</div>}
+        <button className="btn btn--primary btn--sm" onClick={savePlan} disabled={planBusy}>
+          {planBusy ? 'Đang lưu…' : 'Lưu gói'}
         </button>
       </div>
 
