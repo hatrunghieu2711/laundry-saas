@@ -16,7 +16,7 @@ import jwt
 import pytest  # noqa: F401
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -95,6 +95,7 @@ from app.core.database import SessionFactory, engine  # noqa: E402
 from app.core.redis import redis_client  # noqa: E402
 from app.core.security import hash_password  # noqa: E402
 from app.main import app  # noqa: E402
+from app.models.billing import Plan, Subscription  # noqa: E402
 from app.models.tenant import Tenant  # noqa: E402
 from app.models.user import User  # noqa: E402
 
@@ -146,6 +147,20 @@ _CLEAN_TABLES = (
 
 def auth_headers(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
+
+
+async def _assign_test_subscription(db, tenant_id) -> None:
+    """Plans-1: gán subscription RỘNG (custom_max=99) cho tenant test → tạo branch
+    không vướng giới hạn gói. Plan tham chiếu lấy từ seed (migration). Tenant test
+    chuyên kiểm gói tự gán sub riêng (vd qua create_tenant/set_subscription)."""
+    plan = (await db.execute(select(Plan).limit(1))).scalar_one_or_none()
+    if plan is not None:
+        db.add(
+            Subscription(
+                tenant_id=tenant_id, plan_id=plan.id,
+                custom_max_branches=99, status="active",
+            )
+        )
 
 
 # Registry phone→slug do owner/owner2 fixture điền — để login() TỰ kèm slug khi
@@ -272,6 +287,7 @@ async def owner():
             status="active",
         )
         db.add(user)
+        await _assign_test_subscription(db, tenant.id)  # Plans-1: tenant test có gói
         await db.commit()
         _SLUG_BY_PHONE[user.phone] = tenant.slug  # để login() tự kèm slug (GĐ2)
         return {
@@ -302,6 +318,7 @@ async def owner2():
             status="active",
         )
         db.add(user)
+        await _assign_test_subscription(db, tenant.id)  # Plans-1: tenant test có gói
         await db.commit()
         _SLUG_BY_PHONE[user.phone] = tenant.slug  # để login() tự kèm slug (GĐ2)
         return {

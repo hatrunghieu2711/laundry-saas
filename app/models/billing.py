@@ -35,6 +35,8 @@ class Subscription(TimestampMixin, UpdatedAtMixin, Base):
         UUID(as_uuid=True), ForeignKey("plans.id"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(32), nullable=False, server_default="active")
+    # Override giới hạn chi nhánh cho ca đặc biệt (>3). NULL → dùng plan.max_branches.
+    custom_max_branches: Mapped[int | None] = mapped_column(Integer, nullable=True)
     current_period_start: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )

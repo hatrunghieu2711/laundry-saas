@@ -126,3 +126,31 @@ class ResetOwnerPasswordOut(BaseModel):
 
     owner_phone: str
     temp_password: str
+
+
+# ── Plans-1: gói cước + giới hạn chi nhánh ──────────────────────────────────
+class PlanOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    name: str
+    price: int
+    max_branches: int | None
+    status: str
+
+
+class SetSubscriptionIn(BaseModel):
+    plan_id: uuid.UUID
+    # Override giới hạn cho ca đặc biệt (>3). Bỏ trống → dùng plan.max_branches.
+    custom_max_branches: int | None = Field(default=None, ge=1)
+
+
+class SubscriptionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    tenant_id: uuid.UUID
+    plan_id: uuid.UUID
+    plan_name: str
+    plan_max_branches: int | None
+    custom_max_branches: int | None
+    effective_max_branches: int

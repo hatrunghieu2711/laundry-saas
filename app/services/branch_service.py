@@ -13,6 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Pagination
 from app.core.errors import APIError
+from app.models.billing import Plan, Subscription
 from app.models.branch import Branch
 from app.models.shift import Shift
 from app.schemas.branch import BranchCreate, BranchUpdate
@@ -100,9 +101,51 @@ async def get_branch(
     return branch
 
 
+async def effective_max_branches(
+    db: AsyncSession, tenant_id: uuid.UUID
+) -> int | None:
+    """Giới hạn chi nhánh hiệu lực của tenant.
+
+    None = KHÔNG có subscription active → caller CHẶN (không có 'unlimited mặc định').
+    Có subscription → custom_max_branches ?? plan.max_branches (NULL cả hai → 0 = chặn,
+    KHÔNG coi NULL là vô hạn; ca lớn đặt custom_max_branches số cụ thể). subscriptions
+    STRICT (đọc trong context có GUC); plans NGOÀI RLS.
+    """
+    row = (
+        await db.execute(
+            select(Subscription.custom_max_branches, Plan.max_branches)
+            .join(Plan, Plan.id == Subscription.plan_id)
+            .where(Subscription.tenant_id == tenant_id, Subscription.status == "active")
+            .limit(1)
+        )
+    ).first()
+    if row is None:
+        return None
+    custom, plan_max = row
+    effective = custom if custom is not None else plan_max
+    return effective if effective is not None else 0
+
+
 async def create_branch(
     db: AsyncSession, tenant_id: uuid.UUID, data: BranchCreate
 ) -> Branch:
+    # ⭐ ENFORCE giới hạn gói TRƯỚC khi tạo. (owner-context → GUC sẵn cho strict.)
+    max_branches = await effective_max_branches(db, tenant_id)
+    if max_branches is None:
+        raise APIError(
+            409, "NO_SUBSCRIPTION", "Cửa hàng chưa có gói dịch vụ; liên hệ quản trị"
+        )
+    active_count = await db.scalar(
+        select(func.count())
+        .select_from(Branch)
+        .where(Branch.tenant_id == tenant_id, Branch.status == "active")
+    )
+    if (active_count or 0) >= max_branches:
+        raise APIError(
+            409, "BRANCH_LIMIT_REACHED",
+            "Đã đạt giới hạn chi nhánh của gói; nâng gói để thêm",
+        )
+
     # Đếm TẤT CẢ branch của tenant (kể cả đã soft-delete) để code không bị tái sử dụng.
     count = await db.scalar(
         select(func.count()).select_from(Branch).where(Branch.tenant_id == tenant_id)

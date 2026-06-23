@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError
 from app.core.security import hash_password
+from app.models.billing import Plan, Subscription
 from app.models.branch import Branch
 from app.models.order import Order
 from app.models.refresh_token import RefreshToken
@@ -46,6 +47,15 @@ class CreatedTenant:
 def _seq_name(tenant_id: uuid.UUID, code: str) -> str:
     """Tên sequence order_code PER-TENANT (kèm tenant_id hex) — mỗi tenant đếm riêng."""
     return f"order_code_seq_{uuid.UUID(str(tenant_id)).hex}_{code.lower()}"
+
+
+async def _default_plan(db: AsyncSession) -> Plan | None:
+    """Gói mặc định cho tenant mới = gói nhỏ nhất (Gói 1). plans NGOÀI RLS → đọc thẳng."""
+    return (
+        await db.execute(
+            select(Plan).where(Plan.status == "active").order_by(Plan.max_branches.asc()).limit(1)
+        )
+    ).scalar_one_or_none()
 
 
 async def create_tenant(db: AsyncSession, data: TenantCreate) -> CreatedTenant:
@@ -102,6 +112,14 @@ async def create_tenant(db: AsyncSession, data: TenantCreate) -> CreatedTenant:
 
         # f. Settings rỗng (server_default lo hết; receipt_config NULL → mẫu gốc nền tảng).
         db.add(TenantSettings(tenant_id=tenant.id))
+
+        # f2. ⭐ GÁN gói mặc định (Gói 1) — tenant mới LUÔN có subscription (không-sub = chặn
+        # tạo CN). CN B1 ở trên tạo TRỰC TIẾP nên không vướng enforce; CN thứ 2 cần nâng gói.
+        # subscriptions STRICT → GUC đã set ở bước c → WITH CHECK qua.
+        plan = await _default_plan(db)
+        if plan is None:
+            raise APIError(500, "NO_DEFAULT_PLAN", "Chưa cấu hình gói dịch vụ mặc định")
+        db.add(Subscription(tenant_id=tenant.id, plan_id=plan.id, status="active"))
 
         # g. MỘT commit cuối → atomic.
         await db.commit()
@@ -273,3 +291,65 @@ async def reset_owner_password(
     )
     await db.commit()
     return owner.phone, temp_password
+
+
+# ── Plans-1: gói cước ────────────────────────────────────────────────────────
+@dataclass
+class SubscriptionInfo:
+    tenant_id: uuid.UUID
+    plan_id: uuid.UUID
+    plan_name: str
+    plan_max_branches: int | None
+    custom_max_branches: int | None
+    effective_max_branches: int
+
+
+async def list_plans(db: AsyncSession) -> list[Plan]:
+    """Danh sách gói active. plans NGOÀI RLS → đọc thẳng (GUC rỗng OK)."""
+    return (
+        await db.execute(
+            select(Plan).where(Plan.status == "active").order_by(Plan.max_branches.asc())
+        )
+    ).scalars().all()
+
+
+async def set_subscription(
+    db: AsyncSession,
+    tenant_id: uuid.UUID,
+    plan_id: uuid.UUID,
+    custom_max_branches: int | None = None,
+) -> SubscriptionInfo:
+    """Gán/đổi gói cho tenant (UPSERT — UNIQUE(tenant_id) ép 1 subscription).
+
+    plans NGOÀI RLS → đọc thẳng. subscriptions STRICT → set_config=tenant trước ghi.
+    """
+    tenant = await db.get(Tenant, tenant_id)
+    if tenant is None:
+        raise APIError(404, "TENANT_NOT_FOUND", "Không tìm thấy cửa hàng")
+    plan = await db.get(Plan, plan_id)
+    if plan is None or plan.status != "active":
+        raise APIError(404, "PLAN_NOT_FOUND", "Không tìm thấy gói dịch vụ")
+
+    await db.execute(text(_SET_GUC), {"tid": str(tenant_id)})
+    existing = (
+        await db.execute(select(Subscription).where(Subscription.tenant_id == tenant_id))
+    ).scalar_one_or_none()
+    if existing is not None:
+        existing.plan_id = plan_id
+        existing.custom_max_branches = custom_max_branches
+        existing.status = "active"
+    else:
+        db.add(
+            Subscription(
+                tenant_id=tenant_id, plan_id=plan_id,
+                custom_max_branches=custom_max_branches, status="active",
+            )
+        )
+    await db.commit()
+
+    effective = custom_max_branches if custom_max_branches is not None else plan.max_branches
+    return SubscriptionInfo(
+        tenant_id=tenant_id, plan_id=plan_id, plan_name=plan.name,
+        plan_max_branches=plan.max_branches, custom_max_branches=custom_max_branches,
+        effective_max_branches=effective if effective is not None else 0,
+    )

@@ -79,8 +79,17 @@ async def _full_login(client, phone, password, slug) -> tuple[str, str]:
 # ── list + stats ────────────────────────────────────────────────────────────
 async def test_list_tenants_with_stats(client: AsyncClient, admin: dict):
     atok = await _admin_token(client, admin)
-    await _create_tenant(client, atok, "shop-a", "0900100001", owner_password="ownerA-123")
+    a = await _create_tenant(client, atok, "shop-a", "0900100001", owner_password="ownerA-123")
     await _create_tenant(client, atok, "shop-b", "0900200002", owner_password="ownerB-123")
+
+    # Plans-1: tenant mới mặc định Gói 1 (max 1 CN) → nâng gói shop-a để thêm CN thứ 2.
+    plans = (await client.get("/api/v1/admin/plans", headers=auth_headers(atok))).json()
+    rsub = await client.put(
+        f"{TENANTS}/{a['tenant_id']}/subscription",
+        json={"plan_id": plans[0]["id"], "custom_max_branches": 9},
+        headers=auth_headers(atok),
+    )
+    assert rsub.status_code == 200, rsub.text
 
     # owner A thêm 1 CN + 1 staff → A: 2 branches, 2 users.
     aown = await client.post(

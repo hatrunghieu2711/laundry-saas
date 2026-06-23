@@ -17,8 +17,11 @@ from app.schemas.admin import (
     AdminLoginRequest,
     AdminOut,
     AdminTokenResponse,
+    PlanOut,
     ResetOwnerPasswordIn,
     ResetOwnerPasswordOut,
+    SetSubscriptionIn,
+    SubscriptionOut,
     TenantAdminUpdate,
     TenantAdminUpdateOut,
     TenantCreate,
@@ -112,3 +115,19 @@ async def admin_reset_owner_password(
         db, tenant_id, payload.user_id
     )
     return ResetOwnerPasswordOut(owner_phone=phone, temp_password=temp_password)
+
+
+# ── Plans-1: gói cước ────────────────────────────────────────────────────────
+@router.get("/plans", response_model=list[PlanOut])
+async def admin_list_plans(_admin: CurrentAdminDep, db: DbSession) -> list:
+    return await admin_tenant_service.list_plans(db)
+
+
+@router.put("/tenants/{tenant_id}/subscription", response_model=SubscriptionOut)
+async def admin_set_subscription(
+    tenant_id: uuid.UUID, payload: SetSubscriptionIn, _admin: CurrentAdminDep, db: DbSession
+):
+    """Gán/đổi gói cho tenant (upsert). custom_max_branches override cho ca đặc biệt."""
+    return await admin_tenant_service.set_subscription(
+        db, tenant_id, payload.plan_id, payload.custom_max_branches
+    )
