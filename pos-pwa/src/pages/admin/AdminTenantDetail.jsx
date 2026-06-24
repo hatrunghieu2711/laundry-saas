@@ -3,11 +3,32 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { ApiError, api } from '../../lib/api'
 import { formatDateTime } from '../../lib/format'
 
+// Khớp config BE (subscription_warn_days / subscription_grace_days) — chỉ để hiện chú thích.
+const WARN_DAYS = 7
+const GRACE_DAYS = 3
+
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text)
   } catch {
     /* bỏ qua nếu clipboard không khả dụng */
+  }
+}
+
+// Dòng trạng thái HẠN gói (màu theo mức). sub null / chưa có hạn → vô hạn.
+function expiryView(sub) {
+  if (!sub || !sub.expires_at) return { text: 'Hạn: Vô hạn (không giới hạn thời gian)', color: 'var(--muted, #6b7280)' }
+  const d = sub.expires_at.slice(0, 10)
+  const n = sub.days_left
+  switch (sub.expiry_status) {
+    case 'warning':
+      return { text: `⚠️ Sắp hết hạn ${d} · còn ${n} ngày`, color: '#b45309' }
+    case 'grace':
+      return { text: `⚠️ Đã hết hạn ${d} · ân hạn còn ${n} ngày`, color: '#c2410c' }
+    case 'expired':
+      return { text: `⛔ Đã hết hạn ${d} — cửa hàng KHÔNG tạo đơn mới được`, color: '#dc2626' }
+    default: // active (còn hạn xa)
+      return { text: `Còn hạn đến ${d} · còn ${n} ngày`, color: 'var(--text, #111827)' }
   }
 }
 
@@ -32,6 +53,7 @@ export default function AdminTenantDetail() {
   const [sub, setSub] = useState(null) // {plan_name, effective_max_branches, custom_max_branches, plan_id}
   const [planId, setPlanId] = useState('')
   const [customMax, setCustomMax] = useState('')
+  const [expiresAt, setExpiresAt] = useState('') // YYYY-MM-DD; '' = vô hạn
   const [planMsg, setPlanMsg] = useState('')
   const [planErr, setPlanErr] = useState('')
   const [planBusy, setPlanBusy] = useState(false)
@@ -55,9 +77,14 @@ export default function AdminTenantDetail() {
           effective_max_branches: data.effective_max_branches,
           custom_max_branches: data.custom_max_branches,
           plan_id: data.plan_id,
+          expires_at: data.expires_at,
+          expiry_status: data.expiry_status,
+          days_left: data.days_left,
         })
         setPlanId(data.plan_id)
         setCustomMax(data.custom_max_branches != null ? String(data.custom_max_branches) : '')
+        // Hạn lưu dạng UTC-midnight → cắt 10 ký tự đầu (date) round-trip đúng mọi múi giờ.
+        setExpiresAt(data.expires_at ? data.expires_at.slice(0, 10) : '')
       }
     } catch (e) {
       setError(e?.message || 'Không tải được cửa hàng')
@@ -117,10 +144,13 @@ export default function AdminTenantDetail() {
     try {
       const body = { plan_id: planId }
       if (custom !== null) body.custom_max_branches = custom
+      // Hạn: '' = vô hạn (null); đặt UTC-midnight để round-trip với input date không lệch ngày.
+      body.expires_at = expiresAt ? `${expiresAt}T00:00:00Z` : null
       const res = await api.admin.setSubscription(id, body)
       setSub(res)
       setPlanId(res.plan_id)
       setCustomMax(res.custom_max_branches != null ? String(res.custom_max_branches) : '')
+      setExpiresAt(res.expires_at ? res.expires_at.slice(0, 10) : '')
       setPlanMsg('Đã lưu gói.')
     } catch (e) {
       setPlanErr(e?.message || 'Không lưu được gói')
@@ -218,6 +248,9 @@ export default function AdminTenantDetail() {
             <>
               Đang dùng: <strong>{sub.plan_name}</strong> · {t.n_branches}/{sub.effective_max_branches} chi nhánh
               {sub.custom_max_branches != null && <span className="shift__hint"> (tùy chỉnh)</span>}
+              <div style={{ marginTop: 6, fontWeight: 600, color: expiryView(sub).color }}>
+                {expiryView(sub).text}
+              </div>
             </>
           ) : (
             <>Chưa có gói · <strong>{t.n_branches}</strong> chi nhánh đang dùng. Chọn gói bên dưới để đặt giới hạn.</>
@@ -239,6 +272,22 @@ export default function AdminTenantDetail() {
             placeholder="Bỏ trống = theo gói"
             onChange={(e) => setCustomMax(e.target.value)} />
           <span className="field-note">Bỏ trống = dùng số của gói; nhập số cho ca cần nhiều CN hơn.</span>
+        </label>
+        <label className="field">
+          <span>Hạn gói (ngày hết hạn)</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input className="input" type="date" value={expiresAt}
+              onChange={(e) => setExpiresAt(e.target.value)} style={{ flex: 1 }} />
+            {expiresAt && (
+              <button type="button" className="btn btn--ghost btn--sm" onClick={() => setExpiresAt('')}>
+                Xóa hạn
+              </button>
+            )}
+          </div>
+          <span className="field-note">
+            Để TRỐNG = vô hạn. Quá hạn {GRACE_DAYS} ngày ân hạn → cửa hàng không tạo đơn mới được
+            (vẫn đăng nhập + xem đơn cũ). Cảnh báo trước {WARN_DAYS} ngày.
+          </span>
         </label>
         {planErr && <div className="alert alert--error">{planErr}</div>}
         {planMsg && <div className="alert alert--success">{planMsg}</div>}

@@ -43,6 +43,9 @@ export default function OrderNew() {
   const navigate = useNavigate()
   const isOwner = user?.role === 'owner'
   const canManage = user?.role === 'owner' || user?.role === 'manager'
+  // Gói HẾT HẠN (quá ân hạn) → chặn TẠO đơn (BE đã 403; FE ngăn trước cho UX).
+  // grace/warning vẫn tạo được. Banner toàn app ở Layout.
+  const subExpired = user?.subscription_status === 'expired'
 
   // Chi nhánh chọn từ HEADER (Stage 6.6.1) — dropdown ở header, không còn hàng riêng.
   const { branchId } = useBranch()
@@ -1015,12 +1018,16 @@ export default function OrderNew() {
                   <button className="btn btn--ghost cfm__more" onClick={addMoreServices} disabled={busy}>
                     ＋ Thêm dịch vụ
                   </button>
-                  <button className="btn btn--primary cfm__submit" onClick={submit} disabled={busy || isPastVnWall(pickup)}>
+                  <button className="btn btn--primary cfm__submit" onClick={submit}
+                    disabled={busy || isPastVnWall(pickup) || subExpired}
+                    title={subExpired ? 'Gói hết hạn, không tạo đơn mới được' : undefined}>
                     {busy
                       ? 'Đang tạo…'
-                      : payMode === 'prepay'
-                        ? `Tạo & thu · ${formatVND(grandTotal)}`
-                        : `Tạo đơn · ${formatVND(grandTotal)}`}
+                      : subExpired
+                        ? 'Gói hết hạn — không tạo đơn'
+                        : payMode === 'prepay'
+                          ? `Tạo & thu · ${formatVND(grandTotal)}`
+                          : `Tạo đơn · ${formatVND(grandTotal)}`}
                   </button>
                 </>
               )}

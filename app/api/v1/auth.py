@@ -18,7 +18,7 @@ from app.schemas.auth import (
     TokenResponse,
     UserOut,
 )
-from app.services import auth_service
+from app.services import auth_service, branch_service
 from app.services.auth_service import IssuedSession
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -130,4 +130,10 @@ async def me(current_user: CurrentUser, db: DbSession) -> UserOut:
     current_user.tenant_name = tenant.name if tenant is not None else None
     # CÙNG query (không round-trip thêm) — slug cho QR bill (track/{slug}/{order_code}).
     current_user.tenant_slug = tenant.slug if tenant is not None else None
+    # Hạn GÓI cho banner POS (1 query; GUC=tenant đã set cho strict subscriptions).
+    # Tái dùng subscription_info (Stage 1) → status/expires_at/days_left nhất quán enforce.
+    sub = await branch_service.subscription_info(db, current_user.tenant_id)
+    current_user.subscription_status = sub.expiry_status
+    current_user.subscription_expires_at = sub.expires_at
+    current_user.subscription_days_left = sub.days_left
     return UserOut.model_validate(current_user)

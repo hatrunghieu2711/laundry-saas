@@ -127,7 +127,8 @@ async def admin_list_plans(_admin: CurrentAdminDep, db: DbSession) -> list:
 async def admin_set_subscription(
     tenant_id: uuid.UUID, payload: SetSubscriptionIn, _admin: CurrentAdminDep, db: DbSession
 ):
-    """Gán/đổi gói cho tenant (upsert). custom_max_branches override cho ca đặc biệt."""
+    """Gán/đổi gói cho tenant (upsert). custom_max_branches override cho ca đặc biệt;
+    expires_at = hạn gói (None = vô hạn)."""
     return await admin_tenant_service.set_subscription(
-        db, tenant_id, payload.plan_id, payload.custom_max_branches
+        db, tenant_id, payload.plan_id, payload.custom_max_branches, payload.expires_at
     )

@@ -13,11 +13,17 @@ from httpx import AsyncClient
 from sqlalchemy import func, select, text
 
 from app.core.database import SessionFactory
+from app.core.security import hash_password
+from app.models.admin import Admin
 from app.models.order import Order
 from app.services.branch_service import compute_expiry_status
 from tests.conftest import auth_headers, login
 
 ORDERS = "/api/v1/orders"
+ME = "/api/v1/auth/me"
+ADMIN_LOGIN = "/api/v1/admin/auth/login"
+TENANTS = "/api/v1/admin/tenants"
+PLANS = "/api/v1/admin/plans"
 WARN, GRACE = 7, 3  # khớp config mặc định (subscription_warn_days / subscription_grace_days)
 _ITEMS = [{"service_name": "Giặt thường", "quantity": 2, "unit_price": 30000}]
 
@@ -156,3 +162,135 @@ async def test_old_order_editable_when_expired(client: AsyncClient, shop: dict):
         headers=auth_headers(shop["token"]),
     )
     assert ri.status_code == 201, ri.text  # thêm món đơn cũ — không chặn
+
+
+# ── /auth/me trả expiry (cho banner POS) ─────────────────────────────────────
+async def _me(client: AsyncClient, token: str) -> dict:
+    r = await client.get(ME, headers=auth_headers(token))
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+async def test_me_unlimited_is_active(client: AsyncClient, shop: dict):
+    """current_period_end NULL → status active, expires/days_left None."""
+    d = await _me(client, shop["token"])
+    assert d["subscription_status"] == "active"
+    assert d["subscription_expires_at"] is None
+    assert d["subscription_days_left"] is None
+
+
+async def test_me_warning(client: AsyncClient, shop: dict):
+    await _set_expiry(shop["tenant_id"], _now() + timedelta(days=2))
+    d = await _me(client, shop["token"])
+    assert d["subscription_status"] == "warning"
+    assert d["subscription_days_left"] == 2
+    assert d["subscription_expires_at"] is not None
+
+
+async def test_me_grace(client: AsyncClient, shop: dict):
+    await _set_expiry(shop["tenant_id"], _now() - timedelta(days=1))
+    d = await _me(client, shop["token"])
+    assert d["subscription_status"] == "grace"
+    assert d["subscription_days_left"] == GRACE - 1
+
+
+async def test_me_expired(client: AsyncClient, shop: dict):
+    await _set_expiry(shop["tenant_id"], _now() - timedelta(days=GRACE + 2))
+    d = await _me(client, shop["token"])
+    assert d["subscription_status"] == "expired"
+    assert d["subscription_expires_at"] is not None
+
+
+# ── Super Admin set expires_at (endpoint + detail + list) ────────────────────
+@pytest_asyncio.fixture
+async def admin() -> dict:
+    pw = "admin-secret-123"
+    async with SessionFactory() as db:
+        a = Admin(
+            phone="0999999990", full_name="Super Admin", role="super_admin",
+            password_hash=hash_password(pw), status="active",
+        )
+        db.add(a)
+        await db.commit()
+        return {"phone": a.phone, "password": pw}
+
+
+async def _admin_tok(client: AsyncClient, admin: dict) -> str:
+    r = await client.post(ADMIN_LOGIN, json={"phone": admin["phone"], "password": admin["password"]})
+    assert r.status_code == 200, r.text
+    return r.json()["access_token"]
+
+
+async def _mk_tenant(client, atok, slug, phone, pw) -> dict:
+    r = await client.post(
+        TENANTS,
+        json={"name": f"Shop {slug}", "slug": slug, "owner_full_name": "O",
+              "owner_phone": phone, "owner_password": pw},
+        headers=auth_headers(atok),
+    )
+    assert r.status_code == 201, r.text
+    return r.json()
+
+
+async def _set_sub(client, atok, tid, plan_id, **extra):
+    return await client.put(
+        f"{TENANTS}/{tid}/subscription",
+        json={"plan_id": plan_id, **extra}, headers=auth_headers(atok),
+    )
+
+
+async def test_admin_set_expires_at_roundtrip(client: AsyncClient, admin: dict):
+    """Set hạn tương lai → endpoint trả expiry; đọc lại qua detail khớp."""
+    atok = await _admin_tok(client, admin)
+    t = await _mk_tenant(client, atok, "exp-shop", "0904000001", "passw1")
+    tid = t["tenant_id"]
+    plans = (await client.get(PLANS, headers=auth_headers(atok))).json()
+    exp = (_now() + timedelta(days=10)).isoformat()
+
+    rs = await _set_sub(client, atok, tid, plans[0]["id"], expires_at=exp)
+    assert rs.status_code == 200, rs.text
+    assert rs.json()["expires_at"] is not None
+    assert rs.json()["expiry_status"] == "active"  # 10 ngày > WARN=7
+    assert rs.json()["days_left"] == 10
+
+    d = (await client.get(f"{TENANTS}/{tid}", headers=auth_headers(atok))).json()
+    assert d["expires_at"] is not None
+    assert d["expiry_status"] == "active"
+    assert d["days_left"] == 10
+
+
+async def test_admin_set_expires_null_is_unlimited(client: AsyncClient, admin: dict):
+    """Đặt hạn rồi gửi expires_at=None → xóa hạn (vô hạn → active)."""
+    atok = await _admin_tok(client, admin)
+    t = await _mk_tenant(client, atok, "exp-null", "0904000002", "passw1")
+    tid, pid = t["tenant_id"], (await client.get(PLANS, headers=auth_headers(atok))).json()[0]["id"]
+
+    await _set_sub(client, atok, tid, pid, expires_at=(_now() - timedelta(days=1)).isoformat())
+    rs = await _set_sub(client, atok, tid, pid, expires_at=None)
+    assert rs.status_code == 200, rs.text
+    assert rs.json()["expires_at"] is None
+    assert rs.json()["expiry_status"] == "active"
+
+
+async def test_admin_set_expires_past_is_expired(client: AsyncClient, admin: dict):
+    """Set hạn quá khứ (quá ân hạn) → endpoint trả expired."""
+    atok = await _admin_tok(client, admin)
+    t = await _mk_tenant(client, atok, "exp-past", "0904000004", "passw1")
+    tid, pid = t["tenant_id"], (await client.get(PLANS, headers=auth_headers(atok))).json()[0]["id"]
+    rs = await _set_sub(client, atok, tid, pid, expires_at=(_now() - timedelta(days=GRACE + 2)).isoformat())
+    assert rs.status_code == 200, rs.text
+    assert rs.json()["expiry_status"] == "expired"
+
+
+async def test_admin_list_has_expiry_status(client: AsyncClient, admin: dict):
+    """List tenant trả expiry_status mỗi dòng (để liếc tenant sắp/đã hết hạn)."""
+    atok = await _admin_tok(client, admin)
+    t = await _mk_tenant(client, atok, "list-exp", "0904000003", "passw1")
+    pid = (await client.get(PLANS, headers=auth_headers(atok))).json()[0]["id"]
+    await _set_sub(client, atok, t["tenant_id"], pid,
+                   expires_at=(_now() - timedelta(days=GRACE + 2)).isoformat())
+
+    lst = (await client.get(TENANTS, headers=auth_headers(atok))).json()
+    row = next(x for x in lst if x["id"] == t["tenant_id"])
+    assert row["expiry_status"] == "expired"
+    assert "days_left" in row and "expires_at" in row

@@ -65,6 +65,32 @@ function NavIcon({ name }) {
   )
 }
 
+// Banner HẠN gói (Stage Subscription-expiry) — đọc user.subscription_status từ /me.
+// warning vàng · grace/expired đỏ · active/null không hiện. Chỉ POS (AdminLayout riêng).
+function SubscriptionBanner({ user }) {
+  const st = user?.subscription_status
+  const n = user?.subscription_days_left
+  if (st !== 'warning' && st !== 'grace' && st !== 'expired') return null
+  const danger = st !== 'warning'
+  const text =
+    st === 'warning' ? `Gói còn ${n} ngày — liên hệ gia hạn.`
+      : st === 'grace' ? `Gói đã hết hạn — còn ${n} ngày ân hạn. Liên hệ gia hạn ngay.`
+        : 'Gói đã hết hạn — liên hệ gia hạn để tạo đơn mới.'
+  return (
+    <div
+      role="alert"
+      style={{
+        padding: '8px 12px', fontSize: 14, fontWeight: 600, textAlign: 'center',
+        background: danger ? '#fde8e8' : '#fef9c3',
+        color: danger ? '#b42318' : '#854d0e',
+        borderBottom: `1px solid ${danger ? '#f5c2c0' : '#fde68a'}`,
+      }}
+    >
+      {danger ? '⛔ ' : '⚠️ '}{text}
+    </div>
+  )
+}
+
 export default function Layout({ children }) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
@@ -179,6 +205,7 @@ export default function Layout({ children }) {
           )}
         </div>
       </nav>
+      <SubscriptionBanner user={user} />
       <main className="app-main">{children}</main>
     </div>
   )

@@ -1,5 +1,6 @@
 """Pydantic v2 schemas cho auth."""
 import uuid
+from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,3 +44,8 @@ class UserOut(BaseModel):
     # Slug tiệm (tenant.slug) — nguồn ĐÁNG TIN cho QR bill (track/{slug}/{order_code}).
     # Gán transient ở /auth/me (CÙNG query với tenant_name). None nếu không đọc được.
     tenant_slug: str | None = None
+    # Hạn GÓI (Stage Subscription-expiry) — FE hiện banner + disable nút tạo đơn khi
+    # 'expired'. Gán transient ở /auth/me (subscription_info). Mặc định 'active' (vô hạn).
+    subscription_status: str = "active"  # active | warning | grace | expired
+    subscription_expires_at: datetime | None = None
+    subscription_days_left: int | None = None

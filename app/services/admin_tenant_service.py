@@ -155,6 +155,10 @@ class TenantStats:
     plan_name: str | None
     custom_max_branches: int | None
     effective_max_branches: int | None
+    # Hạn GÓI (Stage Subscription-expiry) — tính từ subscription_info (tái dùng Stage 1).
+    expires_at: datetime | None = None
+    expiry_status: str = "active"  # active | warning | grace | expired
+    days_left: int | None = None
 
 
 async def _stats_for(db: AsyncSession, tenant: Tenant) -> TenantStats:
@@ -182,6 +186,7 @@ async def _stats_for(db: AsyncSession, tenant: Tenant) -> TenantStats:
         plan_id=sub.plan_id, plan_name=sub.plan_name,
         custom_max_branches=sub.custom_max_branches,
         effective_max_branches=sub.effective_max_branches,
+        expires_at=sub.expires_at, expiry_status=sub.expiry_status, days_left=sub.days_left,
     )
 
 
@@ -313,6 +318,10 @@ class SubscriptionInfo:
     plan_max_branches: int | None
     custom_max_branches: int | None
     effective_max_branches: int
+    # Hạn GÓI (Stage Subscription-expiry) — tính từ subscription_info (tái dùng Stage 1).
+    expires_at: datetime | None = None
+    expiry_status: str = "active"  # active | warning | grace | expired
+    days_left: int | None = None
 
 
 async def list_plans(db: AsyncSession) -> list[Plan]:
@@ -329,10 +338,12 @@ async def set_subscription(
     tenant_id: uuid.UUID,
     plan_id: uuid.UUID,
     custom_max_branches: int | None = None,
+    expires_at: datetime | None = None,
 ) -> SubscriptionInfo:
     """Gán/đổi gói cho tenant (UPSERT — UNIQUE(tenant_id) ép 1 subscription).
 
     plans NGOÀI RLS → đọc thẳng. subscriptions STRICT → set_config=tenant trước ghi.
+    expires_at = hạn gói (TÁI DÙNG current_period_end). None = VÔ HẠN (xóa hạn).
     """
     tenant = await db.get(Tenant, tenant_id)
     if tenant is None:
@@ -349,18 +360,23 @@ async def set_subscription(
         existing.plan_id = plan_id
         existing.custom_max_branches = custom_max_branches
         existing.status = "active"
+        existing.current_period_end = expires_at  # None = xóa hạn (vô hạn)
     else:
         db.add(
             Subscription(
                 tenant_id=tenant_id, plan_id=plan_id,
                 custom_max_branches=custom_max_branches, status="active",
+                current_period_end=expires_at,
             )
         )
     await db.commit()
 
-    effective = custom_max_branches if custom_max_branches is not None else plan.max_branches
+    # Re-đọc qua helper Stage 1 → expiry_status/days_left nhất quán với enforce + /me
+    # (GUC=tenant vẫn còn). KHÔNG lặp lại logic mốc hạn.
+    info = await branch_service.subscription_info(db, tenant_id)
     return SubscriptionInfo(
-        tenant_id=tenant_id, plan_id=plan_id, plan_name=plan.name,
-        plan_max_branches=plan.max_branches, custom_max_branches=custom_max_branches,
-        effective_max_branches=effective if effective is not None else 0,
+        tenant_id=tenant_id, plan_id=info.plan_id, plan_name=info.plan_name,
+        plan_max_branches=info.plan_max_branches, custom_max_branches=info.custom_max_branches,
+        effective_max_branches=info.effective_max_branches,
+        expires_at=info.expires_at, expiry_status=info.expiry_status, days_left=info.days_left,
     )

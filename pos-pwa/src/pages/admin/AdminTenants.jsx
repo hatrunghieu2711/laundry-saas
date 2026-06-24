@@ -22,6 +22,35 @@ function StatusBadge({ status }) {
   )
 }
 
+// Badge HẠN gói — liếc nhanh tenant sắp/đã hết hạn. active xám · warning vàng ·
+// grace cam · expired đỏ (khớp expiry_status từ BE).
+const _EXPIRY_BADGE = {
+  warning: { bg: '#fef9c3', color: '#854d0e' },
+  grace: { bg: '#ffedd5', color: '#9a3412' },
+  expired: { bg: '#fde8e8', color: '#b42318' },
+  active: { bg: '#f1f5f9', color: '#475569' },
+}
+
+function ExpiryBadge({ tenant }) {
+  const st = tenant.expiry_status || 'active'
+  const n = tenant.days_left
+  let label
+  if (!tenant.expires_at) label = 'Hạn: vô hạn'
+  else if (st === 'expired') label = 'Hết hạn'
+  else if (st === 'grace') label = `Ân hạn ${n}n`
+  else if (st === 'warning') label = `Còn ${n}n`
+  else label = `Còn ${n}n`
+  const c = _EXPIRY_BADGE[st] || _EXPIRY_BADGE.active
+  return (
+    <span style={{
+      fontSize: 12, fontWeight: 600, padding: '1px 8px', borderRadius: 999,
+      background: c.bg, color: c.color, marginLeft: 6,
+    }}>
+      {label}
+    </span>
+  )
+}
+
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text)
@@ -118,7 +147,7 @@ export default function AdminTenants() {
             <div className="cat-item" key={t.id}>
               <div className="cat-item__main">
                 <div className="cat-item__name">
-                  {t.name} <StatusBadge status={t.status} />
+                  {t.name} <StatusBadge status={t.status} /><ExpiryBadge tenant={t} />
                 </div>
                 <div className="cat-item__meta">
                   {t.slug} · {t.n_branches} CN · {t.n_users} nhân viên ·{' '}

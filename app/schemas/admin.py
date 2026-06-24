@@ -83,6 +83,11 @@ class TenantListItem(BaseModel):
     plan_name: str | None = None
     custom_max_branches: int | None = None
     effective_max_branches: int | None = None
+    # Hạn GÓI (Stage Subscription-expiry). expiry_status TÁCH khỏi `status` (= status
+    # TENANT active/suspended) để không lẫn. NULL hạn = vô hạn → expiry_status 'active'.
+    expires_at: datetime | None = None
+    expiry_status: str = "active"  # active | warning | grace | expired
+    days_left: int | None = None
 
 
 class TenantAdminUpdate(BaseModel):
@@ -148,6 +153,9 @@ class SetSubscriptionIn(BaseModel):
     plan_id: uuid.UUID
     # Override giới hạn cho ca đặc biệt (>3). Bỏ trống → dùng plan.max_branches.
     custom_max_branches: int | None = Field(default=None, ge=1)
+    # Hạn GÓI (Stage Subscription-expiry, TÁI DÙNG current_period_end). None/bỏ trống =
+    # VÔ HẠN (xóa hạn). Đặt được ngày tương lai (gia hạn) hoặc quá khứ (cho hết hạn).
+    expires_at: datetime | None = None
 
 
 class SubscriptionOut(BaseModel):
@@ -159,3 +167,7 @@ class SubscriptionOut(BaseModel):
     plan_max_branches: int | None
     custom_max_branches: int | None
     effective_max_branches: int
+    # Hạn gói + trạng thái tính sẵn (compute_expiry_status, Stage 1).
+    expires_at: datetime | None = None
+    expiry_status: str = "active"  # active | warning | grace | expired
+    days_left: int | None = None
