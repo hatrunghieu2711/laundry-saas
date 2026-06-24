@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>Order tracking</title>
+  <style>
+    /* iframe nhúng — GỌN: KHÔNG header tên tiệm / footer; nền trắng hòa web tenant. */
+    :root {
+      --accent: #1f6feb;
+      --ink: #1F2937;
+      --muted: #6B7280;
+      --line: #E5E7EB;
+      --done: #16A34A;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body { margin: 0; background: #fff; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      color: var(--ink); line-height: 1.45; padding: 12px;
+    }
+    .wrap { max-width: 480px; margin: 0 auto; }
+    .card {
+      background: #fff; border: 1px solid var(--line); border-radius: 14px;
+      padding: 16px; margin-bottom: 12px;
+    }
+    .card:last-child { margin-bottom: 0; }
+    .code-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
+    .code { font-size: 24px; font-weight: 800; letter-spacing: .5px; margin-top: 2px; }
+    .pickup { margin-top: 10px; font-size: 14px; }
+    .pickup b { color: var(--ink); }
+
+    /* Nhãn nhóm trạng thái (VI đậm + EN nhỏ) */
+    .stat { text-align: center; margin-bottom: 16px; }
+    .stat .vi { font-size: 19px; font-weight: 800; }
+    .stat .en { font-size: 13px; color: var(--muted); margin-top: 1px; }
+
+    /* Thanh trạng thái NGANG 3 bước */
+    .steps { display: flex; margin: 4px 0 0; padding: 0; list-style: none; }
+    .step { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; text-align: center; }
+    .step::before {
+      content: ""; position: absolute; top: 14px; left: -50%; width: 100%; height: 3px;
+      background: var(--line); z-index: 0;
+    }
+    .step:first-child::before { display: none; }
+    .step.done::before { background: var(--done); }
+    .dot {
+      position: relative; z-index: 1; width: 30px; height: 30px; border-radius: 50%;
+      border: 2px solid var(--line); background: #fff;
+      display: grid; place-items: center; font-size: 15px; color: transparent;
+    }
+    .step.done .dot { background: var(--done); border-color: var(--done); color: #fff; }
+    .step-name { margin-top: 7px; font-weight: 600; font-size: 13px; color: var(--muted); line-height: 1.25; }
+    .step.done .step-name { color: var(--ink); }
+    .step-name .en { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
+
+    .contact { font-size: 14px; }
+    .contact h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
+    .contact .name { font-weight: 700; }
+    .contact .row { color: var(--muted); margin-top: 2px; }
+    .contact a { color: var(--accent); text-decoration: none; font-weight: 600; }
+
+    /* Ô nhập mã (chế độ không có ?code) */
+    .inp-lbl { display: block; font-weight: 600; font-size: 14px; margin-bottom: 8px; }
+    .inp-lbl .en { font-weight: 400; color: var(--muted); margin-left: 6px; font-size: 12px; }
+    .inp-field {
+      width: 100%; border: 1px solid var(--line); border-radius: 8px;
+      padding: 11px 12px; font-size: 16px; outline: none;
+    }
+    .inp-field:focus { border-color: var(--accent); }
+    .inp-btn {
+      margin-top: 10px; width: 100%; border: 0; border-radius: 8px;
+      background: var(--accent); color: #fff; font-size: 15px; font-weight: 700;
+      padding: 12px; cursor: pointer;
+    }
+
+    .state { text-align: center; padding: 28px 12px; color: var(--muted); }
+    .state .big { font-size: 36px; margin-bottom: 8px; }
+    .state h2 { color: var(--ink); margin: 0 0 6px; font-size: 16px; }
+    .skeleton { color: var(--muted); text-align: center; padding: 28px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div id="app"><div class="skeleton">Đang tải…</div></div>
+  </div>
+
+  <script>
+    // Tiến trình 3 NHÓM (khớp status_group từ BE). Song ngữ map ở FE (BE không đụng).
+    var GROUPS = [
+      { key: 'processing', vi: 'Đang xử lý', en: 'Processing' },
+      { key: 'ready', vi: 'Đã xong', en: 'Ready' },
+      { key: 'delivered', vi: 'Đã giao', en: 'Delivered' }
+    ];
+    var STATUS_LABELS = {
+      processing: ['Đang xử lý', 'Processing'],
+      ready: ['Đã xong — mời lấy', 'Ready for pickup'],
+      delivered: ['Đã giao', 'Delivered']
+    };
+
+    function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+    function fmtVN(iso) {
+      if (!iso) return '';
+      try {
+        return new Intl.DateTimeFormat('vi-VN', {
+          timeZone: 'Asia/Ho_Chi_Minh', day: '2-digit', month: '2-digit',
+          hour: '2-digit', minute: '2-digit', hour12: false
+        }).format(new Date(iso));
+      } catch (e) { return ''; }
+    }
+
+    function getParams() {
+      // /embed/{slug}?code=...  (slug ở path, code ở query)
+      var m = location.pathname.match(/\/embed\/([^/?#]+)/);
+      var slug = m ? decodeURIComponent(m[1]) : '';
+      var code = (new URLSearchParams(location.search).get('code') || '').trim();
+      return { slug: slug, code: code };
+    }
+
+    function renderSteps(data) {
+      var idx = GROUPS.map(function (g) { return g.key; }).indexOf(data.status_group);
+      if (idx < 0) idx = 0;
+      // Bước ĐÃ ĐẠT (i <= idx, gồm bước hiện tại) = XANH ✓; chưa tới = xám. KHÔNG cam.
+      var items = GROUPS.map(function (g, i) {
+        var done = i <= idx;
+        return '<li class="step ' + (done ? 'done' : '') + '">' +
+          '<span class="dot">' + (done ? '✓' : '') + '</span>' +
+          '<span class="step-name">' + esc(g.vi) + '<span class="en">' + esc(g.en) + '</span></span>' +
+          '</li>';
+      }).join('');
+      return '<ul class="steps">' + items + '</ul>';
+    }
+
+    function render(data) {
+      var b = data.branch || {};
+      var parts = [];
+      // Mã đơn — Hẹn lấy CHỈ khi đang xử lý (ready/delivered → ẩn).
+      var showPickup = data.status_group === 'processing';
+      parts.push('<div class="card">' +
+        '<div class="code-label">Mã đơn · Order</div>' +
+        '<div class="code">' + esc(data.order_code) + '</div>' +
+        (showPickup && data.pickup_at
+          ? '<div class="pickup">Hẹn lấy · Pickup: <b>' + esc(fmtVN(data.pickup_at)) + '</b></div>' : '') +
+        '</div>');
+      // Trạng thái nhóm + thanh ngang.
+      var lbl = STATUS_LABELS[data.status_group] || [data.status_label || '', ''];
+      var color = data.status_group === 'delivered' ? '#16794a' : '#1f6feb';
+      parts.push('<div class="card"><div class="stat">' +
+        '<div class="vi" style="color:' + color + '">' + esc(lbl[0]) + '</div>' +
+        '<div class="en">' + esc(lbl[1]) + '</div></div>' +
+        renderSteps(data) + '</div>');
+      // Chi nhánh.
+      parts.push('<div class="card contact"><h3>Chi nhánh · Branch</h3>' +
+        '<div class="name">' + esc(b.name || '') + '</div>' +
+        (b.address ? '<div class="row">Add: ' + esc(b.address) + '</div>' : '') +
+        (b.phone ? '<div class="row">Tel: <a href="tel:' + esc(b.phone) + '">' + esc(b.phone) + '</a></div>' : '') +
+        '</div>');
+      document.getElementById('app').innerHTML = parts.join('');
+    }
+
+    function showState(emoji, title, msg) {
+      document.getElementById('app').innerHTML =
+        '<div class="card"><div class="state"><div class="big">' + emoji + '</div>' +
+        '<h2>' + esc(title) + '</h2>' + (msg ? '<div>' + esc(msg) + '</div>' : '') + '</div></div>';
+    }
+
+    function fetchAndRender(slug, code) {
+      document.getElementById('app').innerHTML = '<div class="skeleton">Đang tải…</div>';
+      fetch('/public/track/' + encodeURIComponent(slug) + '/' + encodeURIComponent(code), { headers: { 'Accept': 'application/json' } })
+        .then(function (r) {
+          if (r.status === 404) { showState('❓', 'Không tìm thấy đơn · Order not found', 'Kiểm tra lại mã. / Check the code.'); return null; }
+          if (r.status === 429) { showState('⏳', 'Thử lại sau · Try again later', 'Bạn tra cứu hơi nhanh. / Too many requests.'); return null; }
+          if (!r.ok) { showState('⚠️', 'Có lỗi · Error', 'Thử lại sau. / Try again later.'); return null; }
+          return r.json();
+        })
+        .then(function (data) { if (data) render(data); })
+        .catch(function () { showState('⚠️', 'Mất kết nối · Offline', 'Kiểm tra mạng. / Check connection.'); });
+    }
+
+    function showInput(slug) {
+      document.getElementById('app').innerHTML =
+        '<div class="card">' +
+        '<label class="inp-lbl" for="codeInput">Nhập mã đơn<span class="en">Enter order code</span></label>' +
+        '<input id="codeInput" class="inp-field" type="text" placeholder="VD: 01-00074" autocomplete="off" autocapitalize="characters" />' +
+        '<button id="codeBtn" class="inp-btn">Tra cứu · Track</button>' +
+        '</div>';
+      var go = function () {
+        var c = document.getElementById('codeInput').value.trim();
+        if (!c) return;
+        history.replaceState(null, '', location.pathname + '?code=' + encodeURIComponent(c));
+        fetchAndRender(slug, c);
+      };
+      document.getElementById('codeBtn').onclick = go;
+      var inp = document.getElementById('codeInput');
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+      inp.focus();
+    }
+
+    function load() {
+      var p = getParams();
+      if (!p.slug) { showState('⚠️', 'Thiếu mã cửa hàng · Missing shop code', ''); return; }
+      if (!p.code) { showInput(p.slug); return; }   // chế độ ô nhập
+      fetchAndRender(p.slug, p.code);               // chế độ hiển thị thẳng
+    }
+
+    load();
+  </script>
+</body>
+</html>
