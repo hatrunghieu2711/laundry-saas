@@ -187,8 +187,10 @@ export default function ReceiptSettings() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const [hasDefault, setHasDefault] = useState(false) // mẫu mặc định tenant đã lưu?
-  const [autoPrint, setAutoPrint] = useState(true) // tự in sau khi tạo đơn (6.8.2)
+  const [autoPrint, setAutoPrint] = useState(true) // tự in BILL sau khi tạo đơn (6.8.2)
+  const [autoPrintCopy2, setAutoPrintCopy2] = useState(true) // tự in LIÊN 2 — TÁCH RIÊNG
   const [autoSaving, setAutoSaving] = useState(false)
+  const [copied, setCopied] = useState(false) // feedback copy snippet iframe
 
   const [editBlk, setEditBlk] = useState(null) // {scope, ri, ci, type}; scope=null → khối chung
   const [editContent, setEditContent] = useState({})
@@ -217,7 +219,10 @@ export default function ReceiptSettings() {
       .then((s) => setHasDefault(!!s.has_tenant_default))
       .catch(() => {})
     api.get('/settings/pos')
-      .then((s) => setAutoPrint(s.auto_print_receipt !== false))
+      .then((s) => {
+        setAutoPrint(s.auto_print_receipt !== false)
+        setAutoPrintCopy2(s.auto_print_copy2 !== false)
+      })
       .catch(() => {})
   }, [])
 
@@ -241,6 +246,40 @@ export default function ReceiptSettings() {
       setError(e?.message || 'Không lưu được tùy chọn tự in')
     } finally {
       setAutoSaving(false)
+    }
+  }
+
+  // Lưu NGAY cờ tự-in LIÊN 2 (TÁCH RIÊNG bill). Optimistic + revert nếu lỗi.
+  const saveAutoPrintCopy2 = async (next) => {
+    if (autoSaving) return
+    setAutoPrintCopy2(next)
+    setAutoSaving(true)
+    setError('')
+    try {
+      await api.put('/settings', { auto_print_copy2: next })
+    } catch (e) {
+      setAutoPrintCopy2(!next)
+      setError(e?.message || 'Không lưu được tùy chọn tự in liên 2')
+    } finally {
+      setAutoSaving(false)
+    }
+  }
+
+  // Snippet iframe nhúng (Lớp 3) — slug THẬT điền sẵn; tenant dán vào web họ.
+  const embedSnippet = (
+    '<iframe id="gt-track" src="https://track.giatui.app/embed/' + (user?.tenant_slug || '') + '"' +
+    ' style="width:100%;border:0;min-height:480px"></iframe>\n' +
+    '<script>var c=new URLSearchParams(location.search).get("code");' +
+    ' if(c) document.getElementById("gt-track").src=' +
+    '"https://track.giatui.app/embed/' + (user?.tenant_slug || '') + '?code="+encodeURIComponent(c);</script>'
+  )
+  const copySnippet = async () => {
+    try {
+      await navigator.clipboard.writeText(embedSnippet)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      /* clipboard không khả dụng — bỏ qua */
     }
   }
 
@@ -381,10 +420,29 @@ export default function ReceiptSettings() {
           <label className="field">
             <span>Link tra cứu cho QR (base URL + mã đơn)</span>
             <input className="input" type="text" value={trackBaseUrl} disabled={!canEdit}
-              placeholder="https://track.giatui.app/track/"
+              placeholder="https://tenmiencuaban.com/track/?code="
               onChange={(e) => { dirty(); setTrackBaseUrl(e.target.value) }} />
           </label>
-          <p className="rcfg__hint">Để trống = dùng mặc định track.giatui.app. QR = link này + mã đơn.</p>
+          <p className="rcfg__hint">
+            Để trống = mặc định track.giatui.app. Có web riêng để tra cứu: đặt link track của bạn
+            KẾT THÚC bằng “?code=” (QR = link này + mã đơn).
+          </p>
+
+          {/* Khối mã nhúng iframe — tenant có web tự nhúng trang tra cứu (Lớp 3) */}
+          <label className="field" style={{ marginTop: 12 }}>
+            <span>Mã nhúng (iframe) cho web của bạn</span>
+            <textarea className="input" readOnly rows={5} value={embedSnippet}
+              style={{ fontFamily: 'monospace', fontSize: 12, resize: 'vertical' }}
+              onFocus={(e) => e.target.select()} />
+          </label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+            <button type="button" className="btn btn--ghost btn--sm" onClick={copySnippet}>
+              {copied ? 'Đã copy ✓' : 'Copy'}
+            </button>
+            <span className="rcfg__hint" style={{ margin: 0 }}>
+              Dán đoạn này vào trang web của bạn (nếu có web riêng để tra cứu).
+            </span>
+          </div>
 
           <label className="rcfg__switch rcfg__switch--row">
             <input type="checkbox" checked={autoPrint} disabled={!canEdit || autoSaving}
@@ -393,6 +451,15 @@ export default function ReceiptSettings() {
           </label>
           <p className="rcfg__hint">
             Bật: tạo đơn xong tự in phiếu ngay. Tắt: không tự in — nhân viên bấm “In phiếu” khi khách cần lấy bill.
+          </p>
+
+          <label className="rcfg__switch rcfg__switch--row">
+            <input type="checkbox" checked={autoPrintCopy2} disabled={!canEdit || autoSaving}
+              onChange={(e) => saveAutoPrintCopy2(e.target.checked)} />
+            <span>Tự động in liên 2 khi tạo đơn</span>
+          </label>
+          <p className="rcfg__hint">
+            Bật: tạo đơn xong tự in nhãn dán túi (liên 2). Tách riêng với in phiếu — bật/tắt độc lập.
           </p>
         </div>
 

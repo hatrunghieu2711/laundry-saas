@@ -37,6 +37,11 @@ class TenantSettings(TimestampMixin, UpdatedAtMixin, Base):
     auto_print_receipt: Mapped[bool] = mapped_column(
         Boolean, nullable=False, server_default=text("true")
     )
+    # Tự động in LIÊN 2 (nhãn dán túi) sau khi tạo đơn — TÁCH RIÊNG auto_print_receipt
+    # (bật/tắt độc lập in bill). Mặc định TRUE; backfill = auto_print_receipt (giữ hành vi).
+    auto_print_copy2: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, server_default=text("true")
+    )
     # Cấu hình mẫu phiếu in (bill builder theo khối). NULL = dùng mẫu gốc nền tảng
     # (service tự trả DEFAULT_RECEIPT — đã có placeholder, không lộ thông tin tenant nào).
     receipt_config: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)

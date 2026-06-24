@@ -61,8 +61,9 @@ export default function OrderNew() {
   const [cart, setCart] = useState([])
   const [overflowKg, setOverflowKg] = useState({})
   const [turnaround, setTurnaround] = useState(4) // từ tenant settings
-  // null = chưa biết (đang nạp settings) · true = tự in (2H) · false = không tự in.
-  const [autoPrint, setAutoPrint] = useState(null)
+  // null = chưa biết (đang nạp settings) · true = tự in · false = không tự in.
+  const [autoPrint, setAutoPrint] = useState(null)        // BILL
+  const [autoPrintCopy2, setAutoPrintCopy2] = useState(null) // LIÊN 2 — TÁCH RIÊNG
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [created, setCreated] = useState(null)
@@ -123,8 +124,9 @@ export default function OrderNew() {
       .then((s) => {
         setTurnaround(s.default_turnaround_hours ?? 4)
         setAutoPrint(s.auto_print_receipt !== false) // default true
+        setAutoPrintCopy2(s.auto_print_copy2 !== false) // default true
       })
-      .catch(() => setAutoPrint(true))
+      .catch(() => { setAutoPrint(true); setAutoPrintCopy2(true) })
   }, [])
 
   // Nạp SẴN cấu hình bill + preload logo (Stage 6.8.1) → auto-print in ĐÚNG mẫu
@@ -552,11 +554,17 @@ export default function OrderNew() {
   // CHỜ printReady (config+logo) → in đúng mẫu tenant (6.8.1). Xong → printed=true
   // (hiện màn tóm tắt; KHÔNG auto về đơn mới — để dùng nút In lại/In liên 2).
   useEffect(() => {
-    if (!created || autoPrint !== true || !printReady) return // tenant tắt → KHÔNG tự in
+    if (!created || !printReady) return
+    if (autoPrint === null || autoPrintCopy2 === null) return // chờ nạp settings
+    // TÁCH RIÊNG: bill / liên 2 độc lập → in bill-only / liên2-only / cả hai / không gì.
+    const jobs = []
+    if (autoPrint) jobs.push({ mode: 'bill' })
+    if (autoPrintCopy2) jobs.push({ mode: 'lien2', seq: null })
+    if (!jobs.length) return // cả hai tắt → KHÔNG tự in (nhân viên in tay)
     if (printedRef.current === created.id) return
     printedRef.current = created.id
-    runPrint([{ mode: 'bill' }, { mode: 'lien2', seq: null }], () => setPrinted(true))
-  }, [created, autoPrint, printReady, runPrint])
+    runPrint(jobs, () => setPrinted(true))
+  }, [created, autoPrint, autoPrintCopy2, printReady, runPrint])
 
   // ── sau khi tạo đơn: render Bill (portal) NGAY + in thẳng (đúng mẫu tenant).
   //    Trước khi in chỉ hiện 1 dòng "đang chuẩn bị/in" (calm) — KHÔNG nháy lưới
@@ -565,7 +573,8 @@ export default function OrderNew() {
   if (created) {
     // Đang chạy hàng đợi in (hoặc auto_print BẬT chưa in xong) → màn chờ calm,
     // KHÔNG nháy lưới an toàn. Xong / auto_print TẮT → màn tóm tắt.
-    const showSummary = !printingQueue && (printed || autoPrint === false)
+    const noAutoPrint = autoPrint === false && autoPrintCopy2 === false // cả hai tắt
+    const showSummary = !printingQueue && (printed || noAutoPrint)
     // In lại/In phiếu: in BILL rồi LIÊN 2 (1 nhãn không số) — 2 job riêng, máy cắt rời.
     const printBillAndLabel = () => runPrint([{ mode: 'bill' }, { mode: 'lien2', seq: null }])
     return (
@@ -601,9 +610,9 @@ export default function OrderNew() {
               </div>
             </div>
             <p className="ordok__hint">
-              {autoPrint === false
-                ? 'Bấm In phiếu nếu khách cần bill.'
-                : 'Đã in bill + liên 2 (cắt rời). In lại nếu cần, hoặc Tạo đơn mới.'}
+              {noAutoPrint
+                ? 'Bấm In bill / In liên 2 nếu cần.'
+                : 'Đã in theo cài đặt. In lại nếu cần, hoặc Tạo đơn mới.'}
             </p>
           </div>
         )}

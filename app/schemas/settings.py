@@ -16,6 +16,7 @@ class SettingsPublic(BaseModel):
 
     default_turnaround_hours: int
     auto_print_receipt: bool
+    auto_print_copy2: bool  # tự động in liên 2 (TÁCH RIÊNG auto_print_receipt)
 
 
 class SettingsOut(BaseModel):
@@ -25,6 +26,7 @@ class SettingsOut(BaseModel):
     default_turnaround_hours: int
     cash_diff_threshold: Decimal
     auto_print_receipt: bool
+    auto_print_copy2: bool
     telegram_bot_token: str | None
     telegram_owner_chat_id: str | None
 
@@ -33,6 +35,7 @@ class SettingsUpdate(BaseModel):
     default_turnaround_hours: int | None = Field(default=None, ge=0, le=72)
     cash_diff_threshold: Decimal | None = Field(default=None, ge=0)
     auto_print_receipt: bool | None = None
+    auto_print_copy2: bool | None = None
     telegram_bot_token: str | None = None
     telegram_owner_chat_id: str | None = None
 
