@@ -105,6 +105,7 @@ async def test_public_track_returns_status_branch_timeline(
 
     assert data["order_code"] == o["order_code"]
     assert data["order_status"] == "drying"
+    assert data["tenant_name"] == "Giặt Ủi 2H"  # header/footer track-site
     assert data["pickup_at"]
     assert data["branch"]["name"] == "Giặt Ủi 2H - CN Trần Phú"
     assert data["branch"]["address"] == "12 Trần Phú, Nha Trang"

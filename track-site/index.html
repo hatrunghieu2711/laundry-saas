@@ -3,13 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#F97316" />
+  <meta name="theme-color" content="#1f6feb" />
   <meta name="robots" content="noindex" />
-  <title>Tra cứu đơn — Giặt Ủi 2H</title>
+  <title>Tra cứu đơn hàng · Order tracking</title>
   <style>
     :root {
-      --orange: #F97316;
-      --orange-dark: #C2410C;
+      --accent: #1f6feb;
       --ink: #1F2937;
       --muted: #6B7280;
       --line: #E5E7EB;
@@ -28,17 +27,11 @@
       padding: max(16px, env(safe-area-inset-top)) 16px calc(16px + env(safe-area-inset-bottom));
     }
     .wrap { max-width: 480px; margin: 0 auto; }
-    .brand {
-      display: flex; align-items: center; gap: 10px;
-      justify-content: center; margin: 8px 0 18px;
-    }
-    .logo {
-      width: 40px; height: 40px; border-radius: 11px;
-      background: var(--orange); color: #fff;
-      display: grid; place-items: center;
-      font-weight: 800; font-size: 18px; letter-spacing: .5px;
-    }
-    .brand b { font-size: 17px; }
+    /* Header: tên tiệm động (KHÔNG logo) + phụ đề song ngữ */
+    .brand { text-align: center; margin: 10px 0 18px; }
+    .brand b { font-size: 20px; display: block; }
+    .brand .en { font-size: 12px; color: var(--muted); margin-top: 1px; }
+
     .card {
       background: #fff; border: 1px solid var(--line); border-radius: 16px;
       padding: 18px 16px; margin-bottom: 14px;
@@ -47,40 +40,38 @@
     .code-label { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; }
     .code { font-size: 26px; font-weight: 800; letter-spacing: .5px; margin-top: 2px; }
     .pickup { margin-top: 10px; font-size: 14px; color: var(--ink); }
-    .pickup b { color: var(--orange-dark); }
+    .pickup b { color: var(--ink); }
 
-    /* Step indicator */
-    .steps { list-style: none; margin: 6px 0 0; padding: 0; }
-    .step { display: flex; align-items: flex-start; gap: 12px; position: relative; padding-bottom: 18px; }
-    .step:last-child { padding-bottom: 0; }
+    /* Nhãn nhóm trạng thái nổi bật (VI đậm + EN nhỏ) */
+    .stat { text-align: center; margin-bottom: 16px; }
+    .stat .vi { font-size: 20px; font-weight: 800; }
+    .stat .en { font-size: 13px; color: var(--muted); margin-top: 1px; }
+
+    /* Thanh trạng thái NGANG 3 bước */
+    .steps { display: flex; margin: 4px 0 0; padding: 0; list-style: none; }
+    .step { flex: 1; display: flex; flex-direction: column; align-items: center; position: relative; text-align: center; }
+    /* đường nối từ chấm này tới chấm trước (bên trái) */
     .step::before {
-      content: ""; position: absolute; left: 13px; top: 28px; bottom: -2px;
-      width: 2px; background: var(--line);
+      content: ""; position: absolute; top: 14px; left: -50%; width: 100%; height: 3px;
+      background: var(--line); z-index: 0;
     }
-    .step:last-child::before { display: none; }
+    .step:first-child::before { display: none; }
+    .step.done::before { background: var(--done); }
     .dot {
-      flex: 0 0 auto; width: 28px; height: 28px; border-radius: 50%;
+      position: relative; z-index: 1; width: 30px; height: 30px; border-radius: 50%;
       border: 2px solid var(--line); background: #fff;
-      display: grid; place-items: center; font-size: 14px; color: transparent; z-index: 1;
+      display: grid; place-items: center; font-size: 15px; color: transparent;
     }
     .step.done .dot { background: var(--done); border-color: var(--done); color: #fff; }
-    .step.current .dot { background: var(--orange); border-color: var(--orange); color: #fff; box-shadow: 0 0 0 4px rgba(249,115,22,.18); }
-    .step.done::before { background: var(--done); }
-    .step-body { padding-top: 3px; }
-    .step-name { font-weight: 600; font-size: 15px; color: var(--muted); }
-    .step.done .step-name, .step.current .step-name { color: var(--ink); }
-    .step.current .step-name { color: var(--orange-dark); }
-    .step-time { font-size: 12px; color: var(--muted); margin-top: 1px; }
-
-    .banner { border-radius: 12px; padding: 12px 14px; font-weight: 600; font-size: 15px; text-align: center; }
-    .banner--cancel { background: #FEF2F2; color: #B91C1C; border: 1px solid #FECACA; }
-    .banner--done { background: #F0FDF4; color: #15803D; border: 1px solid #BBF7D0; }
+    .step-name { margin-top: 7px; font-weight: 600; font-size: 13px; color: var(--muted); line-height: 1.25; }
+    .step.done .step-name { color: var(--ink); }
+    .step-name .en { display: block; font-weight: 400; font-size: 11px; color: var(--muted); }
 
     .contact { font-size: 14px; }
     .contact h3 { margin: 0 0 8px; font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: .5px; }
     .contact .name { font-weight: 700; }
     .contact .row { color: var(--muted); margin-top: 2px; }
-    .contact a { color: var(--orange-dark); text-decoration: none; font-weight: 600; }
+    .contact a { color: var(--accent); text-decoration: none; font-weight: 600; }
 
     .state { text-align: center; padding: 40px 16px; color: var(--muted); }
     .state .big { font-size: 40px; margin-bottom: 8px; }
@@ -92,23 +83,27 @@
 <body>
   <div class="wrap">
     <div class="brand">
-      <span class="logo">2H</span>
-      <b>Giặt Ủi 2H</b>
+      <b id="brandName">Tra cứu đơn hàng</b>
+      <div class="en">Tra cứu đơn hàng · Order tracking</div>
     </div>
     <div id="app"><div class="skeleton">Đang tải…</div></div>
-    <div class="foot">Trang tra cứu đơn hàng · Giặt Ủi 2H</div>
+    <div class="foot" id="foot">Tra cứu đơn hàng · Order tracking</div>
   </div>
 
   <script>
-    // Các bước hiển thị (theo state machine xử lý tại tiệm → giao).
-    // Tiến trình 3 NHÓM (khớp status_group từ BE). codes = các order_status raw thuộc nhóm.
+    // Tiến trình 3 NHÓM (khớp status_group từ BE). Nhãn song ngữ map ở FE (BE không đụng).
     var GROUPS = [
-      { key: 'processing', label: 'Đang xử lý', codes: ['created', 'washing', 'drying'] },
-      { key: 'ready', label: 'Đã xong', codes: ['ready'] },
-      { key: 'delivered', label: 'Đã giao', codes: ['delivered', 'completed'] }
+      { key: 'processing', vi: 'Đang xử lý', en: 'Processing' },
+      { key: 'ready', vi: 'Đã xong', en: 'Ready' },
+      { key: 'delivered', vi: 'Đã giao', en: 'Delivered' }
     ];
+    // Nhãn nhóm đầy đủ (headline) — song ngữ.
+    var STATUS_LABELS = {
+      processing: ['Đang xử lý', 'Processing'],
+      ready: ['Đã xong — mời lấy', 'Ready for pickup'],
+      delivered: ['Đã giao', 'Delivered']
+    };
 
-    function el(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 
@@ -131,51 +126,54 @@
       return { slug: (q.get('slug') || '').trim(), code: (q.get('code') || '').trim() };
     }
 
-    function groupTimeFor(timeline, codes) {
-      // Thời gian đơn VÀO nhóm = mốc đầu tiên có status thuộc nhóm.
-      for (var i = 0; i < timeline.length; i++) if (codes.indexOf(timeline[i].status) >= 0) return timeline[i].at;
-      return '';
-    }
-
     function renderSteps(data) {
       var idx = GROUPS.map(function (g) { return g.key; }).indexOf(data.status_group);
       if (idx < 0) idx = 0;
-      var allDone = data.status_group === 'delivered'; // đã giao = hoàn tất → tô xong hết
+      // ⭐ Bước ĐÃ ĐẠT (i <= idx, GỒM bước hiện tại) = XANH ✓; chưa tới = xám rỗng. KHÔNG cam.
       var items = GROUPS.map(function (g, i) {
-        var isDone = i < idx || (allDone && i === idx);
-        var isCur = i === idx && !allDone;
-        var cls = isDone ? 'done' : (isCur ? 'current' : '');
-        var time = (i <= idx) ? fmtVN(groupTimeFor(data.timeline, g.codes)) : '';
-        return '<li class="step ' + cls + '">' +
-          '<span class="dot">' + (isDone ? '✓' : (isCur ? '•' : '')) + '</span>' +
-          '<span class="step-body"><div class="step-name">' + g.label + '</div>' +
-          (time ? '<div class="step-time">' + esc(time) + '</div>' : '') + '</span></li>';
+        var done = i <= idx;
+        return '<li class="step ' + (done ? 'done' : '') + '">' +
+          '<span class="dot">' + (done ? '✓' : '') + '</span>' +
+          '<span class="step-name">' + esc(g.vi) + '<span class="en">' + esc(g.en) + '</span></span>' +
+          '</li>';
       }).join('');
       return '<ul class="steps">' + items + '</ul>';
     }
 
     function render(data) {
+      var name = data.tenant_name || '';
+      document.getElementById('brandName').textContent = name || 'Tra cứu đơn hàng';
+      document.getElementById('foot').textContent = 'Tra cứu đơn hàng · Order tracking' + (name ? ' — ' + name : '');
+      if (name) document.title = name + ' · Tra cứu đơn';
+
       var b = data.branch || {};
       var parts = [];
+
+      // Khối mã đơn. Hẹn lấy CHỈ hiện khi đang xử lý (ready/delivered → ẩn, tránh hiểu nhầm phải đợi).
+      var showPickup = data.status_group === 'processing';
       parts.push('<div class="card">' +
-        '<div class="code-label">Mã đơn</div>' +
+        '<div class="code-label">Mã đơn · Order</div>' +
         '<div class="code">' + esc(data.order_code) + '</div>' +
-        (data.pickup_at ? '<div class="pickup">Hẹn lấy: <b>' + esc(fmtVN(data.pickup_at)) + '</b></div>' : '') +
+        (showPickup && data.pickup_at
+          ? '<div class="pickup">Hẹn lấy · Pickup: <b>' + esc(fmtVN(data.pickup_at)) + '</b></div>' : '') +
         '</div>');
 
-      // Đơn hủy đã 404 ở BE (ẩn hoàn toàn) → không tới đây. Nhãn nhóm nổi bật + tiến trình 3 nhóm.
-      var done = data.status_group === 'delivered';
+      // Khối trạng thái: nhãn nhóm song ngữ (xanh dương khi xử lý/đã-xong, xanh lá khi đã giao) + thanh ngang.
+      var lbl = STATUS_LABELS[data.status_group] || [data.status_label || '', ''];
+      var color = data.status_group === 'delivered' ? '#16794a' : '#1f6feb';
       parts.push('<div class="card">' +
-        '<div style="font-size:20px;font-weight:800;text-align:center;margin-bottom:14px;color:' +
-        (done ? '#16794a' : '#1f6feb') + '">' + esc(data.status_label || '') + (done ? ' 🎉' : '') + '</div>' +
+        '<div class="stat">' +
+          '<div class="vi" style="color:' + color + '">' + esc(lbl[0]) + '</div>' +
+          '<div class="en">' + esc(lbl[1]) + '</div>' +
+        '</div>' +
         renderSteps(data) + '</div>');
 
-      var contact = '<div class="card contact"><h3>Chi nhánh</h3>' +
+      // Khối chi nhánh.
+      parts.push('<div class="card contact"><h3>Chi nhánh · Branch</h3>' +
         '<div class="name">' + esc(b.name || '') + '</div>' +
-        (b.address ? '<div class="row">' + esc(b.address) + '</div>' : '') +
-        (b.phone ? '<div class="row">ĐT: <a href="tel:' + esc(b.phone) + '">' + esc(b.phone) + '</a></div>' : '') +
-        '</div>';
-      parts.push(contact);
+        (b.address ? '<div class="row">Add: ' + esc(b.address) + '</div>' : '') +
+        (b.phone ? '<div class="row">Tel: <a href="tel:' + esc(b.phone) + '">' + esc(b.phone) + '</a></div>' : '') +
+        '</div>');
 
       document.getElementById('app').innerHTML = parts.join('');
     }

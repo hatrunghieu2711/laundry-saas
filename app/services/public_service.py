@@ -63,6 +63,7 @@ async def get_public_tracking(db: AsyncSession, slug: str, order_code: str) -> d
         "order_status": order.order_status,
         "status_group": group,
         "status_label": label,
+        "tenant_name": tenant.name,  # header/footer track-site (KHÔNG logo)
         "pickup_at": order.pickup_at,
         "branch": {
             "name": branch.name,
