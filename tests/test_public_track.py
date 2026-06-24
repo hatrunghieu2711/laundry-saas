@@ -10,9 +10,17 @@ from datetime import datetime, timedelta, timezone
 
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
+from app.core.database import SessionFactory, _AppSyncSession
 from app.core.redis import redis_client
+from app.core.security import hash_password
+from app.models.branch import Branch
+from app.models.log import OrderTrackingLog
+from app.models.order import Order
+from app.models.tenant import Tenant
+from app.models.user import User
 from tests.conftest import auth_headers, login
 
 TRACK = "/public/track"
@@ -75,7 +83,10 @@ async def track_ctx(client: AsyncClient, owner: dict) -> dict:
     )
     assert r.status_code == 201, r.text
     staff_token = await login(client, "0900000041", "pass123")
-    return {"owner_token": owner_token, "staff_token": staff_token, "branch": branch}
+    return {
+        "owner_token": owner_token, "staff_token": staff_token,
+        "branch": branch, "slug": owner["slug"],
+    }
 
 
 # ── dữ liệu công khai đúng ───────────────────────────────────────────────────
@@ -87,7 +98,7 @@ async def test_public_track_returns_status_branch_timeline(
     await _advance(client, track_ctx["staff_token"], o["id"], "drying")
 
     # KHÔNG gửi Authorization — trang công khai.
-    r = await client.get(f"{TRACK}/{o['order_code']}", headers=_ip("203.0.113.10"))
+    r = await client.get(f"{TRACK}/{track_ctx['slug']}/{o['order_code']}", headers=_ip("203.0.113.10"))
     assert r.status_code == 200, r.text
     data = r.json()
 
@@ -116,7 +127,7 @@ async def test_public_track_hides_money_and_customer(
     cust = rc.json()
     o = await _create_order(client, track_ctx["staff_token"], customer_id=cust["id"])
 
-    r = await client.get(f"{TRACK}/{o['order_code']}", headers=_ip("203.0.113.11"))
+    r = await client.get(f"{TRACK}/{track_ctx['slug']}/{o['order_code']}", headers=_ip("203.0.113.11"))
     assert r.status_code == 200, r.text
     data = r.json()
     raw = r.text
@@ -143,7 +154,7 @@ async def test_public_track_hides_money_and_customer(
 
 # ── mã sai → 404 ─────────────────────────────────────────────────────────────
 async def test_public_track_unknown_code_404(client: AsyncClient, track_ctx: dict):
-    r = await client.get(f"{TRACK}/B9-99999", headers=_ip("203.0.113.12"))
+    r = await client.get(f"{TRACK}/{track_ctx['slug']}/B9-99999", headers=_ip("203.0.113.12"))
     assert r.status_code == 404, r.text
     assert r.json()["code"] == "ORDER_NOT_FOUND"
 
@@ -160,18 +171,109 @@ async def test_public_track_rate_limited(client: AsyncClient, track_ctx: dict):
     try:
         codes = []
         for _ in range(4):
-            r = await client.get(f"{TRACK}/{o['order_code']}", headers=_ip(ip))
+            r = await client.get(f"{TRACK}/{track_ctx['slug']}/{o['order_code']}", headers=_ip(ip))
             codes.append(r.status_code)
         assert codes[:3] == [200, 200, 200], codes
         assert codes[3] == 429, codes
 
-        r = await client.get(f"{TRACK}/{o['order_code']}", headers=_ip(ip))
+        r = await client.get(f"{TRACK}/{track_ctx['slug']}/{o['order_code']}", headers=_ip(ip))
         assert r.json()["code"] == "RATE_LIMITED"
 
         # IP khác KHÔNG bị ảnh hưởng (bucket riêng).
-        r2 = await client.get(f"{TRACK}/{o['order_code']}", headers=_ip("203.0.113.98"))
+        r2 = await client.get(f"{TRACK}/{track_ctx['slug']}/{o['order_code']}", headers=_ip("203.0.113.98"))
         assert r2.status_code == 200, r2.text
     finally:
         s.public_track_rate_limit = old
         await redis_client.delete(f"rl:track:{ip}")
         await redis_client.delete("rl:track:203.0.113.98")
+
+
+# ── multi-tenant: slug định danh tenant ──────────────────────────────────────
+async def test_public_track_slug_not_found_404(client: AsyncClient, track_ctx: dict):
+    """slug không tồn tại → 404 (không lộ slug tồn tại hay không)."""
+    o = await _create_order(client, track_ctx["staff_token"])
+    r = await client.get(f"{TRACK}/khong-co-tiem/{o['order_code']}", headers=_ip("203.0.113.22"))
+    assert r.status_code == 404
+    assert r.json()["code"] == "ORDER_NOT_FOUND"
+
+
+async def test_public_track_inactive_tenant_404(
+    client: AsyncClient, track_ctx: dict, owner: dict
+):
+    """tenant khóa (status != active) → 404 (không tra được)."""
+    o = await _create_order(client, track_ctx["staff_token"])
+    async with SessionFactory() as db:
+        t = await db.get(Tenant, owner["tenant_id"])
+        t.status = "suspended"
+        await db.commit()
+    r = await client.get(
+        f"{TRACK}/{track_ctx['slug']}/{o['order_code']}", headers=_ip("203.0.113.23")
+    )
+    assert r.status_code == 404
+    assert r.json()["code"] == "ORDER_NOT_FOUND"
+
+
+async def test_public_track_multitenant_resolves_by_slug(
+    client: AsyncClient, owner: dict, owner2: dict
+):
+    """⭐ 2 tenant TRÙNG order_code (B1-00001) → tra theo slug ra ĐÚNG đơn tenant đó."""
+    t1 = await login(client, owner["phone"], owner["password"])
+    b1 = (await client.post("/api/v1/branches", json={"name": "CN Một"}, headers=auth_headers(t1))).json()
+    o1 = (await client.post(
+        "/api/v1/orders",
+        json={"items": [{"service_name": "Giặt", "quantity": 1, "unit_price": 10000}],
+              "pickup_at": _pickup(), "branch_id": b1["id"]},
+        headers=auth_headers(t1),
+    )).json()
+
+    t2 = await login(client, owner2["phone"], owner2["password"])
+    b2 = (await client.post("/api/v1/branches", json={"name": "CN Hai"}, headers=auth_headers(t2))).json()
+    o2 = (await client.post(
+        "/api/v1/orders",
+        json={"items": [{"service_name": "Giặt", "quantity": 1, "unit_price": 10000}],
+              "pickup_at": _pickup(), "branch_id": b2["id"]},
+        headers=auth_headers(t2),
+    )).json()
+
+    # Cùng order_code (cả hai CN B1, prefix B1, đơn đầu → B1-00001).
+    assert o1["order_code"] == o2["order_code"] == "B1-00001"
+
+    r1 = await client.get(f"{TRACK}/{owner['slug']}/B1-00001", headers=_ip("203.0.113.24"))
+    r2 = await client.get(f"{TRACK}/{owner2['slug']}/B1-00001", headers=_ip("203.0.113.25"))
+    assert r1.status_code == 200 and r2.status_code == 200, (r1.text, r2.text)
+    assert r1.json()["branch"]["name"] == "CN Một"
+    assert r2.json()["branch"]["name"] == "CN Hai"
+
+
+# ── ⭐ RLS THẬT: set_config là load-bearing (bắt bug cũ owner-bypass che) ──────
+async def test_public_tracking_under_real_rls(app_role_engine):
+    """Chạy get_public_tracking bằng laundry_app (non-bypass RLS). orders STRICT →
+    thiếu set_config thì RLS chặn → 404. Trả đúng đơn ⇒ set_config hoạt động."""
+    from app.services import public_service
+
+    async with SessionFactory() as s:  # seed bằng OWNER (bypass)
+        t = Tenant(name="RLS Track", slug="rls-track", status="active")
+        s.add(t)
+        await s.flush()
+        b = Branch(tenant_id=t.id, name="CN RLS", code="B1", order_prefix="B1", status="active")
+        s.add(b)
+        u = User(tenant_id=t.id, role="owner", full_name="O", phone="0904000040",
+                 password_hash=hash_password("x"), status="active")
+        s.add(u)
+        await s.flush()
+        o = Order(tenant_id=t.id, branch_id=b.id, order_code="B1-00001",
+                  pickup_at=datetime.now(timezone.utc), created_by=u.id)
+        s.add(o)
+        await s.flush()
+        s.add(OrderTrackingLog(order_id=o.id, status="created", changed_by=u.id))
+        await s.commit()
+
+    factory = async_sessionmaker(
+        bind=app_role_engine, class_=AsyncSession,
+        sync_session_class=_AppSyncSession, expire_on_commit=False,
+    )
+    async with factory() as db:
+        data = await public_service.get_public_tracking(db, "rls-track", "B1-00001")
+    assert data["order_code"] == "B1-00001"
+    assert data["order_status"] == "created"
+    assert data["branch"]["name"] == "CN RLS"

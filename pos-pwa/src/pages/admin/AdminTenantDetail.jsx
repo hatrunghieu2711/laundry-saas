@@ -79,7 +79,7 @@ export default function AdminTenantDetail() {
       setT((cur) => ({ ...cur, name: res.name, slug: res.slug }))
       setSaveMsg(
         res.slug_changed
-          ? 'Đã lưu. ⚠️ Đổi mã cửa hàng → nhân viên phải nhập MÃ MỚI khi đăng nhập.'
+          ? 'Đã lưu. ⚠️ Đổi mã → nhân viên nhập MÃ MỚI khi đăng nhập; QR tra cứu trên bill đang lưu hành sẽ không hoạt động.'
           : 'Đã lưu.',
       )
     } catch (e) {
@@ -196,7 +196,7 @@ export default function AdminTenantDetail() {
           <span>Mã cửa hàng (slug)</span>
           <input className="input" type="text" value={slug} autoCapitalize="none" autoCorrect="off"
             spellCheck={false} onChange={(e) => setSlug(e.target.value)} />
-          <span className="field-note">Đổi mã → nhân viên phải nhập mã mới khi đăng nhập.</span>
+          <span className="field-note">Đổi mã → nhân viên phải nhập mã mới khi đăng nhập; QR tra cứu trên bill đang lưu hành (1–2 ngày) cũng sẽ không hoạt động. Tránh đổi lúc có đơn đang mở.</span>
         </label>
         {saveErr && <div className="alert alert--error">{saveErr}</div>}
         {saveMsg && <div className="alert alert--success">{saveMsg}</div>}

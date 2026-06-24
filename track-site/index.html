@@ -128,12 +128,12 @@
       } catch (e) { return ''; }
     }
 
-    function getCode() {
-      // /track/{code} ; fallback ?code=
-      var m = location.pathname.match(/\/track\/([^/?#]+)/);
-      if (m) return decodeURIComponent(m[1]);
-      var q = new URLSearchParams(location.search).get('code');
-      return q ? q.trim() : '';
+    function getParams() {
+      // multi-tenant: /track/{slug}/{code} ; fallback ?slug=&code=
+      var m = location.pathname.match(/\/track\/([^/]+)\/([^/?#]+)/);
+      if (m) return { slug: decodeURIComponent(m[1]), code: decodeURIComponent(m[2]) };
+      var q = new URLSearchParams(location.search);
+      return { slug: (q.get('slug') || '').trim(), code: (q.get('code') || '').trim() };
     }
 
     function lastTimeFor(timeline, status) {
@@ -193,11 +193,11 @@
     }
 
     function load() {
-      var code = getCode();
-      if (!code) { showState('🔎', 'Nhập mã đơn', 'Quét mã QR trên phiếu để tra cứu trạng thái đơn.'); return; }
-      fetch('/public/track/' + encodeURIComponent(code), { headers: { 'Accept': 'application/json' } })
+      var p = getParams();
+      if (!p.slug || !p.code) { showState('🔎', 'Nhập mã đơn', 'Quét mã QR trên phiếu để tra cứu trạng thái đơn.'); return; }
+      fetch('/public/track/' + encodeURIComponent(p.slug) + '/' + encodeURIComponent(p.code), { headers: { 'Accept': 'application/json' } })
         .then(function (r) {
-          if (r.status === 404) { showState('❓', 'Không tìm thấy đơn', 'Mã “' + code + '” không tồn tại. Kiểm tra lại mã trên phiếu.'); return null; }
+          if (r.status === 404) { showState('❓', 'Không tìm thấy đơn', 'Mã “' + p.code + '” không tồn tại. Kiểm tra lại mã trên phiếu.'); return null; }
           if (r.status === 429) { showState('⏳', 'Thử lại sau chút', 'Bạn tra cứu hơi nhanh. Vui lòng đợi một lát rồi thử lại.'); return null; }
           if (!r.ok) { showState('⚠️', 'Có lỗi xảy ra', 'Không tải được trạng thái đơn. Thử lại sau.'); return null; }
           return r.json();

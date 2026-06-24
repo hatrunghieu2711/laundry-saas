@@ -1,25 +1,34 @@
 """Logic trang tracking công khai. Chỉ ĐỌC, chỉ trả field an toàn (xem schema)."""
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import APIError
 from app.models.branch import Branch
 from app.models.log import OrderTrackingLog
 from app.models.order import Order
+from app.services import tenant_service
+
+_SET_GUC = "SELECT set_config('app.current_tenant_id', :tid, true)"
 
 
-async def get_public_tracking(db: AsyncSession, order_code: str) -> dict:
-    """Tra cứu công khai theo order_code.
+async def get_public_tracking(db: AsyncSession, slug: str, order_code: str) -> dict:
+    """Tra cứu công khai theo (slug, order_code) — MULTI-TENANT.
 
-    LƯU Ý: order_code chỉ unique trong 1 tenant (uq (tenant_id, order_code)), không
-    unique toàn cục — MVP 1 tenant nên đủ định danh. Nếu (hiếm) trùng giữa các
-    tenant, trả bản MỚI NHẤT cho ổn định. Xem nợ kỹ thuật khi onboard tenant #2.
+    order_code chỉ unique trong 1 tenant (uq (tenant_id, order_code)) → BẮT BUỘC biết
+    tenant. slug (mã cửa hàng) → tenant. ⚠️ Endpoint CÔNG KHAI (không auth) → GUC rỗng;
+    orders STRICT RLS. Phải set_config(GUC=tenant.id) TRƯỚC khi query (pattern create_tenant,
+    KHÔNG bypass RLS) — nếu không, RLS chặn → 404 (bug cũ thời 1 tenant). slug sai/tenant
+    khóa → cùng 404 ORDER_NOT_FOUND (không lộ tenant tồn tại/khóa).
     """
+    tenant = await tenant_service.get_tenant_by_slug(db, slug)
+    if tenant is None or tenant.status != "active":
+        raise APIError(404, "ORDER_NOT_FOUND", "Không tìm thấy đơn")
+
+    await db.execute(text(_SET_GUC), {"tid": str(tenant.id)})
     order = await db.scalar(
-        select(Order)
-        .where(Order.order_code == order_code)
-        .order_by(Order.created_at.desc())
-        .limit(1)
+        select(Order).where(
+            Order.order_code == order_code, Order.tenant_id == tenant.id
+        )
     )
     if order is None:
         raise APIError(404, "ORDER_NOT_FOUND", "Không tìm thấy đơn")

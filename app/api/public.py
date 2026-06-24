@@ -30,10 +30,12 @@ async def _rate_limit_track(
 
 
 @router.get(
-    "/track/{order_code}",
+    "/track/{slug}/{order_code}",
     response_model=PublicTrackOut,
     dependencies=[Depends(_rate_limit_track)],
 )
-async def track_order(order_code: str, db: DbSession) -> PublicTrackOut:
-    data = await public_service.get_public_tracking(db, order_code)
+async def track_order(slug: str, order_code: str, db: DbSession) -> PublicTrackOut:
+    # slug (mã cửa hàng) định danh tenant → multi-tenant tra đúng đơn (order_code chỉ
+    # unique trong 1 tenant). Service resolve slug→tenant + set GUC (RLS).
+    data = await public_service.get_public_tracking(db, slug, order_code)
     return PublicTrackOut(**data)

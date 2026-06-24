@@ -1,6 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { formatVND, toNumber } from '../lib/format'
 import { formatPickupShort } from '../lib/datetime'
+import { getTenantSlug } from '../lib/storage'
 
 // Phiếu (.rcp) THEO KHỐI (Stage 5.6 → 5.8). Render từ config.blocks: thứ tự hàng,
 // 2 khối/hàng (ghép tự do), nhãn sửa được (fallback LDEF), định dạng theo khối.
@@ -30,9 +31,14 @@ export default function BillContent({ config, order }) {
   const discount = toNumber(order.discount_amount)
   const subtotal = order.subtotal != null ? toNumber(order.subtotal) : grandTotal
   const hasAdj = surcharge > 0 || discount > 0
-  // QR = track_base_url (cấu hình per-tenant) + order_code. Rỗng → mặc định 2H.
-  const trackBase = (config?.track_base_url && config.track_base_url.trim()) || DEFAULT_TRACK_BASE
-  const trackUrl = `${trackBase}${order.order_code}`
+  // QR tra cứu công khai (multi-tenant):
+  // - track_base_url custom (web riêng tenant) → nối order_code (web tenant tự xử tenant).
+  // - rỗng → default track.giatui.app/track/{slug}/{order_code} (slug định danh tenant;
+  //   order_code chỉ unique trong 1 tenant). slug = mã cửa hàng đang đăng nhập (POS cùng tenant).
+  const customTrackBase = config?.track_base_url && config.track_base_url.trim()
+  const trackUrl = customTrackBase
+    ? `${customTrackBase}${order.order_code}`
+    : `${DEFAULT_TRACK_BASE}${getTenantSlug()}/${order.order_code}`
 
   const lbl = (type, c, key) => {
     const d = LDEF[type]?.[key] || ['', '']
