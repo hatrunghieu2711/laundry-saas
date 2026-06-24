@@ -144,14 +144,20 @@ function defaultBlocks() {
   ]
 }
 
-export const DEFAULT_RECEIPT = { bilingual: true, logo_url: '', track_base_url: '', blocks: defaultBlocks() }
+export const DEFAULT_RECEIPT = { bilingual: true, logo_url: '', track_base_url: '', blocks: defaultBlocks(), branch_contact_blocks: {} }
 
 // Bảo đảm cấu hình đủ field (rỗng/thiếu → mặc định). Backend đã migrate cấu hình
 // cũ sang shape khối 5.8, nên client thường nhận sẵn blocks[] hợp lệ.
 export function normalizeReceipt(cfg) {
   const c = cfg || {}
   const blocks = Array.isArray(c.blocks) && c.blocks.length ? c.blocks : defaultBlocks()
-  return { bilingual: c.bilingual !== false, logo_url: c.logo_url || '', track_base_url: c.track_base_url || '', blocks }
+  // ⚠️ PHẢI giữ branch_contact_blocks — thiếu nó thì getReceiptConfig strip field →
+  // Bill in mất khu "Liên hệ theo chi nhánh" (theo order.branch_id) cho MỌI CN.
+  return {
+    bilingual: c.bilingual !== false, logo_url: c.logo_url || '',
+    track_base_url: c.track_base_url || '', blocks,
+    branch_contact_blocks: c.branch_contact_blocks || {},
+  }
 }
 
 let _cache = null
