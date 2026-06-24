@@ -1,7 +1,7 @@
 import { QRCodeSVG } from 'qrcode.react'
 import { formatVND, toNumber } from '../lib/format'
 import { formatPickupShort } from '../lib/datetime'
-import { getTenantSlug } from '../lib/storage'
+import { useAuth } from '../context/AuthContext'
 
 // Phiếu (.rcp) THEO KHỐI (Stage 5.6 → 5.8). Render từ config.blocks: thứ tự hàng,
 // 2 khối/hàng (ghép tự do), nhãn sửa được (fallback LDEF), định dạng theo khối.
@@ -22,6 +22,9 @@ const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: '
 const DEFAULT_TRACK_BASE = 'https://track.giatui.app/track/'
 
 export default function BillContent({ config, order }) {
+  // Hook gọi trước mọi return sớm (Rules of Hooks). tenant_slug từ /auth/me (đáng tin)
+  // — portal in vẫn giữ context React nên đọc được. Bill chỉ dùng trong app (có Auth).
+  const { user } = useAuth()
   if (!order) return null
   const bilingual = config?.bilingual !== false
   const blocks = Array.isArray(config?.blocks) ? config.blocks : []
@@ -34,11 +37,13 @@ export default function BillContent({ config, order }) {
   // QR tra cứu công khai (multi-tenant):
   // - track_base_url custom (web riêng tenant) → nối order_code (web tenant tự xử tenant).
   // - rỗng → default track.giatui.app/track/{slug}/{order_code} (slug định danh tenant;
-  //   order_code chỉ unique trong 1 tenant). slug = mã cửa hàng đang đăng nhập (POS cùng tenant).
+  //   order_code chỉ unique trong 1 tenant). slug LẤY TỪ /auth/me (user.tenant_slug) —
+  //   đáng tin, không phụ thuộc localStorage (rỗng nếu login không nhập mã cửa hàng).
   const customTrackBase = config?.track_base_url && config.track_base_url.trim()
+  const slug = user?.tenant_slug || ''
   const trackUrl = customTrackBase
     ? `${customTrackBase}${order.order_code}`
-    : `${DEFAULT_TRACK_BASE}${getTenantSlug()}/${order.order_code}`
+    : `${DEFAULT_TRACK_BASE}${slug}/${order.order_code}`
 
   const lbl = (type, c, key) => {
     const d = LDEF[type]?.[key] || ['', '']

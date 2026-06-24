@@ -128,4 +128,6 @@ async def me(current_user: CurrentUser, db: DbSession) -> UserOut:
     """
     tenant = await db.get(Tenant, current_user.tenant_id)
     current_user.tenant_name = tenant.name if tenant is not None else None
+    # CÙNG query (không round-trip thêm) — slug cho QR bill (track/{slug}/{order_code}).
+    current_user.tenant_slug = tenant.slug if tenant is not None else None
     return UserOut.model_validate(current_user)

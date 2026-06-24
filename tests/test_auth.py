@@ -225,6 +225,15 @@ async def test_me_includes_tenant_name(client: AsyncClient, owner: dict):
     assert body["full_name"] == "Chủ Giặt Ủi 2H"
 
 
+async def test_me_includes_tenant_slug(client: AsyncClient, owner: dict):
+    """⭐ /auth/me trả SLUG tiệm (tenant.slug) — nguồn ĐÁNG TIN cho QR bill (thay
+    localStorage có thể rỗng nếu login không nhập mã cửa hàng → QR thiếu slug)."""
+    session = await _login(client, owner)
+    resp = await client.get(ME, headers={"Authorization": f"Bearer {session['access_token']}"})
+    assert resp.status_code == 200
+    assert resp.json()["tenant_slug"] == owner["slug"]  # "giat-ui-2h"
+
+
 async def test_me_no_token(client: AsyncClient, owner: dict):
     resp = await client.get(ME)
     assert resp.status_code == 401

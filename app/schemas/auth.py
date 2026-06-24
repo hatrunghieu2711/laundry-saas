@@ -40,3 +40,6 @@ class UserOut(BaseModel):
     # Tên TIỆM (tenant.name) — FE hiển thị ở menu/topbar. Gán transient ở /auth/me
     # (join tenant theo tenant_id). None nếu không đọc được tenant.
     tenant_name: str | None = None
+    # Slug tiệm (tenant.slug) — nguồn ĐÁNG TIN cho QR bill (track/{slug}/{order_code}).
+    # Gán transient ở /auth/me (CÙNG query với tenant_name). None nếu không đọc được.
+    tenant_slug: str | None = None
