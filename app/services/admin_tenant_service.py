@@ -18,6 +18,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.core.security import hash_password
 from app.models.billing import Plan, Subscription
@@ -32,6 +33,8 @@ from app.services import branch_service, tenant_service
 
 # CN đầu của tenant mới: code/order_prefix = "B1" (theo convention branch_service).
 _FIRST_BRANCH_CODE = "B1"
+
+_settings = get_settings()
 _SET_GUC = "SELECT set_config('app.current_tenant_id', :tid, true)"
 
 
@@ -371,12 +374,18 @@ async def set_subscription(
         )
     await db.commit()
 
-    # Re-đọc qua helper Stage 1 → expiry_status/days_left nhất quán với enforce + /me
-    # (GUC=tenant vẫn còn). KHÔNG lặp lại logic mốc hạn.
-    info = await branch_service.subscription_info(db, tenant_id)
+    # ⚠️ KHÔNG re-read subscription_info SAU commit: GUC is_local đã reset khi commit →
+    # dưới laundry_app (RLS, non-bypass) subscriptions VÔ HÌNH (GUC admin rỗng) → plan
+    # None → SubscriptionOut 500 (regression Stage UI). Build return TỪ DỮ LIỆU IN-HAND:
+    # plan (đã db.get ở trên) + tham số + expires_at vừa set. expiry tái dùng Stage 1.
+    effective = custom_max_branches if custom_max_branches is not None else plan.max_branches
+    status, days_left = branch_service.compute_expiry_status(
+        expires_at, datetime.now(timezone.utc),
+        _settings.subscription_warn_days, _settings.subscription_grace_days,
+    )
     return SubscriptionInfo(
-        tenant_id=tenant_id, plan_id=info.plan_id, plan_name=info.plan_name,
-        plan_max_branches=info.plan_max_branches, custom_max_branches=info.custom_max_branches,
-        effective_max_branches=info.effective_max_branches,
-        expires_at=info.expires_at, expiry_status=info.expiry_status, days_left=info.days_left,
+        tenant_id=tenant_id, plan_id=plan_id, plan_name=plan.name,
+        plan_max_branches=plan.max_branches, custom_max_branches=custom_max_branches,
+        effective_max_branches=effective if effective is not None else 0,
+        expires_at=expires_at, expiry_status=status, days_left=days_left,
     )
