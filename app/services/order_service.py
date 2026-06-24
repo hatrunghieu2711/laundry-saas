@@ -280,6 +280,11 @@ async def _assert_items_editable(db: AsyncSession, order: Order) -> None:
 # ── create ──────────────────────────────────────────────────────────────────
 async def create_order(db: AsyncSession, actor: User, data: OrderCreate) -> Order:
     _assert_future(data.pickup_at)
+    # ⛔ Chặn TẠO ĐƠN khi gói đã HẾT HẠN (quá ân hạn). Fail SỚM — trước mọi ghi → KHÔNG
+    # tạo đơn mồ côi. CHỈ create_order; sửa/đổi-trạng-thái/xem ĐƠN CŨ vẫn cho (không gọi đây).
+    sub = await branch_service.subscription_info(db, actor.tenant_id)
+    if sub.expiry_status == "expired":
+        raise APIError(403, "SUBSCRIPTION_EXPIRED", "Gói dịch vụ đã hết hạn — liên hệ gia hạn")
     branch_id = resolve_write_branch(actor, data.branch_id)
     branch = await branch_service.get_branch(db, actor.tenant_id, branch_id)
     if data.customer_id is not None:

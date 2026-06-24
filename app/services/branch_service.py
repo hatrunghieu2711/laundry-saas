@@ -5,14 +5,17 @@
 - Soft delete qua status; chặn delete khi branch còn shift đang open.
 - Mọi query filter tenant_id (multi-tenant).
 """
+import math
 import re
 import uuid
 from dataclasses import dataclass
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import Pagination
+from app.core.config import get_settings
 from app.core.errors import APIError
 from app.models.billing import Plan, Subscription
 from app.models.branch import Branch
@@ -102,15 +105,64 @@ async def get_branch(
     return branch
 
 
+_settings = get_settings()
+
+
+def _ceil_days(delta: timedelta) -> int:
+    """Số NGÀY làm tròn LÊN theo độ lớn, GIỮ DẤU (vd còn 13h → 1; quá hạn 13h → -1).
+
+    Để banner 'còn X ngày' không ra 0 khi vẫn còn vài giờ; phía quá hạn ra số âm.
+    """
+    secs = delta.total_seconds()
+    days = math.ceil(abs(secs) / 86400)
+    return days if secs >= 0 else -days
+
+
+def compute_expiry_status(
+    expires_at: datetime | None,
+    now: datetime,
+    warn_days: int,
+    grace_days: int,
+) -> tuple[str, int | None]:
+    """Trạng thái HẠN GÓI — hàm THUẦN (không I/O), test được độc lập.
+
+    Trả (status, days_left):
+    - expires_at None  → ('active', None)            : vô hạn (current_period_end NULL).
+    - now > hạn + grace → ('expired', days_left ≤ 0)  : quá ân hạn → caller CHẶN tạo đơn.
+    - hạn < now ≤ +grace→ ('grace', ngày ân hạn CÒN > 0): cảnh báo đỏ, VẪN cho tạo.
+    - hạn−warn < now ≤ hạn → ('warning', ngày TỚI HẠN > 0): cảnh báo.
+    - còn lại (xa hạn) → ('active', ngày tới hạn).
+    days_left tính theo NGÀY (làm tròn lên) — grace đếm ngày ân hạn còn lại; còn lại
+    đếm ngày tới hạn; expired ra ≤ 0.
+    """
+    if expires_at is None:
+        return ("active", None)
+    grace_deadline = expires_at + timedelta(days=grace_days)
+    if now > grace_deadline:
+        return ("expired", _ceil_days(expires_at - now))  # ≤ 0 (đã quá hạn)
+    if now > expires_at:
+        return ("grace", _ceil_days(grace_deadline - now))  # ngày ân hạn còn lại
+    if now > expires_at - timedelta(days=warn_days):
+        return ("warning", _ceil_days(expires_at - now))  # ngày tới hạn
+    return ("active", _ceil_days(expires_at - now))
+
+
 @dataclass
 class SubscriptionInfo:
-    """Gói hiệu lực của tenant. effective_max_branches=None ⇔ KHÔNG có subscription."""
+    """Gói hiệu lực của tenant. effective_max_branches=None ⇔ KHÔNG có subscription.
+
+    expiry_* tính từ current_period_end (TÁI DÙNG làm hạn gói). KHÔNG subscription →
+    expiry_status mặc định 'active' (chiều HẠN không chặn; chiều giới hạn CN chặn nơi khác).
+    """
 
     plan_id: uuid.UUID | None
     plan_name: str | None
     plan_max_branches: int | None
     custom_max_branches: int | None
     effective_max_branches: int | None
+    expires_at: datetime | None = None
+    expiry_status: str = "active"
+    days_left: int | None = None
 
 
 async def subscription_info(
@@ -130,6 +182,7 @@ async def subscription_info(
                 Subscription.custom_max_branches,
                 Plan.name,
                 Plan.max_branches,
+                Subscription.current_period_end,  # TÁI DÙNG làm hạn gói (expires_at)
             )
             .join(Plan, Plan.id == Subscription.plan_id)
             .where(Subscription.tenant_id == tenant_id, Subscription.status == "active")
@@ -138,12 +191,17 @@ async def subscription_info(
     ).first()
     if row is None:
         return SubscriptionInfo(None, None, None, None, None)
-    plan_id, custom, plan_name, plan_max = row
+    plan_id, custom, plan_name, plan_max, expires_at = row
     effective = custom if custom is not None else plan_max
+    status, days_left = compute_expiry_status(
+        expires_at, datetime.now(timezone.utc),
+        _settings.subscription_warn_days, _settings.subscription_grace_days,
+    )
     return SubscriptionInfo(
         plan_id=plan_id, plan_name=plan_name, plan_max_branches=plan_max,
         custom_max_branches=custom,
         effective_max_branches=effective if effective is not None else 0,
+        expires_at=expires_at, expiry_status=status, days_left=days_left,
     )
 
 

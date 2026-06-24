@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     public_track_rate_limit: int = 30  # số request tối đa / cửa sổ / IP
     public_track_rate_window: int = 60  # độ dài cửa sổ (giây)
 
+    # Hạn gói (subscription expiry, TÁI DÙNG cột current_period_end). WARN = số ngày
+    # TRƯỚC hạn bắt đầu cảnh báo; GRACE = số ngày ÂN HẠN sau hạn (vẫn cho tạo đơn).
+    # now > hạn + GRACE → CHẶN tạo đơn. NULL hạn = vô hạn (không bao giờ chặn).
+    subscription_warn_days: int = 7
+    subscription_grace_days: int = 3
+
     # Uploads (logo phiếu in). Thư mục nằm trong volume ./:/code → ra host
     # /opt/laundry-saas/uploads; nginx serve trực tiếp tại url_prefix.
     upload_dir: str = "/code/uploads"
