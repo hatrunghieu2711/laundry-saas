@@ -22,7 +22,9 @@ class PublicBranchContact(BaseModel):
 
 class PublicTrackOut(BaseModel):
     order_code: str
-    order_status: str
+    order_status: str  # raw (created/washing/…) — giữ cho client cần chi tiết
+    status_group: str  # gom nhóm: processing | ready | delivered
+    status_label: str  # nhãn khách: "Đang xử lý" | "Đã xong — mời lấy" | "Đã giao"
     pickup_at: datetime
     branch: PublicBranchContact
     timeline: list[PublicTimelineItem]

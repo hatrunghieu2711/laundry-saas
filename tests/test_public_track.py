@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest_asyncio
 from httpx import AsyncClient
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from app.core.config import get_settings
@@ -243,6 +244,47 @@ async def test_public_track_multitenant_resolves_by_slug(
     assert r1.status_code == 200 and r2.status_code == 200, (r1.text, r2.text)
     assert r1.json()["branch"]["name"] == "CN Một"
     assert r2.json()["branch"]["name"] == "CN Hai"
+
+
+# ── gom nhóm trạng thái + ẩn đơn ĐÃ HỦY ──────────────────────────────────────
+async def test_public_track_cancelled_is_404(client: AsyncClient, track_ctx: dict):
+    """⭐ Đơn hủy → 404 ORDER_NOT_FOUND (ẩn hoàn toàn, không lộ đơn từng tồn tại)."""
+    o = await _create_order(client, track_ctx["staff_token"])
+    async with SessionFactory() as db:
+        order = await db.scalar(select(Order).where(Order.order_code == o["order_code"]))
+        order.order_status = "cancelled"
+        await db.commit()
+    r = await client.get(
+        f"{TRACK}/{track_ctx['slug']}/{o['order_code']}", headers=_ip("203.0.113.30")
+    )
+    assert r.status_code == 404
+    assert r.json()["code"] == "ORDER_NOT_FOUND"
+
+
+async def test_public_track_status_group_map(client: AsyncClient, track_ctx: dict):
+    """Map đủ status còn lại → (group, label); GIỮ order_status raw + timeline."""
+    o = await _create_order(client, track_ctx["staff_token"])
+    code, slug = o["order_code"], track_ctx["slug"]
+    cases = [
+        ("created", "processing", "Đang xử lý"),
+        ("washing", "processing", "Đang xử lý"),
+        ("drying", "processing", "Đang xử lý"),
+        ("ready", "ready", "Đã xong — mời lấy"),
+        ("delivered", "delivered", "Đã giao"),
+        ("completed", "delivered", "Đã giao"),
+    ]
+    for i, (st, grp, lbl) in enumerate(cases):
+        async with SessionFactory() as db:
+            order = await db.scalar(select(Order).where(Order.order_code == code))
+            order.order_status = st
+            await db.commit()
+        r = await client.get(f"{TRACK}/{slug}/{code}", headers=_ip(f"203.0.113.{40 + i}"))
+        assert r.status_code == 200, r.text
+        d = r.json()
+        assert d["order_status"] == st  # raw giữ nguyên
+        assert d["status_group"] == grp, (st, d)
+        assert d["status_label"] == lbl, (st, d)
+        assert "timeline" in d  # timeline giữ
 
 
 # ── ⭐ RLS THẬT: set_config là load-bearing (bắt bug cũ owner-bypass che) ──────

@@ -101,17 +101,12 @@
 
   <script>
     // Các bước hiển thị (theo state machine xử lý tại tiệm → giao).
-    var STEPS = [
-      { key: 'created', label: 'Đã nhận' },
-      { key: 'washing', label: 'Đang giặt' },
-      { key: 'drying', label: 'Đang sấy' },
-      { key: 'ready', label: 'Sẵn sàng' },
-      { key: 'delivered', label: 'Đã giao' }
+    // Tiến trình 3 NHÓM (khớp status_group từ BE). codes = các order_status raw thuộc nhóm.
+    var GROUPS = [
+      { key: 'processing', label: 'Đang xử lý', codes: ['created', 'washing', 'drying'] },
+      { key: 'ready', label: 'Đã xong', codes: ['ready'] },
+      { key: 'delivered', label: 'Đã giao', codes: ['delivered', 'completed'] }
     ];
-    var STATUS_LABEL = {
-      created: 'Đã nhận', washing: 'Đang giặt', drying: 'Đang sấy',
-      ready: 'Sẵn sàng', delivered: 'Đã giao', completed: 'Hoàn tất', cancelled: 'Đã hủy'
-    };
 
     function el(html) { var d = document.createElement('div'); d.innerHTML = html.trim(); return d.firstChild; }
     function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
@@ -136,23 +131,24 @@
       return { slug: (q.get('slug') || '').trim(), code: (q.get('code') || '').trim() };
     }
 
-    function lastTimeFor(timeline, status) {
-      var t = '';
-      for (var i = 0; i < timeline.length; i++) if (timeline[i].status === status) t = timeline[i].at;
-      return t;
+    function groupTimeFor(timeline, codes) {
+      // Thời gian đơn VÀO nhóm = mốc đầu tiên có status thuộc nhóm.
+      for (var i = 0; i < timeline.length; i++) if (codes.indexOf(timeline[i].status) >= 0) return timeline[i].at;
+      return '';
     }
 
     function renderSteps(data) {
-      var status = data.order_status;
-      // index bước hiện tại; completed coi như đã qua hết.
-      var idx = STEPS.map(function (s) { return s.key; }).indexOf(status);
-      if (status === 'completed') idx = STEPS.length - 1;
-      var items = STEPS.map(function (s, i) {
-        var cls = i < idx ? 'done' : (i === idx ? (status === 'completed' ? 'done' : 'current') : '');
-        var time = (i <= idx) ? fmtVN(lastTimeFor(data.timeline, s.key)) : '';
+      var idx = GROUPS.map(function (g) { return g.key; }).indexOf(data.status_group);
+      if (idx < 0) idx = 0;
+      var allDone = data.status_group === 'delivered'; // đã giao = hoàn tất → tô xong hết
+      var items = GROUPS.map(function (g, i) {
+        var isDone = i < idx || (allDone && i === idx);
+        var isCur = i === idx && !allDone;
+        var cls = isDone ? 'done' : (isCur ? 'current' : '');
+        var time = (i <= idx) ? fmtVN(groupTimeFor(data.timeline, g.codes)) : '';
         return '<li class="step ' + cls + '">' +
-          '<span class="dot">' + (i <= idx && (i < idx || status === 'completed') ? '✓' : (i === idx ? '•' : '')) + '</span>' +
-          '<span class="step-body"><div class="step-name">' + s.label + '</div>' +
+          '<span class="dot">' + (isDone ? '✓' : (isCur ? '•' : '')) + '</span>' +
+          '<span class="step-body"><div class="step-name">' + g.label + '</div>' +
           (time ? '<div class="step-time">' + esc(time) + '</div>' : '') + '</span></li>';
       }).join('');
       return '<ul class="steps">' + items + '</ul>';
@@ -167,14 +163,12 @@
         (data.pickup_at ? '<div class="pickup">Hẹn lấy: <b>' + esc(fmtVN(data.pickup_at)) + '</b></div>' : '') +
         '</div>');
 
-      if (data.order_status === 'cancelled') {
-        parts.push('<div class="card"><div class="banner banner--cancel">Đơn đã hủy</div></div>');
-      } else {
-        var done = data.order_status === 'completed';
-        parts.push('<div class="card">' +
-          (done ? '<div class="banner banner--done" style="margin-bottom:14px">Đơn đã hoàn tất 🎉</div>' : '') +
-          renderSteps(data) + '</div>');
-      }
+      // Đơn hủy đã 404 ở BE (ẩn hoàn toàn) → không tới đây. Nhãn nhóm nổi bật + tiến trình 3 nhóm.
+      var done = data.status_group === 'delivered';
+      parts.push('<div class="card">' +
+        '<div style="font-size:20px;font-weight:800;text-align:center;margin-bottom:14px;color:' +
+        (done ? '#16794a' : '#1f6feb') + '">' + esc(data.status_label || '') + (done ? ' 🎉' : '') + '</div>' +
+        renderSteps(data) + '</div>');
 
       var contact = '<div class="card contact"><h3>Chi nhánh</h3>' +
         '<div class="name">' + esc(b.name || '') + '</div>' +
