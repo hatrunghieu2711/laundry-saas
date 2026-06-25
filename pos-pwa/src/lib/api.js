@@ -199,6 +199,8 @@ export const api = {
       adminFetch('/auth/login', { method: 'POST', body: { phone, password }, auth: false }),
     me: () => adminFetch('/me'),
     dashboard: () => adminFetch('/dashboard'),
+    getDefaultReceipt: () => adminFetch('/default-receipt'),
+    setDefaultReceipt: (body) => adminFetch('/default-receipt', { method: 'PUT', body }),
     listTenants: () => adminFetch('/tenants'),
     getTenant: (id) => adminFetch(`/tenants/${id}`),
     createTenant: (body) => adminFetch('/tenants', { method: 'POST', body }),

@@ -113,8 +113,14 @@ async def create_tenant(db: AsyncSession, data: TenantCreate) -> CreatedTenant:
             )
         )
 
-        # f. Settings rỗng (server_default lo hết; receipt_config NULL → mẫu gốc nền tảng).
-        db.add(TenantSettings(tenant_id=tenant.id))
+        # f. Settings: COPY mẫu in CHUẨN (app_settings, ngoài RLS → đọc được trong txn admin).
+        #    Admin ĐÃ set mẫu → receipt_config = mẫu (đã chỉ phần CHUNG: branch_contact={},
+        #    logo=""). CHƯA set → receipt_config NULL (→ _default_receipt() khi get; tạo tenant
+        #    KHÔNG gãy). server_default lo auto_print/cash_diff. (lazy import: tránh vòng import.)
+        from app.services import admin_default_receipt_service
+
+        tpl = await admin_default_receipt_service.get_stored_default_receipt(db)
+        db.add(TenantSettings(tenant_id=tenant.id, receipt_config=tpl))
 
         # f2. ⭐ GÁN gói mặc định (Gói 1) — tenant mới LUÔN có subscription (không-sub = chặn
         # tạo CN). CN B1 ở trên tạo TRỰC TIẾP nên không vướng enforce; CN thứ 2 cần nâng gói.

@@ -34,6 +34,7 @@ export default function AdminLayout({ children }) {
           <nav style={{ display: 'flex', gap: 14 }}>
             <NavLink to="/admin" end style={navStyle}>Tổng quan</NavLink>
             <NavLink to="/admin/tenants" style={navStyle}>Cửa hàng</NavLink>
+            <NavLink to="/admin/default-receipt" style={navStyle}>Mẫu in</NavLink>
           </nav>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>

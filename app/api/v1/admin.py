@@ -30,7 +30,13 @@ from app.schemas.admin import (
     TenantListItem,
     TenantStatusOut,
 )
-from app.services import admin_auth_service, admin_dashboard_service, admin_tenant_service
+from app.schemas.settings import ReceiptConfig, ReceiptUpdate
+from app.services import (
+    admin_auth_service,
+    admin_dashboard_service,
+    admin_default_receipt_service,
+    admin_tenant_service,
+)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -57,6 +63,18 @@ async def admin_dashboard(_admin: CurrentAdminDep, db: DbSession) -> DashboardOu
     """Tổng quan hệ thống (chỉ-đọc): tenant theo status, đơn hôm nay/tháng (giờ VN),
     CN/NV active, tenant cần chú ý (hạn), tenant mới tạo. Đếm xuyên tenant qua loop GUC."""
     return await admin_dashboard_service.get_dashboard(db)
+
+
+@router.get("/default-receipt", response_model=ReceiptConfig)
+async def admin_get_default_receipt(_admin: CurrentAdminDep, db: DbSession):
+    """Mẫu in CHUẨN system-wide (tạo tenant mới copy). Chưa set → mẫu gốc nền tảng."""
+    return await admin_default_receipt_service.get_default_receipt(db)
+
+
+@router.put("/default-receipt", response_model=ReceiptConfig)
+async def admin_set_default_receipt(payload: ReceiptUpdate, _admin: CurrentAdminDep, db: DbSession):
+    """Lưu mẫu chuẩn. Validate + STRIP branch_contact_blocks/logo_url (chỉ giữ phần CHUNG)."""
+    return await admin_default_receipt_service.set_default_receipt(db, payload)
 
 
 @router.post("/tenants", response_model=TenantCreateOut, status_code=status.HTTP_201_CREATED)
