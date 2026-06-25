@@ -17,6 +17,7 @@ from app.schemas.admin import (
     AdminLoginRequest,
     AdminOut,
     AdminTokenResponse,
+    DashboardOut,
     PlanOut,
     ResetOwnerPasswordIn,
     ResetOwnerPasswordOut,
@@ -29,7 +30,7 @@ from app.schemas.admin import (
     TenantListItem,
     TenantStatusOut,
 )
-from app.services import admin_auth_service, admin_tenant_service
+from app.services import admin_auth_service, admin_dashboard_service, admin_tenant_service
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -49,6 +50,13 @@ async def admin_login(payload: AdminLoginRequest, db: DbSession) -> AdminTokenRe
 @router.get("/me", response_model=AdminOut)
 async def admin_me(current_admin: CurrentAdminDep) -> AdminOut:
     return AdminOut.model_validate(current_admin)
+
+
+@router.get("/dashboard", response_model=DashboardOut)
+async def admin_dashboard(_admin: CurrentAdminDep, db: DbSession) -> DashboardOut:
+    """Tổng quan hệ thống (chỉ-đọc): tenant theo status, đơn hôm nay/tháng (giờ VN),
+    CN/NV active, tenant cần chú ý (hạn), tenant mới tạo. Đếm xuyên tenant qua loop GUC."""
+    return await admin_dashboard_service.get_dashboard(db)
 
 
 @router.post("/tenants", response_model=TenantCreateOut, status_code=status.HTTP_201_CREATED)

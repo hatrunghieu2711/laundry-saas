@@ -171,3 +171,33 @@ class SubscriptionOut(BaseModel):
     expires_at: datetime | None = None
     expiry_status: str = "active"  # active | warning | grace | expired
     days_left: int | None = None
+
+
+# ── Dashboard tổng quan (Super Admin, chỉ-đọc) ───────────────────────────────
+class ExpiringItem(BaseModel):
+    """Tenant cần chú ý: hạn gói warning/grace/expired."""
+
+    tenant_id: uuid.UUID
+    name: str
+    slug: str
+    expires_at: datetime
+    expiry_status: str  # warning | grace | expired
+    days_left: int | None = None
+
+
+class RecentTenantItem(BaseModel):
+    id: uuid.UUID
+    name: str
+    slug: str
+    status: str
+    created_at: datetime
+
+
+class DashboardOut(BaseModel):
+    tenants_by_status: dict[str, int]   # {active: n, suspended: n, ...}
+    orders_today: int                   # đếm theo GIỜ VN (UTC+7)
+    orders_month: int
+    branches_active: int
+    users_active: int
+    expiring: list[ExpiringItem]
+    recent_tenants: list[RecentTenantItem]

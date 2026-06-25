@@ -206,7 +206,7 @@ export default function AdminTenantDetail() {
     <div className="services">
       <div className="services__head">
         <h2 className="services__title">{t.name}</h2>
-        <button className="btn btn--ghost btn--sm" onClick={() => navigate('/admin')}>← Danh sách</button>
+        <button className="btn btn--ghost btn--sm" onClick={() => navigate('/admin/tenants')}>← Danh sách</button>
       </div>
 
       <p className="shift__hint" style={{ marginTop: -4 }}>

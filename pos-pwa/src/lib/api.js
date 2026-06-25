@@ -198,6 +198,7 @@ export const api = {
     login: (phone, password) =>
       adminFetch('/auth/login', { method: 'POST', body: { phone, password }, auth: false }),
     me: () => adminFetch('/me'),
+    dashboard: () => adminFetch('/dashboard'),
     listTenants: () => adminFetch('/tenants'),
     getTenant: (id) => adminFetch(`/tenants/${id}`),
     createTenant: (body) => adminFetch('/tenants', { method: 'POST', body }),
