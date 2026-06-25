@@ -23,6 +23,7 @@ export default function TenantInfoModal({ user, onClose, onLogout }) {
   const slug = user?.tenant_slug || ''
   const trackLink = tenantTrackBase(slug)
   const tel = (user?.support_contact || '').replace(/\s+/g, '') // tel: bỏ khoảng trắng
+  const zalo = (user?.support_zalo || '').trim() // link đầy đủ (vd https://zalo.me/...)
   const ex = EXPIRY[user?.subscription_status] || EXPIRY.active
 
   const copyLink = async () => {
@@ -76,8 +77,24 @@ export default function TenantInfoModal({ user, onClose, onLogout }) {
                 </span>
               </span>
             </div>
-            {tel && (
-              <a className="btn btn--primary btn--block" href={`tel:${tel}`}>Liên hệ gia hạn</a>
+            {/* Liên hệ Zalo gia hạn — ẩn khi support_zalo chưa cấu hình (tránh link rỗng). */}
+            {zalo && (
+              <a
+                className="btn btn--primary btn--block"
+                href={zalo}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <svg
+                  width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
+                  aria-hidden="true" style={{ marginRight: 6 }}
+                >
+                  <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+                </svg>
+                Liên hệ Zalo
+              </a>
             )}
           </div>
 
