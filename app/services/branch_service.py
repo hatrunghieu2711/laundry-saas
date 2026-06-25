@@ -215,6 +215,18 @@ async def effective_max_branches(
     return (await subscription_info(db, tenant_id)).effective_max_branches
 
 
+async def active_branch_count(db: AsyncSession, tenant_id: uuid.UUID) -> int:
+    """Số CN ĐANG hoạt động của tenant (panel 'Thông tin tiệm' / /me). GUC=tenant
+    do caller set (strict branches). Lọc thêm tenant_id để đúng cả khi role bypass."""
+    return (
+        await db.scalar(
+            select(func.count())
+            .select_from(Branch)
+            .where(Branch.tenant_id == tenant_id, Branch.status == "active")
+        )
+    ) or 0
+
+
 async def create_branch(
     db: AsyncSession, tenant_id: uuid.UUID, data: BranchCreate
 ) -> Branch:

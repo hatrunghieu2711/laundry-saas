@@ -42,6 +42,12 @@ class Settings(BaseSettings):
     subscription_warn_days: int = 7
     subscription_grace_days: int = 3
 
+    # Liên hệ hỗ trợ / gia hạn (1 SỐ CHUNG mọi tenant) — panel "Thông tin tiệm" + banner.
+    # ⚠️ PLACEHOLDER: founder điền số thật qua env SUPPORT_CONTACT trên VPS (không hardcode
+    # số thật vào repo). support_zalo để dành (giai đoạn này rỗng → FE ẩn nút Zalo).
+    support_contact: str = "1900 0000"
+    support_zalo: str = ""
+
     # Uploads (logo phiếu in). Thư mục nằm trong volume ./:/code → ra host
     # /opt/laundry-saas/uploads; nginx serve trực tiếp tại url_prefix.
     upload_dir: str = "/code/uploads"

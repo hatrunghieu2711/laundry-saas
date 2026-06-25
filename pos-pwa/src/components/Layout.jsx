@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import { useShift } from '../context/ShiftContext'
 import { useTopbarSlot } from '../context/TopbarSlotContext'
+import TenantInfoModal from './TenantInfoModal'
 
 // Nav chính: + Tạo đơn · Đơn hàng · Ca · Lịch sử · ☰ (menu).
 const NAV = [
@@ -101,6 +102,7 @@ export default function Layout({ children }) {
   const caLabel = shiftOpen === true ? 'Đóng ca' : shiftOpen === false ? 'Mở ca' : 'Ca'
   const isOwner = user?.role === 'owner'
   const [menuOpen, setMenuOpen] = useState(false)
+  const [tenantInfoOpen, setTenantInfoOpen] = useState(false) // panel "Thông tin tiệm" (owner)
   const menuRef = useRef(null)
 
   // Đóng menu khi bấm ra ngoài.
@@ -172,8 +174,23 @@ export default function Layout({ children }) {
           {menuOpen && (
             <div className="app-menu">
               <div className="app-menu__head">
-                {/* Dòng chính = TÊN TIỆM (tenant.name); dòng phụ = tên NGƯỜI + role + CN. */}
-                <strong>{user?.tenant_name || 'POS'}</strong>
+                {/* Dòng chính = TÊN TIỆM (tenant.name); dòng phụ = tên NGƯỜI + role + CN.
+                    Owner: bấm tên tiệm → mở panel "Thông tin tiệm". NV/manager: text thường. */}
+                {isOwner ? (
+                  <button
+                    type="button"
+                    onClick={() => { setMenuOpen(false); setTenantInfoOpen(true) }}
+                    style={{
+                      background: 'none', border: 'none', padding: 0, font: 'inherit',
+                      fontWeight: 700, color: 'inherit', cursor: 'pointer', textAlign: 'left',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {user?.tenant_name || 'POS'} <span aria-hidden="true" style={{ opacity: 0.6 }}>ⓘ</span>
+                  </button>
+                ) : (
+                  <strong>{user?.tenant_name || 'POS'}</strong>
+                )}
                 <small>
                   {user?.full_name}
                   {user?.role_label ? ` · ${user.role_label}` : ''}
@@ -207,6 +224,13 @@ export default function Layout({ children }) {
       </nav>
       <SubscriptionBanner user={user} />
       <main className="app-main">{children}</main>
+      {tenantInfoOpen && (
+        <TenantInfoModal
+          user={user}
+          onClose={() => setTenantInfoOpen(false)}
+          onLogout={handleLogout}
+        />
+      )}
     </div>
   )
 }

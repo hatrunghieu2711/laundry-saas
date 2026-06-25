@@ -136,4 +136,12 @@ async def me(current_user: CurrentUser, db: DbSession) -> UserOut:
     current_user.subscription_status = sub.expiry_status
     current_user.subscription_expires_at = sub.expires_at
     current_user.subscription_days_left = sub.days_left
+    # Panel "Thông tin tiệm" (owner): gói + CN dùng/max + liên hệ hỗ trợ. plan_name/branch_max
+    # lấy từ `sub` (0 query thêm); branch_count = 1 count query (GUC tenant đã set); support_*
+    # từ config (1 số chung mọi tenant).
+    current_user.plan_name = sub.plan_name
+    current_user.branch_max = sub.effective_max_branches
+    current_user.branch_count = await branch_service.active_branch_count(db, current_user.tenant_id)
+    current_user.support_contact = _settings.support_contact or None
+    current_user.support_zalo = _settings.support_zalo or None
     return UserOut.model_validate(current_user)

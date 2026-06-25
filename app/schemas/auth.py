@@ -49,3 +49,11 @@ class UserOut(BaseModel):
     subscription_status: str = "active"  # active | warning | grace | expired
     subscription_expires_at: datetime | None = None
     subscription_days_left: int | None = None
+    # Panel "Thông tin tiệm" (owner) — gói + CN dùng/max + liên hệ hỗ trợ. Gán transient
+    # ở /auth/me (plan_name/branch_max từ subscription_info sẵn; branch_count 1 count query;
+    # support_* từ config). Đều None mặc định → client cũ không gãy.
+    plan_name: str | None = None
+    branch_max: int | None = None      # = effective_max_branches (custom ?? plan)
+    branch_count: int | None = None    # số CN ĐANG hoạt động
+    support_contact: str | None = None
+    support_zalo: str | None = None
