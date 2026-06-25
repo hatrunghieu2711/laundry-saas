@@ -21,9 +21,10 @@ const LDEF = {
 const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center' }
 const DEFAULT_TRACK_BASE = 'https://track.giatui.app/track/'
 
-export default function BillContent({ config, order }) {
+export default function BillContent({ config, order, slug: slugOverride }) {
   // Hook gọi trước mọi return sớm (Rules of Hooks). tenant_slug từ /auth/me (đáng tin)
   // — portal in vẫn giữ context React nên đọc được. Bill chỉ dùng trong app (có Auth).
+  // slugOverride: cho preview ngoài context POS (vd mẫu chuẩn admin) truyền slug riêng.
   const { user } = useAuth()
   if (!order) return null
   const bilingual = config?.bilingual !== false
@@ -40,7 +41,7 @@ export default function BillContent({ config, order }) {
   //   order_code chỉ unique trong 1 tenant). slug LẤY TỪ /auth/me (user.tenant_slug) —
   //   đáng tin, không phụ thuộc localStorage (rỗng nếu login không nhập mã cửa hàng).
   const customTrackBase = config?.track_base_url && config.track_base_url.trim()
-  const slug = user?.tenant_slug || ''
+  const slug = slugOverride != null ? slugOverride : (user?.tenant_slug || '')
   const trackUrl = customTrackBase
     ? `${customTrackBase}${order.order_code}`
     : `${DEFAULT_TRACK_BASE}${slug}/${order.order_code}`
