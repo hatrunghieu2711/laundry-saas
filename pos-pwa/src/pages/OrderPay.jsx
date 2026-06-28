@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
 import Receipt from '../components/Receipt'
 import ShiftEmpty from '../components/ShiftEmpty'
+import { setPrintMode } from '../lib/printQueue'
 import { ApiError, api } from '../lib/api'
 import { formatVND, toNumber } from '../lib/format'
 import { PAYMENT_METHOD } from '../lib/orders'
@@ -121,7 +122,7 @@ export default function OrderPay() {
           <button
             className="btn btn--ghost btn--lg btn--block"
             style={{ marginTop: 10 }}
-            onClick={() => window.print()}
+            onClick={() => { setPrintMode('bill'); window.print() }}
           >
             In lại bill
           </button>

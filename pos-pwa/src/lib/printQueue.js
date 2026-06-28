@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 // ── Hàng đợi IN TUẦN TỰ (Stage 6.9.4) ───────────────────────────────────────
 // Mỗi MẢNH in (bill, từng nhãn liên 2) = MỘT window.print() RIÊNG. Máy nhiệt Sunmi
@@ -14,26 +14,36 @@ export const PRINT_FALLBACK_MS = 2000 // 6000→2000: mount/unmount (printMode) 
 // ── MODE IN TOÀN CỤC — mount/unmount thay CSS body class (FIX T2) ─────────────
 // ⚠️ T2 print engine KHÔNG áp body class set runtime trong @media print → cơ chế cũ
 // (body.print-job-lien2 ẩn bill) VÔ HIỆU trên T2 → bill (mặc-định-hiện) rò + @page xung
-// đột → kẹt driver. SỬA GỐC: chọn mảnh in bằng MOUNT/UNMOUNT DOM (T2 in cái gì CÓ trong
-// DOM, không cần class). printMode: 'bill' | 'lien2' | null. Receipt (bill) UNMOUNT khi
-// 'lien2' → T2 chỉ còn nhãn. printQueue set qua setPrintMode (mọi job).
+// đột → kẹt driver. SỬA GỐC: chọn mảnh in bằng MOUNT/UNMOUNT DOM. printMode:
+// 'bill' | 'lien2' | null. Receipt (bill) UNMOUNT khi 'lien2' → T2 chỉ còn nhãn.
+//
+// ⚠️ DÙNG useSyncExternalStore (KHÔNG useState+manual subs): khi Lien2PrintButton (component
+// RIÊNG) set printMode='lien2', CHA của <Receipt> (OrderNew) KHÔNG re-render → useState+subs
+// KHÔNG đảm bảo Receipt commit unmount TRƯỚC print() (race, T2 chậm lộ ra → bill+nhãn cùng
+// DOM → ra BILL). useSyncExternalStore re-render ĐỒNG BỘ, tear-free → unmount chắc trước print.
 let _printMode = null
 const _modeSubs = new Set()
-function setPrintMode(mode) {
+
+function _subscribePrintMode(cb) {
+  _modeSubs.add(cb)
+  return () => {
+    _modeSubs.delete(cb)
+  }
+}
+function _getPrintMode() {
+  return _printMode
+}
+
+// Set mode TOÀN CỤC + notify (useSyncExternalStore tự gọi getSnapshot + re-render subscriber).
+// Export để 5 đường in bill TRỰC TIẾP set 'bill' tường minh (tránh kẹt 'lien2' từ lần trước).
+export function setPrintMode(mode) {
+  if (_printMode === mode) return
   _printMode = mode
-  _modeSubs.forEach((fn) => fn(mode))
+  _modeSubs.forEach((cb) => cb())
 }
 
 export function usePrintMode() {
-  const [mode, setMode] = useState(_printMode)
-  useEffect(() => {
-    _modeSubs.add(setMode)
-    setMode(_printMode) // đồng bộ giá trị hiện tại khi mount
-    return () => {
-      _modeSubs.delete(setMode)
-    }
-  }, [])
-  return mode
+  return useSyncExternalStore(_subscribePrintMode, _getPrintMode)
 }
 
 export function usePrintQueue() {

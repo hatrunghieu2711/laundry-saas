@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import Receipt from '../components/Receipt'
 import Lien2PrintButton from '../components/Lien2PrintButton'
+import { setPrintMode } from '../lib/printQueue'
 import CancelOrderModal from '../components/CancelOrderModal'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
@@ -132,9 +133,11 @@ export default function Board() {
     return () => clearInterval(t)
   }, [load, payModal])
 
-  // In bill: render Receipt rồi window.print() (cơ chế như OrderDetail).
+  // In bill: render Receipt rồi window.print() (cơ chế như OrderDetail). setPrintMode('bill')
+  // → Receipt mount tường minh (tránh kẹt 'lien2' từ lần in nhãn trước).
   useEffect(() => {
     if (!printData) return undefined
+    setPrintMode('bill')
     const t = setTimeout(() => {
       window.print()
       setPrintData(null)

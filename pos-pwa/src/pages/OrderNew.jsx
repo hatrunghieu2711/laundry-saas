@@ -578,8 +578,10 @@ export default function OrderNew() {
     // KHÔNG nháy lưới an toàn. Xong / auto_print TẮT → màn tóm tắt.
     const noAutoPrint = autoPrint === false && autoPrintCopy2 === false // cả hai tắt
     const showSummary = !printingQueue && (printed || noAutoPrint)
-    // In lại/In phiếu: in BILL rồi LIÊN 2 (1 nhãn không số) — 2 job riêng, máy cắt rời.
-    const printBillAndLabel = () => runPrint([{ mode: 'bill' }, { mode: 'lien2', seq: null }])
+    // Nút "In bill" THỦ CÔNG = CHỈ bill (nhãn liên 2 in qua nút "In liên 2" riêng). Trước
+    // đây in cả bill+lien2 gây hiểu nhầm "In bill → ra nhãn". (Auto-print khi tạo đơn vẫn
+    // theo cài đặt auto_print_receipt/auto_print_copy2 — KHÔNG đổi.)
+    const printBill = () => runPrint([{ mode: 'bill' }])
     return (
       <div className="ordernew">
         {!showSummary ? (
@@ -602,7 +604,7 @@ export default function OrderNew() {
             {payWarn && <div className="alert alert--error">{payWarn}</div>}
             <div className="ordok__actions">
               <div className="ordok__actrow">
-                <button className="btn btn--ghost" onClick={printBillAndLabel}>
+                <button className="btn btn--ghost" onClick={printBill}>
                   {printed ? 'In lại bill' : 'In bill'}
                 </button>
                 <Lien2PrintButton order={created} className="btn btn--ghost" />
