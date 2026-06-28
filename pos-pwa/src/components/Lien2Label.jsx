@@ -61,9 +61,12 @@ export function Lien2PrintLayer({ order, seq = null }) {
     return () => dbgLog('Lien2Layer UNMOUNT')
   }, [])
   if (!order) return null
+  // ⭐ .print-lien2 > .lbl TRỰC TIẾP (bỏ wrapper .lbl-page) — parity với bill (.print-receipt >
+  // .rcp). Trước đây .lbl-page chen giữa khiến page:lien2pg (trên .lbl) KHÁC @page cha → NGẮT
+  // TRANG → trang trống → SunmiPrinter crash. Giờ .lbl là con trực tiếp, dùng chung @page billpg.
   return createPortal(
     <div className="print-lien2">
-      <div className="lbl-page"><Lien2LabelBody order={order} seq={seq} /></div>
+      <Lien2LabelBody order={order} seq={seq} />
     </div>,
     document.body,
   )

@@ -1459,13 +1459,9 @@ body {
     size: 80mm 210mm;
     margin: 0;
   }
-  /* Nhãn liên 2: trang CỐ ĐỊNH (KHÔNG @page auto — auto hay kẹt driver T2 như bill 500mm).
-     Cao 100mm đủ chứa nhãn (mã đơn + trạng thái + giờ + ghi chú); Sunmi "80 auto" trim
-     trắng đuôi. ⚠️ FOUNDER CHỈNH nếu cắt nội dung (tăng) / tốn giấy (giảm). */
-  @page lien2pg {
-    size: 80mm 100mm;
-    margin: 0;
-  }
+  /* (Bỏ @page lien2pg riêng — nhãn DÙNG CHUNG @page billpg với bill (80mm 210mm, đã in OK
+     trên T2). Trang riêng cho .lbl (cháu) từng gây NGẮT TRANG → trang trống → crash driver.
+     Sunmi "80 auto" trim trắng đuôi nên 210mm không tốn giấy thừa cho nhãn ngắn.) */
   /* #root height:100% (xem reset đầu file) tạo HỘP RỖNG cao 1 trang khi in →
      sinh TRANG TRẮNG ĐẦU rồi đẩy phiếu sang trang 2. Phiếu in nằm ở portal
      .print-receipt (con trực tiếp của <body>, NGOÀI #root) nên ẩn hẳn #root +
@@ -1497,15 +1493,11 @@ body {
     margin: 0 auto;
     page: billpg; /* bill 1 trang liên tục, không bị cap ~1056px (6.9.3) */
   }
-  /* Nhãn liên 2: trang CỐ ĐỊNH lien2pg (xem @page trên).
-     ⚠️ BỎ `transform: rotate(180deg)` — đây là tác nhân làm DRIVER SunmiPrinter CRASH khi
-     rasterize ("SunmiPrinter has stopped" → in ra BILL + treo máy T2). Overlay đã chứng minh
-     DOM/React ĐÚNG (mode=lien2 bill=N lien2=Y); khác biệt DUY NHẤT vs bill (in OK kể cả QR) là
-     rotate → driver chối trang xoay. Không-xoay rasterize như bill. (Rotate cũ chỉ workaround
-     leader-gap; nếu T2 in NGƯỢC chiều → redesign DOM không-transform, KHÔNG thêm lại rotate.)
-     CHỈ nhãn (.lbl), KHÔNG đụng bill (.rcp). Mỗi nhãn = 1 job riêng. */
+  /* Nhãn liên 2: .lbl là CON TRỰC TIẾP của .print-lien2 (đã bỏ wrapper .lbl-page) → dùng CHUNG
+     @page billpg với bill (parity .print-receipt > .rcp). KHÔNG @page riêng cho .lbl → KHÔNG
+     ngắt trang → KHÔNG trang trống → hết crash SunmiPrinter. KHÔNG rotate (đã bỏ — crash driver). */
   .print-lien2 .lbl {
-    page: lien2pg;
+    page: billpg;
   }
 }
 
