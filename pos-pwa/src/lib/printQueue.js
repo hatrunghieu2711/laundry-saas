@@ -35,7 +35,7 @@ function _getPrintMode() {
 }
 
 // ⚠️ DEBUG TẠM — XÓA SAU. Ghi log chẩn đoán (mode + mảnh nào trong DOM) lúc setMode/print().
-export const DEBUG_PRINT_BUILD = 'DBG-sync2' // marker: founder xác nhận đang chạy bundle MỚI
+export const DEBUG_PRINT_BUILD = 'DBG-norotate-v5' // marker: founder xác nhận đang chạy bundle MỚI
 const _printDebugLog = []
 function _dbg(at) {
   _printDebugLog.push({
