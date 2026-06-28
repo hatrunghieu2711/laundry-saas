@@ -529,6 +529,66 @@ tránh `radius`+`shadow` trên khối lớn, tránh flex `gap`, tránh `flex-wra
 THẺ (Kanban — xem rule #5 phạm vi), để layout fallback ngoài `@supports(grid)`. **Test trên máy
 POS thật trước khi coi là xong.**
 
+## HỆ THỐNG IN — TRẠNG THÁI HIỆN TẠI
+
+### Cơ chế in hiện tại (đã dọn sạch)
+- In qua window.print() + usePrintQueue (printQueue.js): run(jobs) chạy TUẦN TỰ, mỗi job 1
+  window.print() + afterprint/timeout fallback. setPrintMode dùng useSyncExternalStore.
+- printMode điều khiển render: Receipt.jsx return null khi printMode==='lien2'; Lien2PrintLayer render
+  nhãn. CSS @media print ẩn #root, hiện .print-receipt/.print-lien2.
+- @page billpg 80mm×210mm (index.css ~1455). Bill + nhãn dùng page:billpg (parity). 210mm (KHÔNG 500mm)
+  để T2 không scale co nhỏ bill.
+- Nút tách: "In bill" (bill-only) / "In liên 2" (nhãn).
+- Liên 2 = N job, mỗi job 1 nhãn = 1 window.print() (Lien2PrintButton.doPrint → Array.from(count)
+  {mode:'lien2',seq} → run(jobs)); Sunmi cắt cuối mỗi job → T1 tự cắt rời. (Cơ chế gốc stage-6.9.4.)
+- Đã dọn sạch debug: không overlay, không _dbg/marker/probe, không reload, không iframe.
+
+### File in chính
+- pos-pwa/src/lib/printQueue.js — usePrintQueue, setPrintMode (useSyncExternalStore), window.print().
+- pos-pwa/src/components/Receipt.jsx — usePrintMode, return null khi lien2.
+- pos-pwa/src/components/Bill.jsx — BillContent, QRCodeSVG inline, logo optional, slug.
+- pos-pwa/src/components/Lien2Label.jsx — Lien2PrintLayer (1 nhãn theo {order,seq}), Lien2LabelBody
+  (.lbl__cutline/__code/__num/__pay/__amt/__info/__note).
+- pos-pwa/src/components/Lien2PrintButton.jsx — doPrint → N job {mode:'lien2',seq} → run(jobs).
+- pos-pwa/src/pages/OrderNew.jsx — auto-print bill + lien2 ({seq:null}); nút In bill/In liên 2.
+- Điểm in khác: Board.jsx, OrderDetail.jsx, History.jsx, OrderPay.jsx, Shift.jsx (ShiftSlip).
+- pos-pwa/src/index.css — @page billpg, .print-lien2 .lbl{page:billpg}, @media print.
+
+### Tag gần nhất
+- stage-clean-print-debug (26c6880) — dọn debug, bỏ reload/iframe, giữ fix đúng.
+- stage-lien2-autocut-t1 (1381858) — liên 2 N-job tự cắt rời (T1 đã test OK).
+
+### BUG T2 (nền tảng, KHÔNG sửa từ web được)
+window.print() lần 2 trong cùng phiên → crash "SunmiPrinter has stopped" trên T2 (qua SunmiPrinterPlugin
+1.1.1 từ Sunmi App Market). Đã chứng minh bằng test cô lập HTML thuần: code app vô can. Mọi cách web
+thất bại (iframe in trắng; reload không reset print-service; Sunmi JS bridge không có trên Chrome thuần;
+demo h5.sunmi.com/printer-sdk cũng không in T2). T1 KHÔNG bị (in nhiều lần OK). → Cần giải pháp NATIVE.
+
+### HƯỚNG SẮP LÀM: IN ĐA THIẾT BỊ (NATIVE + ESC/POS)
+Mục tiêu mọi máy in được (như app POS thị trường) = native app + ESC/POS + lớp đa kênh + màn chọn máy
+in. KHÔNG window.print, KHÔNG khóa 1 hãng.
+1. Capacitor bọc pos-pwa → APK (web giữ ~95%, có thể load remote từ giatui.app để vẫn cập nhật web;
+   build lại APK chỉ khi đổi native).
+2. Plugin ESC/POS đa kênh: paystory-de/thermal-printer-cordova-plugin (USB+BT+TCP). Cài:
+   npm i thermal-printer-cordova-plugin && npx cap sync. AndroidManifest: usb.host feature + BLUETOOTH +
+   INTERNET. API: ThermalPrinter.printFormattedText({type:'usb'|'bluetooth'|'tcp',...}),
+   listPrinters({type:'usb'}), requestPermissions.
+   - Tùy chọn: @kduma-autoid/capacitor-sunmi-printer (Sunmi AIDL: printText/printBitmap/printQRCode/
+     cutPaper/enterPrinterBuffer) cho máy Sunmi tích hợp.
+3. Màn "Cài đặt máy in": dò (USB/BT/LAN) → chọn → lưu cấu hình (theo device/tenant). App KHÔNG đoán
+   phần cứng — khách tự chọn.
+4. Lớp render bill/nhãn → ESC/POS: text+canh lề+QR+bitmap+cutPaper (builder .align/.image/.text/.qr/
+   .barcode/.cutPaper/.write hoặc thermal-printer-encoder; hoặc html2canvas→bitmap giữ layout).
+5. window.print() giữ làm fallback (PC + driver hệ thống).
+⚠️ CHƯA xác nhận môi trường build APK (cần Android SDK/Studio; VPS Linux thuần không tiện) — làm rõ trước.
+
+### Việc tiếp (từng bước nhỏ, test độc lập)
+1. Lập kế hoạch chi tiết + xác nhận môi trường build APK.
+2. Khảo sát đóng Capacitor vào pos-pwa (package.json, vite config, cấu trúc).
+3. Thiết kế màn "Cài đặt máy in" + nơi lưu cấu hình.
+4. Render bill/nhãn → ESC/POS (text vs bitmap).
+5. Tích hợp plugin đa kênh + (tùy chọn) Sunmi SDK; build APK; test từng loại máy.
+
 ## CHUẨN STYLE UI (style mới — áp cho mọi màn refactor + component mới)
 
 Đây là hệ style chuẩn hiện tại. Mọi UI MỚI hoặc màn được refactor PHẢI theo mục này mà KHÔNG cần nhắc lại trong prompt. Mục này là luật chung; nếu prompt không nói gì về style thì mặc định áp các quy tắc dưới đây.

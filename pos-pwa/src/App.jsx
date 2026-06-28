@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminApp from './AdminApp'
 import Layout from './components/Layout'
+import PlatformBadge from './components/PlatformBadge' // ⚠️ TẠM — badge test môi trường, gỡ sau
 import ProtectedRoute from './components/ProtectedRoute'
 import { BranchProvider } from './context/BranchContext'
 import { ShiftProvider } from './context/ShiftContext'
@@ -44,13 +45,17 @@ export default function App() {
   // mọi path khác → /admin (AdminProtectedRoute tự đẩy /admin/login nếu chưa đăng nhập).
   if (ADMIN_HOST) {
     return (
-      <Routes>
-        <Route path="/admin/*" element={<AdminApp />} />
-        <Route path="*" element={<Navigate to="/admin" replace />} />
-      </Routes>
+      <>
+        <Routes>
+          <Route path="/admin/*" element={<AdminApp />} />
+          <Route path="*" element={<Navigate to="/admin" replace />} />
+        </Routes>
+        <PlatformBadge /> {/* ⚠️ TẠM — gỡ sau */}
+      </>
     )
   }
   return (
+    <>
     <Routes>
       {/* Khu Super Admin — TÁCH HẲN POS (auth/layout/token riêng). Đặt TRƯỚC catch-all. */}
       <Route path="/admin/*" element={<AdminApp />} />
@@ -81,5 +86,7 @@ export default function App() {
       {/* Mặc định: route lạ → về trang chủ (guard sẽ đẩy ra /login nếu chưa đăng nhập). */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <PlatformBadge /> {/* ⚠️ TẠM — gỡ sau */}
+    </>
   )
 }

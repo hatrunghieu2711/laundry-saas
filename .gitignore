@@ -32,3 +32,4 @@ uploads/
 *.sql.gz
 backups/
 scripts/rls/*.sql
+.env.bak
