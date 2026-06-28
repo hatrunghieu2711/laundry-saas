@@ -34,8 +34,8 @@ function _getPrintMode() {
   return _printMode
 }
 
-// ⚠️⚠️ DEBUG TẠM (v6 SÂU) — XÓA SAU. Log có timestamp (ms từ load) + console.log + overlay.
-export const DEBUG_PRINT_BUILD = 'DBG-deep-v6' // marker: founder xác nhận đang chạy bundle MỚI
+// ⚠️⚠️ DEBUG TẠM (v7 SÂU) — XÓA SAU. Log có timestamp (ms từ load) + console.log + overlay.
+export const DEBUG_PRINT_BUILD = 'DBG-deep-v7' // marker: founder xác nhận đang chạy bundle MỚI
 const _printDebugLog = []
 const _t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
 function _ms() {
@@ -51,18 +51,29 @@ export function dbgLog(line) {
 export function getPrintDebugLog() {
   return _printDebugLog
 }
-// Snapshot DOM THẬT lúc print(): đếm node + getComputedStyle(display) + offsetHeight → cái nào
-// THỰC SỰ visible (display!=none & h>0) sẽ in. Đây là phép đo mấu chốt (không đoán).
+// Snapshot DOM THẬT lúc print(): mỗi node → display + offset w/h + textContent + số con DOM.
+// ⚠️ Chạy KHI CÒN TRÊN MÀN (ngay trước window.print()), lúc này .print-lien2 ĐANG display:none
+// (rule nền — chỉ display:block trong @media print). HỆ QUẢ ĐO:
+//   - w/h = offsetWidth/Height = 0 vì đang ẩn → KHÔNG phải tín hiệu (đừng kết luận "rỗng" từ h=0).
+//   - txt = textContent (BỎ khoảng trắng) — KHÔNG phụ thuộc layout → ĐỌC ĐƯỢC dù đang ẩn. Đây là
+//     tín hiệu THẬT cho "nhãn CÓ chữ chưa". (Cố ý KHÔNG dùng innerText: innerText layout-aware →
+//     trả '' cho phần tử ẩn → luôn 0 → đánh lừa thành "rỗng".)
+//   - ch = childElementCount — số con DOM, cũng không phụ thuộc layout.
+// → txt>0 & ch>0 = nhãn ĐÃ render nội dung vào DOM → trang trống khi in T2 là lỗi PRINT/driver,
+//   KHÔNG phải render rỗng/thiếu data. txt=0 & ch=0 = nhãn render RỖNG (data/context sai).
 function _dbgPrintSnapshot() {
   const fmt = (sel) => {
     const nodes = typeof document !== 'undefined' ? document.querySelectorAll(sel) : []
     const parts = Array.from(nodes).map((el) => {
       const cs = window.getComputedStyle(el)
-      return `disp=${cs.display},h=${el.offsetHeight}`
+      const txt = (el.textContent || '').replace(/\s+/g, '').length
+      return `disp=${cs.display},w=${el.offsetWidth},h=${el.offsetHeight},txt=${txt},ch=${el.childElementCount}`
     })
     return `[${nodes.length}]${parts.length ? ' ' + parts.join(' | ') : ''}`
   }
-  dbgLog(`PRINT mode=${_printMode} receipt${fmt('.print-receipt')} lien2${fmt('.print-lien2')}`)
+  dbgLog(
+    `PRINT mode=${_printMode} receipt${fmt('.print-receipt')} lien2${fmt('.print-lien2')} lbl${fmt('.print-lien2 .lbl')}`,
+  )
 }
 
 // Set mode TOÀN CỤC + notify (useSyncExternalStore tự gọi getSnapshot + re-render subscriber).
