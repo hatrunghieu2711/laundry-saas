@@ -9,7 +9,12 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // Cơ chế: cờ idxRef (đang in / job nào) chặn chồng job; mỗi job chờ xong bằng
 // afterprint HOẶC timeout (chốt nào tới trước) rồi MỚI kéo job kế; token chống
 // double-advance khi cả 2 cùng bắn.
-export const PRINT_FALLBACK_MS = 1000 // 800–1200ms — chỉnh nếu máy in chậm hơn
+// ⚠️ FIX in liên 2 ra BILL trên T2 (window.print không chặn + afterprint KHÔNG bắn trên
+// Sunmi): timeout cũ 1000ms → cleanup (xóa class print-job-lien2 + unmount nhãn) chạy KHI
+// preview T2 còn mở → rơi về mặc định = BILL. Tăng 6000ms → cleanup hoãn tới khi user đã
+// xong print dialog → nhãn giữ nguyên suốt preview. (BƯỚC XÁC NHẬN chẩn đoán; đủ → giữ.
+// TRADE-OFF: máy KHÔNG bắn afterprint → in N nhãn chờ N×6s; afterprint có bắn → vẫn nhanh.)
+export const PRINT_FALLBACK_MS = 6000
 
 function setBodyMode(mode) {
   document.body.classList.remove('print-job-bill', 'print-job-lien2')
