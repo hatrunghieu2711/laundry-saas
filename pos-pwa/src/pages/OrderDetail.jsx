@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import CancelOrderModal from '../components/CancelOrderModal'
 import MoneyInput from '../components/MoneyInput'
 import Receipt from '../components/Receipt'
-import { setPrintMode } from '../lib/printQueue'
+import { printViaIframe, setPrintMode } from '../lib/printQueue'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import { formatPickupBoard, formatPickupShort } from '../lib/datetime'
@@ -255,7 +255,7 @@ export default function OrderDetail() {
       {/* DÒNG HÀNH ĐỘNG (ngang 2 cột) */}
       <div className="od__actions">
         <div className="od__actions-l">
-          <button className="od__act" onClick={() => { setPrintMode('bill'); window.print() }}>In lại bill</button>
+          <button className="od__act" onClick={() => { setPrintMode('bill'); printViaIframe('.print-receipt') }}>In lại bill</button>
           {order.payment_status !== 'paid' && order.order_status !== 'cancelled' && (
             <button className="od__act od__act--primary" onClick={() => navigate(`/orders/${id}/pay`)}>
               Thu tiền{remaining > 0 ? ` (còn ${formatVND(remaining)})` : ''}

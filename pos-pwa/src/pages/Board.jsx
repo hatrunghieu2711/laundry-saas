@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import Receipt from '../components/Receipt'
 import Lien2PrintButton from '../components/Lien2PrintButton'
-import { setPrintMode } from '../lib/printQueue'
+import { printViaIframe, setPrintMode } from '../lib/printQueue'
 import CancelOrderModal from '../components/CancelOrderModal'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
@@ -139,7 +139,7 @@ export default function Board() {
     if (!printData) return undefined
     setPrintMode('bill')
     const t = setTimeout(() => {
-      window.print()
+      printViaIframe('.print-receipt') // clone .print-receipt → in iframe (print context sạch /T2)
       setPrintData(null)
     }, 150)
     return () => clearTimeout(t)

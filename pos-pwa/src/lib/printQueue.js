@@ -35,7 +35,7 @@ function _getPrintMode() {
 }
 
 // ⚠️⚠️ DEBUG TẠM (v7 SÂU) — XÓA SAU. Log có timestamp (ms từ load) + console.log + overlay.
-export const DEBUG_PRINT_BUILD = 'DBG-deep-v7' // marker: founder xác nhận đang chạy bundle MỚI
+export const DEBUG_PRINT_BUILD = 'DBG-iframe-v8' // marker: founder xác nhận đang chạy bundle MỚI (iframe-print)
 const _printDebugLog = []
 const _t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
 function _ms() {
@@ -89,6 +89,111 @@ export function usePrintMode() {
   return useSyncExternalStore(_subscribePrintMode, _getPrintMode)
 }
 
+// ── IN QUA IFRAME RIÊNG MỖI JOB (FIX GỐC T2) ─────────────────────────────────
+// PHÉP THỬ xác nhận: window.print() TRANG CHÍNH lần 2+ trong CÙNG phiên → T2 WebView
+// KHÔNG giải phóng print service → crash SunmiPrinter (đơn 1 OK, đơn 2 crash, reload OK
+// lại). GIẢI GỐC: mỗi job in vào IFRAME MỚI (browsing context + document MỚI) → print
+// context SẠCH mỗi lần, mô phỏng "reload". Giữ NGUYÊN render (Receipt/Lien2Layer/ShiftSlip
+// portal) + CSS @media print/@page; CHỈ thay window.print() trang chính bằng iframe.print().
+//
+// CSS vào iframe: serialize ĐỒNG BỘ mọi stylesheet same-origin (app chỉ 1 file /assets) →
+// 1 <style> (KHÔNG refetch <link> async → in ra ĐÃ đủ style). try/catch phòng sheet cross-
+// origin (đọc cssRules ném SecurityError). Đã gồm @page billpg + @media print. Thêm 1 <style>
+// ÉP .print-receipt/.print-lien2 display:block (iframe không có #root nên không dính
+// @media-gate của trang chính; ép cho chắc + để <img> logo trong subtree được layout/load).
+function _serializeAppCss() {
+  const sheets = typeof document !== 'undefined' ? Array.from(document.styleSheets) : []
+  return sheets
+    .flatMap((ss) => {
+      try {
+        return Array.from(ss.cssRules).map((r) => r.cssText)
+      } catch {
+        return [] // sheet cross-origin → bỏ qua (app không có)
+      }
+    })
+    .join('\n')
+}
+
+// printViaIframe(selector): clone mảnh đang render (.print-receipt | .print-lien2) sang iframe
+// ẩn rồi in iframe. Promise resolve SAU khi in + xóa iframe (timeout) → queue dùng để kéo job
+// kế (tuần tự, mỗi job 1 print context sạch). KHÔNG dựa afterprint (T2 không bắn tin cậy).
+export function printViaIframe(selector) {
+  return new Promise((resolve) => {
+    const node = typeof document !== 'undefined' ? document.querySelector(selector) : null
+    if (!node) {
+      dbgLog(`printViaIframe: KHÔNG thấy ${selector} → bỏ qua`)
+      resolve()
+      return
+    }
+    const iframe = document.createElement('iframe')
+    iframe.setAttribute('aria-hidden', 'true')
+    iframe.style.cssText =
+      'position:fixed;left:-9999px;top:0;width:80mm;height:0;border:0;opacity:0;pointer-events:none;'
+    document.body.appendChild(iframe)
+
+    let done = false
+    const cleanup = () => {
+      if (done) return
+      done = true
+      try {
+        iframe.remove()
+      } catch {
+        /* noop */
+      }
+      resolve()
+    }
+
+    const doc = iframe.contentWindow.document
+    doc.open()
+    doc.write(
+      '<!doctype html><html><head><meta charset="utf-8"><style>' +
+        _serializeAppCss() +
+        '</style><style>.print-receipt,.print-lien2{display:block!important}</style></head><body>' +
+        node.outerHTML +
+        '</body></html>',
+    )
+    doc.close()
+
+    const fire = () => {
+      dbgLog(`printViaIframe FIRE ${selector}`) // ⚠️ DEBUG TẠM
+      try {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+      } catch (e) {
+        dbgLog(`printViaIframe print() lỗi: ${e && e.message ? e.message : e}`)
+      }
+      // T2 không bắn afterprint tin cậy → xóa iframe + resolve bằng TIMEOUT (đừng xóa sớm hủy job)
+      setTimeout(cleanup, PRINT_FALLBACK_MS)
+    }
+
+    // Chờ <img> (logo bill) load xong rồi mới in — tránh in trước khi logo về. Nhãn/bill-không-
+    // logo: 0 img → in ngay (1-2 frame cho layout). QR là <svg> inline (đồng bộ) → không chờ.
+    const imgs = Array.from(doc.images || [])
+    const pending = imgs.filter((im) => !im.complete)
+    dbgLog(`printViaIframe ${selector} imgs=${imgs.length} wait=${pending.length}`) // ⚠️ DEBUG TẠM
+    if (pending.length) {
+      let left = pending.length
+      let fired = false
+      const go = () => {
+        if (fired) return
+        fired = true
+        requestAnimationFrame(fire)
+      }
+      pending.forEach((im) => {
+        const oneDone = () => {
+          left -= 1
+          if (left <= 0) go()
+        }
+        im.addEventListener('load', oneDone)
+        im.addEventListener('error', oneDone)
+      })
+      setTimeout(go, 1500) // logo chậm/không về → vẫn in sau 1.5s (không kẹt vô hạn)
+    } else {
+      requestAnimationFrame(() => requestAnimationFrame(fire))
+    }
+  })
+}
+
 export function usePrintQueue() {
   const [active, setActive] = useState(null) // job đang in {mode, ...} | null
   const jobsRef = useRef([])
@@ -115,33 +220,30 @@ export function usePrintQueue() {
     setActive(jobs[i]) // re-render: component hiện nội dung job này vào vùng in
   }, [])
 
-  // active đổi → nội dung job đã render → in + chờ xong (afterprint/timeout) → kế.
+  // active đổi → mảnh job đã render (portal) → IN MẢNH ĐÓ QUA IFRAME RIÊNG (FIX T2: mỗi job =
+  // print context SẠCH → window.print() lần 2+ không còn crash). Khi iframe in xong + tự xóa
+  // (printViaIframe resolve) → kéo job kế. KHÔNG dựa afterprint trang chính (T2 không bắn tin cậy).
   useEffect(() => {
     if (!active) return undefined
     const token = ++tokenRef.current
-    let finished = false
-    const finish = () => {
-      if (finished || token !== tokenRef.current) return // job này đã xong / cũ
-      finished = true
-      clearTimeout(timerRef.current)
-      window.removeEventListener('afterprint', finish)
-      startAt(idxRef.current + 1)
-    }
-    // chờ 2 frame: DOM job hiện tại + body class + style (rotate…) áp xong mới in
+    let cancelled = false
     let raf2 = 0
+    const selector = active.mode === 'lien2' ? '.print-lien2' : '.print-receipt'
+    // chờ 2 frame: mảnh job hiện tại mount (portal) + style áp xong rồi mới clone sang iframe
     const raf1 = requestAnimationFrame(() => {
       raf2 = requestAnimationFrame(() => {
-        window.addEventListener('afterprint', finish)
-        timerRef.current = setTimeout(finish, PRINT_FALLBACK_MS)
-        _dbgPrintSnapshot() // ⚠️ DEBUG TẠM — đo DOM thật (node + display + h) NGAY trước window.print()
-        window.print()
+        if (cancelled || token !== tokenRef.current) return
+        _dbgPrintSnapshot() // ⚠️ DEBUG TẠM — đo DOM thật (node + display + h) NGAY trước khi clone sang iframe
+        printViaIframe(selector).then(() => {
+          if (cancelled || token !== tokenRef.current) return
+          startAt(idxRef.current + 1)
+        })
       })
     })
     return () => {
+      cancelled = true
       cancelAnimationFrame(raf1)
       cancelAnimationFrame(raf2)
-      clearTimeout(timerRef.current)
-      window.removeEventListener('afterprint', finish)
     }
   }, [active, startAt])
 
