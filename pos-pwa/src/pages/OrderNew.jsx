@@ -561,7 +561,7 @@ export default function OrderNew() {
     // TÁCH RIÊNG: bill / liên 2 độc lập → in bill-only / liên2-only / cả hai / không gì.
     const jobs = []
     if (autoPrint) jobs.push({ mode: 'bill' })
-    if (autoPrintCopy2) jobs.push({ mode: 'lien2', count: 1, numbered: false })
+    if (autoPrintCopy2) jobs.push({ mode: 'lien2', seq: null })
     if (!jobs.length) return // cả hai tắt → KHÔNG tự in (nhân viên in tay)
     if (printedRef.current === created.id) return
     printedRef.current = created.id
@@ -622,7 +622,7 @@ export default function OrderNew() {
         )}
         <Receipt config={receiptConfig} order={created} paid={paidInfo.amount} method={paidInfo.method} />
         {/* LIÊN 2: chỉ render khi job liên 2 đang in (auto kèm bill / In lại) — 1 nhãn/lần. */}
-        {printJob?.mode === 'lien2' && <Lien2PrintLayer order={created} count={printJob.count || 1} numbered={printJob.numbered || false} />}
+        {printJob?.mode === 'lien2' && <Lien2PrintLayer order={created} seq={printJob.seq} />}
       </div>
     )
   }

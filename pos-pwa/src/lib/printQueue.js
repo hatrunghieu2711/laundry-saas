@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 
 // ── Hàng đợi IN TUẦN TỰ (Stage 6.9.4) ───────────────────────────────────────
-// Mỗi MẢNH in (bill, nhãn liên 2) = MỘT window.print() RIÊNG. Máy nhiệt Sunmi CHỈ
-// cắt giấy ở CUỐI mỗi print job (page-break KHÔNG phát lệnh cắt) → tách job = máy
-// cắt rời từng mảnh. (Nhãn liên 2 N tờ nay GỘP 1 job/1 print → 1 dải, xé tay theo
-// vạch .lbl__cutline — xem Lien2PrintLayer.)
+// Mỗi MẢNH in (bill, TỪNG nhãn liên 2) = MỘT window.print() RIÊNG. Máy nhiệt Sunmi
+// CHỈ cắt giấy ở CUỐI mỗi print job (page-break KHÔNG phát lệnh cắt) → tách job = máy
+// cắt rời từng mảnh. In N nhãn = N job tuần tự → máy tự cắt rời TỪNG nhãn (T1).
 //
 // Điểm DỄ VỠ: Sunmi KHÔNG bắn 'afterprint' đáng tin → BẮT BUỘC fallback timeout.
 // Cơ chế: cờ idxRef (đang in / job nào) chặn chồng job; mỗi job chờ xong bằng
@@ -102,7 +101,7 @@ export function usePrintQueue() {
     }
   }, [active, startAt])
 
-  // run(jobs): bắt đầu hàng đợi. jobs = [{mode:'bill'} | {mode:'lien2', count, numbered}].
+  // run(jobs): bắt đầu hàng đợi. jobs = [{mode:'bill'} | {mode:'lien2', seq}].
   const run = useCallback(
     (jobs, onDone) => {
       if (idxRef.current !== -1) return false // đang in → không chồng

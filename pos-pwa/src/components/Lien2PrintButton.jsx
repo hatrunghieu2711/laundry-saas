@@ -23,9 +23,13 @@ export default function Lien2PrintButton({ order, className = 'btn btn--ghost' }
 
   const doPrint = () => {
     if (printing) return
-    // 1 JOB DUY NHẤT gộp N nhãn: Lien2PrintLayer render N khối .lbl trong 1 .print-lien2 → 1
-    // window.print() → N nhãn 1 dải, xé tay theo vạch .lbl__cutline. In xong → đóng modal.
-    run([{ mode: 'lien2', count, numbered }], () => setOpen(false))
+    // N JOB, mỗi job 1 nhãn = 1 window.print() → máy Sunmi cắt rời TỪNG nhãn (cắt cuối mỗi
+    // print job). Đánh số 1/N…N/N hoặc tất cả không số. Hàng đợi in tuần tự → đóng modal khi xong.
+    const jobs = Array.from({ length: count }, (_, i) => ({
+      mode: 'lien2',
+      seq: numbered ? { n: i + 1, total: count } : null,
+    }))
+    run(jobs, () => setOpen(false))
   }
 
   if (!order) return null
@@ -75,8 +79,8 @@ export default function Lien2PrintButton({ order, className = 'btn btn--ghost' }
         </div>
       )}
 
-      {/* Render N nhãn GỘP (1 job) vào vùng in khi đang in. */}
-      {active?.mode === 'lien2' && <Lien2PrintLayer order={order} count={active.count} numbered={active.numbered} />}
+      {/* CHỈ render nhãn ĐANG in (1 job/lần) vào vùng in — hàng đợi cắt rời từng nhãn. */}
+      {active?.mode === 'lien2' && <Lien2PrintLayer order={order} seq={active.seq} />}
     </>
   )
 }
