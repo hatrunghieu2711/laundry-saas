@@ -35,7 +35,7 @@ function _getPrintMode() {
 }
 
 // ⚠️⚠️ DEBUG TẠM (v7 SÂU) — XÓA SAU. Log có timestamp (ms từ load) + console.log + overlay.
-export const DEBUG_PRINT_BUILD = 'DBG-iframe-v8' // marker: founder xác nhận đang chạy bundle MỚI (iframe-print)
+export const DEBUG_PRINT_BUILD = 'DBG-probe-v9' // marker: founder xác nhận đang chạy bundle MỚI (errCapture + bridge probe)
 const _printDebugLog = []
 const _t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
 function _ms() {
@@ -51,6 +51,69 @@ export function dbgLog(line) {
 export function getPrintDebugLog() {
   return _printDebugLog
 }
+
+// ── ⚠️⚠️ DEBUG TẠM (việc 1): BẮT LỖI JS TOÀN CỤC → log overlay ────────────────
+// Nếu in lần 2 CRASH mà overlay KHÔNG có dòng ERR/REJECT nào → crash THUẦN NATIVE
+// (SunmiPrinter là process Android riêng, KHÔNG ném vào JS) → củng cố: không sửa được
+// bằng JS thuần, PHẢI đổi KÊNH IN (Sunmi JS bridge / native). Có dòng ERR → lỗi JS thật.
+let _errCaptureInstalled = false
+function _installGlobalErrorCapture() {
+  if (_errCaptureInstalled || typeof window === 'undefined') return
+  _errCaptureInstalled = true
+  window.addEventListener('error', (e) => {
+    const m = e && e.error ? (e.error.stack || e.error.message) : `${e && e.message} @${e && e.filename}:${e && e.lineno}`
+    dbgLog(`ERR ${String(m).slice(0, 220)}`)
+  })
+  window.addEventListener('unhandledrejection', (e) => {
+    const r = e && e.reason
+    const m = r && (r.stack || r.message) ? r.stack || r.message : String(r)
+    dbgLog(`REJECT ${String(m).slice(0, 220)}`)
+  })
+  dbgLog('errCapture ON')
+}
+
+// ── ⚠️⚠️ DEBUG TẠM (việc 2): DÒ SUNMI JS BRIDGE trong runtime ─────────────────
+// Tìm KÊNH IN NATIVE qua JS (KHÔNG qua Android print framework = cái đang crash). Sunmi CÓ
+// "Web Print JS SDK" expose hàm window.printText/printBitmap/printQrCode/sendEscCommand… NHƯNG
+// chỉ khi WebView host (app Sunmi / WebView có addJavascriptInterface) inject bridge. PWA mở
+// Chrome thuần → thường KHÔNG có. Probe này CHỐT: runtime của founder CÓ bridge không?
+//   - SDK-fns=[printText,…] có hàm → DÙNG ĐƯỢC SDK (fix đúng: in qua bridge, bỏ window.print()).
+//   - keys=∅ & SDK-fns=∅ → không bridge → chỉ còn window.print() (crash) → cần SDK script / wrap native.
+export function probeSunmiBridge() {
+  if (typeof window === 'undefined') return
+  try {
+    const re = /sunmi|print|android|webview|innerprinter|woyou|escpos/i
+    const keys = Object.keys(window).filter((k) => re.test(k))
+    dbgLog(`BRIDGE keys=[${keys.slice(0, 25).join(',') || '∅'}]`)
+    const objs = ['sunmi', 'SunmiPrinter', 'sunmiPrinter', 'WebPrint', 'Android', 'innerPrinter', 'InnerPrinter', 'woyou', 'SunmiPrintService', 'WebViewJavascriptBridge']
+    objs.forEach((name) => {
+      const v = window[name]
+      if (v == null) return
+      let info = typeof v
+      try {
+        if (typeof v === 'object') info += ` keys=[${Object.keys(v).slice(0, 20).join(',')}]`
+      } catch {
+        /* noop */
+      }
+      dbgLog(`BRIDGE ${name}: ${info}`)
+    })
+    const fns = ['printText', 'printTexts', 'printBitmap', 'printQrCode', 'printBarCode', 'sendEscCommand', 'sendTsplCommand', 'initLine', 'addText', 'printDividingLine', 'enterPrinterBuffer', 'commitPrinterBuffer']
+    const present = fns.filter((f) => typeof window[f] === 'function')
+    dbgLog(`BRIDGE SDK-fns=[${present.join(',') || '∅'}]`)
+    try {
+      const nav = Object.keys(navigator).filter((k) => re.test(k))
+      if (nav.length) dbgLog(`BRIDGE nav=[${nav.join(',')}]`)
+    } catch {
+      /* noop */
+    }
+    dbgLog(`BRIDGE UA=${String(navigator.userAgent || '').slice(0, 120)}`)
+  } catch (e) {
+    dbgLog(`BRIDGE probe lỗi: ${e && e.message ? e.message : e}`)
+  }
+}
+
+_installGlobalErrorCapture()
+probeSunmiBridge() // dò 1 lần lúc load; founder bấm "DÒ BRIDGE" trên overlay để dò lại sau khi WebView sẵn sàng
 // Snapshot DOM THẬT lúc print(): mỗi node → display + offset w/h + textContent + số con DOM.
 // ⚠️ Chạy KHI CÒN TRÊN MÀN (ngay trước window.print()), lúc này .print-lien2 ĐANG display:none
 // (rule nền — chỉ display:block trong @media print). HỆ QUẢ ĐO:

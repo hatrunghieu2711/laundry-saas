@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { DEBUG_PRINT_BUILD, getPrintDebugLog, usePrintMode } from '../lib/printQueue'
+import { DEBUG_PRINT_BUILD, getPrintDebugLog, probeSunmiBridge, usePrintMode } from '../lib/printQueue'
 
 // ⚠️⚠️ DEBUG TẠM — XÓA SAU (cùng _dbg/getPrintDebugLog/DEBUG_PRINT_BUILD ở printQueue.js).
 // Overlay góc trái-dưới: printMode hiện tại + mảnh nào ĐANG mount (.print-receipt = bill /
@@ -28,6 +28,12 @@ export default function PrintDebugOverlay() {
       overflow: 'auto', opacity: 0.92, whiteSpace: 'pre-wrap',
     }}>
       <div style={{ color: '#ff0' }}>[{DEBUG_PRINT_BUILD}] mode=<b>{String(mode)}</b> · bill={snap.bill ? 'Y' : 'N'} · lien2={snap.lien2 ? 'Y' : 'N'}</div>
+      {/* ⚠️ DEBUG TẠM — founder bấm để dò Sunmi JS bridge LẦN NỮA (sau khi WebView sẵn sàng). */}
+      <button
+        type="button"
+        onClick={() => probeSunmiBridge()}
+        style={{ margin: '3px 0', padding: '2px 8px', font: 'bold 11px monospace', background: '#063', color: '#0f0', border: '1px solid #0f0', borderRadius: 3 }}
+      >DÒ BRIDGE</button>
       {log.slice(-10).map((e, i) => (
         <div key={i}>{e}</div>
       ))}
