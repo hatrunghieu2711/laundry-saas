@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import BillContent from './Bill'
 import { DEFAULT_RECEIPT, getReceiptConfig } from '../lib/receipt'
-import { usePrintMode } from '../lib/printQueue'
+import { dbgLog, usePrintMode } from '../lib/printQueue' // dbgLog ⚠️ DEBUG TẠM
 
 // Phiếu in khổ giấy nhiệt 80mm. Render qua portal ra <body> để khi @media print
 // chỉ còn phiếu (ẩn .app-shell). Nội dung song ngữ lấy từ /settings/receipt.
@@ -11,6 +11,11 @@ import { usePrintMode } from '../lib/printQueue'
 export default function Receipt({ order, config: configProp }) {
   const [fetched, setFetched] = useState(null)
   const printMode = usePrintMode() // 'lien2' → UNMOUNT bill (fix T2: không phụ thuộc body class)
+
+  // ⚠️ DEBUG TẠM — log mỗi khi printMode đổi: Receipt CÓ return null (unmount bill) khi 'lien2'?
+  useEffect(() => {
+    dbgLog(`Receipt mode=${printMode} -> ${printMode === 'lien2' ? 'RETURN NULL (unmount bill)' : 'render bill'}`)
+  }, [printMode])
 
   useEffect(() => {
     if (configProp) return undefined // cha đã có config → khỏi fetch lại

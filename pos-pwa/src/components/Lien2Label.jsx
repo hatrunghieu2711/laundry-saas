@@ -1,6 +1,8 @@
+import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { formatLabelDateTime, formatLabelTime } from '../lib/datetime'
 import { formatVND } from '../lib/format'
+import { dbgLog } from '../lib/printQueue' // ⚠️ DEBUG TẠM
 
 // NHÃN LIÊN 2 (dán túi đồ — nội bộ, Stage 6.9). Mẫu CỐ ĐỊNH mọi tenant (không
 // builder): khổ 80mm in nhiệt, monospace, chữ to, KHÔNG bảng món/QR/logo.
@@ -53,6 +55,11 @@ export function Lien2LabelBody({ order, seq = null }) {
 // (OrderNew) lẫn in chủ động (Lien2PrintButton). Body class print-job-lien2 quyết
 // định hiển thị (xem index.css @media print).
 export function Lien2PrintLayer({ order, seq = null }) {
+  // ⚠️ DEBUG TẠM — log khi lớp nhãn MOUNT/UNMOUNT (hook gọi TRƯỚC return sớm).
+  useEffect(() => {
+    dbgLog('Lien2Layer MOUNT (.print-lien2)')
+    return () => dbgLog('Lien2Layer UNMOUNT')
+  }, [])
   if (!order) return null
   return createPortal(
     <div className="print-lien2">

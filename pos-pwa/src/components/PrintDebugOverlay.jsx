@@ -23,12 +23,13 @@ export default function PrintDebugOverlay() {
   return (
     <div style={{
       position: 'fixed', left: 4, bottom: 4, zIndex: 99999,
-      background: '#000', color: '#0f0', font: '11px/1.35 monospace',
-      padding: '4px 7px', borderRadius: 4, maxWidth: '78vw', opacity: 0.92,
+      background: '#000', color: '#0f0', font: '10px/1.3 monospace',
+      padding: '4px 7px', borderRadius: 4, maxWidth: '92vw', maxHeight: '46vh',
+      overflow: 'auto', opacity: 0.92, whiteSpace: 'pre-wrap',
     }}>
-      <div>[{DEBUG_PRINT_BUILD}] mode=<b>{String(mode)}</b> · bill={snap.bill ? 'Y' : 'N'} · lien2={snap.lien2 ? 'Y' : 'N'}</div>
-      {log.slice(-5).map((e, i) => (
-        <div key={i}>{e.at}: mode={String(e.mode)} bill={e.bill ? 'Y' : 'N'} lien2={e.lien2 ? 'Y' : 'N'}</div>
+      <div style={{ color: '#ff0' }}>[{DEBUG_PRINT_BUILD}] mode=<b>{String(mode)}</b> · bill={snap.bill ? 'Y' : 'N'} · lien2={snap.lien2 ? 'Y' : 'N'}</div>
+      {log.slice(-10).map((e, i) => (
+        <div key={i}>{e}</div>
       ))}
     </div>
   )

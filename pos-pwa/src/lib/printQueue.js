@@ -34,19 +34,35 @@ function _getPrintMode() {
   return _printMode
 }
 
-// ⚠️ DEBUG TẠM — XÓA SAU. Ghi log chẩn đoán (mode + mảnh nào trong DOM) lúc setMode/print().
-export const DEBUG_PRINT_BUILD = 'DBG-norotate-v5' // marker: founder xác nhận đang chạy bundle MỚI
+// ⚠️⚠️ DEBUG TẠM (v6 SÂU) — XÓA SAU. Log có timestamp (ms từ load) + console.log + overlay.
+export const DEBUG_PRINT_BUILD = 'DBG-deep-v6' // marker: founder xác nhận đang chạy bundle MỚI
 const _printDebugLog = []
-function _dbg(at) {
-  _printDebugLog.push({
-    at, mode: _printMode,
-    bill: typeof document !== 'undefined' && !!document.querySelector('.print-receipt'),
-    lien2: typeof document !== 'undefined' && !!document.querySelector('.print-lien2'),
-  })
-  if (_printDebugLog.length > 10) _printDebugLog.shift()
+const _t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
+function _ms() {
+  const t = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
+  return Math.round(t - _t0)
+}
+export function dbgLog(line) {
+  const e = `+${_ms()}ms ${line}`
+  _printDebugLog.push(e)
+  if (_printDebugLog.length > 12) _printDebugLog.shift()
+  if (typeof console !== 'undefined') console.log('[PRINTDBG]', e)
 }
 export function getPrintDebugLog() {
   return _printDebugLog
+}
+// Snapshot DOM THẬT lúc print(): đếm node + getComputedStyle(display) + offsetHeight → cái nào
+// THỰC SỰ visible (display!=none & h>0) sẽ in. Đây là phép đo mấu chốt (không đoán).
+function _dbgPrintSnapshot() {
+  const fmt = (sel) => {
+    const nodes = typeof document !== 'undefined' ? document.querySelectorAll(sel) : []
+    const parts = Array.from(nodes).map((el) => {
+      const cs = window.getComputedStyle(el)
+      return `disp=${cs.display},h=${el.offsetHeight}`
+    })
+    return `[${nodes.length}]${parts.length ? ' ' + parts.join(' | ') : ''}`
+  }
+  dbgLog(`PRINT mode=${_printMode} receipt${fmt('.print-receipt')} lien2${fmt('.print-lien2')}`)
 }
 
 // Set mode TOÀN CỤC + notify (useSyncExternalStore tự gọi getSnapshot + re-render subscriber).
@@ -54,7 +70,7 @@ export function getPrintDebugLog() {
 export function setPrintMode(mode) {
   if (_printMode === mode) return
   _printMode = mode
-  _dbg('setMode') // DEBUG TẠM
+  dbgLog(`setPrintMode -> ${mode}`) // DEBUG TẠM
   _modeSubs.forEach((cb) => cb())
 }
 
@@ -106,7 +122,7 @@ export function usePrintQueue() {
       raf2 = requestAnimationFrame(() => {
         window.addEventListener('afterprint', finish)
         timerRef.current = setTimeout(finish, PRINT_FALLBACK_MS)
-        _dbg('print') // ⚠️ DEBUG TẠM — snapshot mode + mảnh mount NGAY trước window.print()
+        _dbgPrintSnapshot() // ⚠️ DEBUG TẠM — đo DOM thật (node + display + h) NGAY trước window.print()
         window.print()
       })
     })
