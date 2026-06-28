@@ -133,14 +133,18 @@ function defaultBlocks() {
     b('delivery_time', 'delivery_time', { row: 4, col: 'right' }),
     b('items_table', 'items_table', { row: 5 }),
     b('totals', 'totals', { row: 6 }),
-    b('note', 'custom_text', { row: 7, italic: true, size: 'small', content: {
+    // Trạng thái thanh toán (động theo order.payment_status) — removable:false (mirror BE
+    // _default_blocks). b() đặt removable:false mặc định → không xóa được, chỉ ẩn/hiện.
+    b('payment_status', 'payment_status', { row: 7, bold: true, align: 'center', content: {
+      paid_vi: 'Đã thanh toán/Paid/Оплачено', unpaid_vi: 'Chưa thanh toán/Unpaid/Не оплачено' } }),
+    b('note', 'custom_text', { row: 8, italic: true, size: 'small', content: {
       vi: 'Vui lòng giữ biên nhận và nhận đồ trong vòng 30 ngày kể từ ngày hẹn. Quá hạn, cơ sở không chịu trách nhiệm.',
       en: 'Please keep this receipt and collect within 30 days of the due date. After that we hold no responsibility.',
     } }),
-    b('qr_tracking', 'qr_tracking', { row: 8 }),
-    b('order_no', 'order_no', { row: 9 }),
-    b('contact', 'custom_text', { row: 10, size: 'small', content: { vi: '[Địa chỉ] · [Số điện thoại]' } }),
-    b('footer_thanks', 'custom_text', { row: 11, content: { vi: 'Cảm ơn quý khách!', en: 'Thank you!' } }),
+    b('qr_tracking', 'qr_tracking', { row: 9 }),
+    b('order_no', 'order_no', { row: 10 }),
+    b('contact', 'custom_text', { row: 11, size: 'small', content: { vi: '[Địa chỉ] · [Số điện thoại]' } }),
+    b('footer_thanks', 'custom_text', { row: 12, content: { vi: 'Cảm ơn quý khách!', en: 'Thank you!' } }),
   ]
 }
 

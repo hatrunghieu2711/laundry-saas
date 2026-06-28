@@ -58,14 +58,21 @@ def _default_blocks() -> list[dict]:
         _block("delivery_time", "delivery_time", row=4, col="right"),
         _block("items_table", "items_table", row=5),
         _block("totals", "totals", row=6),
-        {**_block("note", "custom_text", row=7,
+        # Trạng thái thanh toán (động theo order.payment_status) — KHÔNG xóa được
+        # (removable=False), chỉ ẩn/hiện. Viền tự có (CSS .rcp__paystatus). Seed trilingual
+        # VI/EN/RU như 2H; bilingual off vẫn hiện (gõ thẳng field _vi).
+        {**_block("payment_status", "payment_status", row=7, content={
+            "paid_vi": "Đã thanh toán/Paid/Оплачено",
+            "unpaid_vi": "Chưa thanh toán/Unpaid/Не оплачено"}),
+         "bold": True, "align": "center", "removable": False},
+        {**_block("note", "custom_text", row=8,
                   content={"vi": _SAMPLE_NOTE_VI, "en": _SAMPLE_NOTE_EN}),
          "italic": True, "size": "small"},
-        _block("qr_tracking", "qr_tracking", row=8),
-        _block("order_no", "order_no", row=9),
-        {**_block("contact", "custom_text", row=10,
+        _block("qr_tracking", "qr_tracking", row=9),
+        _block("order_no", "order_no", row=10),
+        {**_block("contact", "custom_text", row=11,
                   content={"vi": "[Địa chỉ] · [Số điện thoại]"}), "size": "small"},
-        _block("footer_thanks", "custom_text", row=11,
+        _block("footer_thanks", "custom_text", row=12,
                content={"vi": "Cảm ơn quý khách!", "en": "Thank you!"}),
     ]
 
