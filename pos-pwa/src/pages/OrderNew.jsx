@@ -8,7 +8,7 @@ import MoneyInput from '../components/MoneyInput'
 import ShiftEmpty from '../components/ShiftEmpty'
 import { Lien2PrintLayer } from '../components/Lien2Label'
 import Lien2PrintButton from '../components/Lien2PrintButton'
-import { usePrintQueue } from '../lib/printQueue'
+import { reloadAfterPrint, usePrintQueue } from '../lib/printQueue'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import {
@@ -552,21 +552,24 @@ export default function OrderNew() {
     setPayWarn('')
   }
 
-  // Tạo đơn xong (auto_print BẬT) → in TUẦN TỰ 2 JOB RIÊNG: BILL rồi LIÊN 2 (1 nhãn
-  // không số) → máy Sunmi cắt rời 2 tờ (Stage 6.9.4). In 1 lần/đơn (printedRef).
-  // CHỜ printReady (config+logo) → in đúng mẫu tenant (6.8.1). Xong → printed=true
-  // (hiện màn tóm tắt; KHÔNG auto về đơn mới — để dùng nút In lại/In liên 2).
+  // Tạo đơn xong (auto_print BẬT) → in ĐÚNG 1 JOB (ưu tiên BILL) rồi FULL RELOAD (fix T2:
+  // print lần 2+ cùng document crash → mỗi document 1 print → reload → document kế sạch).
+  // In 1 lần/đơn (printedRef). CHỜ printReady (config+logo) → in đúng mẫu tenant (6.8.1).
+  // Reload → mất màn tóm tắt tạm (đơn đã lưu DB; reprint qua /orders/:id hoặc Board).
   useEffect(() => {
     if (!created || !printReady) return
     if (autoPrint === null || autoPrintCopy2 === null) return // chờ nạp settings
-    // TÁCH RIÊNG: bill / liên 2 độc lập → in bill-only / liên2-only / cả hai / không gì.
-    const jobs = []
-    if (autoPrint) jobs.push({ mode: 'bill' })
-    if (autoPrintCopy2) jobs.push({ mode: 'lien2', seq: null })
-    if (!jobs.length) return // cả hai tắt → KHÔNG tự in (nhân viên in tay)
+    // ⭐ Fix T2: mỗi document chỉ ĐÚNG 1 print(). Auto-print 1 JOB: ưu tiên BILL; nếu CHỈ bật
+    // copy2 → 1 nhãn. (Bill + nhãn KHÔNG còn in CHUNG phiên — print lần 2 cùng document crash;
+    // nhãn còn lại in TAY qua "In liên 2", đã gộp 1 print.) Xong → reloadAfterPrint → document
+    // kế "print lần 1", không crash.
+    let job = null
+    if (autoPrint) job = { mode: 'bill' }
+    else if (autoPrintCopy2) job = { mode: 'lien2', count: 1, numbered: false }
+    if (!job) return // cả hai tắt → KHÔNG tự in (nhân viên in tay)
     if (printedRef.current === created.id) return
     printedRef.current = created.id
-    runPrint(jobs, () => setPrinted(true))
+    runPrint([job], () => reloadAfterPrint(700))
   }, [created, autoPrint, autoPrintCopy2, printReady, runPrint])
 
   // ── sau khi tạo đơn: render Bill (portal) NGAY + in thẳng (đúng mẫu tenant).
@@ -581,7 +584,7 @@ export default function OrderNew() {
     // Nút "In bill" THỦ CÔNG = CHỈ bill (nhãn liên 2 in qua nút "In liên 2" riêng). Trước
     // đây in cả bill+lien2 gây hiểu nhầm "In bill → ra nhãn". (Auto-print khi tạo đơn vẫn
     // theo cài đặt auto_print_receipt/auto_print_copy2 — KHÔNG đổi.)
-    const printBill = () => runPrint([{ mode: 'bill' }])
+    const printBill = () => runPrint([{ mode: 'bill' }], () => reloadAfterPrint(700))
     return (
       <div className="ordernew">
         {!showSummary ? (
@@ -623,7 +626,7 @@ export default function OrderNew() {
         )}
         <Receipt config={receiptConfig} order={created} paid={paidInfo.amount} method={paidInfo.method} />
         {/* LIÊN 2: chỉ render khi job liên 2 đang in (auto kèm bill / In lại) — 1 nhãn/lần. */}
-        {printJob?.mode === 'lien2' && <Lien2PrintLayer order={created} seq={printJob.seq} />}
+        {printJob?.mode === 'lien2' && <Lien2PrintLayer order={created} count={printJob.count || 1} numbered={printJob.numbered || false} />}
       </div>
     )
   }

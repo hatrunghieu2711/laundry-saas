@@ -35,7 +35,7 @@ function _getPrintMode() {
 }
 
 // ⚠️⚠️ DEBUG TẠM (v7 SÂU) — XÓA SAU. Log có timestamp (ms từ load) + console.log + overlay.
-export const DEBUG_PRINT_BUILD = 'DBG-probe-v9' // marker: founder xác nhận đang chạy bundle MỚI (errCapture + bridge probe)
+export const DEBUG_PRINT_BUILD = 'DBG-reload-v10' // marker: founder xác nhận đang chạy bundle MỚI (reload sau in + gộp nhãn)
 const _printDebugLog = []
 const _t0 = typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
 function _ms() {
@@ -255,6 +255,34 @@ export function printViaIframe(selector) {
       requestAnimationFrame(() => requestAnimationFrame(fire))
     }
   })
+}
+
+// ── FULL RELOAD SAU IN (FIX GỐC T2) ──────────────────────────────────────────
+// Gốc: print() lần 2+ trong CÙNG document → T2 crash (print service theo document). GIẢI:
+// mỗi document chỉ in ĐÚNG 1 print() rồi FULL reload → document kế là "print lần 1" → không
+// crash. PHẢI location.reload() (load document MỚI, reset print service); SPA navigate KHÔNG
+// reset (cùng document). Print đã dispatch xong từ trước (printViaIframe fire print ~ngay,
+// service nhận job ở process riêng) → reload sau delay an toàn, không cắt job.
+export function reloadAfterPrint(delayMs = 1800) {
+  if (typeof window === 'undefined') return
+  try {
+    const el = document.createElement('div')
+    el.textContent = 'Đã in — đang làm mới…'
+    el.setAttribute('aria-live', 'polite')
+    el.style.cssText =
+      'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;' +
+      'background:rgba(255,255,255,0.94);color:#0f172a;font:600 16px system-ui,-apple-system,sans-serif;'
+    document.body.appendChild(el)
+  } catch {
+    /* noop */
+  }
+  setTimeout(() => {
+    try {
+      window.location.reload()
+    } catch {
+      /* noop */
+    }
+  }, delayMs)
 }
 
 export function usePrintQueue() {

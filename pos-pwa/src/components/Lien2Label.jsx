@@ -54,19 +54,26 @@ export function Lien2LabelBody({ order, seq = null }) {
 // display:none khi in). Render 1 nhãn ĐANG in của hàng đợi. Dùng cho cả auto-print
 // (OrderNew) lẫn in chủ động (Lien2PrintButton). Body class print-job-lien2 quyết
 // định hiển thị (xem index.css @media print).
-export function Lien2PrintLayer({ order, seq = null }) {
+// count = số nhãn GỘP trong 1 document (Part C, fix T2): thay vì N job × N print() (print lần
+// 2+ crash), render N khối .lbl trong CÙNG .print-lien2 → printViaIframe in 1 PRINT DUY NHẤT →
+// đủ N nhãn trên 1 dải giấy, XÉ TAY theo vạch .lbl__cutline (mất auto-cut từng nhãn — đánh đổi).
+// numbered = đánh số 1/N…N/N. count=1 numbered=false → 1 nhãn không số (như cũ).
+export function Lien2PrintLayer({ order, count = 1, numbered = false }) {
   // ⚠️ DEBUG TẠM — log khi lớp nhãn MOUNT/UNMOUNT (hook gọi TRƯỚC return sớm).
   useEffect(() => {
-    dbgLog('Lien2Layer MOUNT (.print-lien2)')
+    dbgLog(`Lien2Layer MOUNT (.print-lien2) count=${count}`)
     return () => dbgLog('Lien2Layer UNMOUNT')
-  }, [])
+  }, [count])
   if (!order) return null
-  // ⭐ .print-lien2 > .lbl TRỰC TIẾP (bỏ wrapper .lbl-page) — parity với bill (.print-receipt >
-  // .rcp). Trước đây .lbl-page chen giữa khiến page:lien2pg (trên .lbl) KHÁC @page cha → NGẮT
-  // TRANG → trang trống → SunmiPrinter crash. Giờ .lbl là con trực tiếp, dùng chung @page billpg.
+  const n = Math.max(1, count | 0)
+  // ⭐ .print-lien2 > N×.lbl TRỰC TIẾP (bỏ wrapper .lbl-page) — parity với bill (.print-receipt >
+  // .rcp). Mỗi .lbl dùng chung @page billpg; nhiều .lbl cùng named-page → KHÔNG ép ngắt trang
+  // giữa chúng → chảy liên tục 1 dải. Mỗi .lbl mở đầu bằng .lbl__cutline = mốc XÉ TAY.
   return createPortal(
     <div className="print-lien2">
-      <Lien2LabelBody order={order} seq={seq} />
+      {Array.from({ length: n }, (_, i) => (
+        <Lien2LabelBody key={i} order={order} seq={numbered ? { n: i + 1, total: n } : null} />
+      ))}
     </div>,
     document.body,
   )
