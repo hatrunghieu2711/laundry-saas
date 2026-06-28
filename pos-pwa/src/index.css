@@ -1497,13 +1497,15 @@ body {
     margin: 0 auto;
     page: billpg; /* bill 1 trang liên tục, không bị cap ~1056px (6.9.3) */
   }
-  /* Nhãn liên 2: trang CỐ ĐỊNH lien2pg (xem @page trên) + rotate 180 — xoay để leader gap
-     (~1cm đầu tờ) rơi vào vùng dòng kẻ ghi tay (đáy). transform-origin center → không lệch
-     mép. CHỈ nhãn (.lbl), KHÔNG đụng bill (.rcp). Mỗi nhãn = 1 job riêng. */
+  /* Nhãn liên 2: trang CỐ ĐỊNH lien2pg (xem @page trên).
+     ⚠️ BỎ `transform: rotate(180deg)` — đây là tác nhân làm DRIVER SunmiPrinter CRASH khi
+     rasterize ("SunmiPrinter has stopped" → in ra BILL + treo máy T2). Overlay đã chứng minh
+     DOM/React ĐÚNG (mode=lien2 bill=N lien2=Y); khác biệt DUY NHẤT vs bill (in OK kể cả QR) là
+     rotate → driver chối trang xoay. Không-xoay rasterize như bill. (Rotate cũ chỉ workaround
+     leader-gap; nếu T2 in NGƯỢC chiều → redesign DOM không-transform, KHÔNG thêm lại rotate.)
+     CHỈ nhãn (.lbl), KHÔNG đụng bill (.rcp). Mỗi nhãn = 1 job riêng. */
   .print-lien2 .lbl {
     page: lien2pg;
-    transform: rotate(180deg);
-    transform-origin: center center;
   }
 }
 
