@@ -9,16 +9,31 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 // Cơ chế: cờ idxRef (đang in / job nào) chặn chồng job; mỗi job chờ xong bằng
 // afterprint HOẶC timeout (chốt nào tới trước) rồi MỚI kéo job kế; token chống
 // double-advance khi cả 2 cùng bắn.
-// ⚠️ FIX in liên 2 ra BILL trên T2 (window.print không chặn + afterprint KHÔNG bắn trên
-// Sunmi): timeout cũ 1000ms → cleanup (xóa class print-job-lien2 + unmount nhãn) chạy KHI
-// preview T2 còn mở → rơi về mặc định = BILL. Tăng 6000ms → cleanup hoãn tới khi user đã
-// xong print dialog → nhãn giữ nguyên suốt preview. (BƯỚC XÁC NHẬN chẩn đoán; đủ → giữ.
-// TRADE-OFF: máy KHÔNG bắn afterprint → in N nhãn chờ N×6s; afterprint có bắn → vẫn nhanh.)
-export const PRINT_FALLBACK_MS = 6000
+export const PRINT_FALLBACK_MS = 2000 // 6000→2000: mount/unmount (printMode) là cơ chế chính, không cần dài
 
-function setBodyMode(mode) {
-  document.body.classList.remove('print-job-bill', 'print-job-lien2')
-  if (mode) document.body.classList.add(`print-job-${mode}`)
+// ── MODE IN TOÀN CỤC — mount/unmount thay CSS body class (FIX T2) ─────────────
+// ⚠️ T2 print engine KHÔNG áp body class set runtime trong @media print → cơ chế cũ
+// (body.print-job-lien2 ẩn bill) VÔ HIỆU trên T2 → bill (mặc-định-hiện) rò + @page xung
+// đột → kẹt driver. SỬA GỐC: chọn mảnh in bằng MOUNT/UNMOUNT DOM (T2 in cái gì CÓ trong
+// DOM, không cần class). printMode: 'bill' | 'lien2' | null. Receipt (bill) UNMOUNT khi
+// 'lien2' → T2 chỉ còn nhãn. printQueue set qua setPrintMode (mọi job).
+let _printMode = null
+const _modeSubs = new Set()
+function setPrintMode(mode) {
+  _printMode = mode
+  _modeSubs.forEach((fn) => fn(mode))
+}
+
+export function usePrintMode() {
+  const [mode, setMode] = useState(_printMode)
+  useEffect(() => {
+    _modeSubs.add(setMode)
+    setMode(_printMode) // đồng bộ giá trị hiện tại khi mount
+    return () => {
+      _modeSubs.delete(setMode)
+    }
+  }, [])
+  return mode
 }
 
 export function usePrintQueue() {
@@ -35,7 +50,7 @@ export function usePrintQueue() {
       // hết hàng đợi → dọn
       idxRef.current = -1
       jobsRef.current = []
-      setBodyMode(null)
+      setPrintMode(null)
       setActive(null)
       const cb = doneCbRef.current
       doneCbRef.current = null
@@ -43,7 +58,7 @@ export function usePrintQueue() {
       return
     }
     idxRef.current = i
-    setBodyMode(jobs[i].mode) // bật body class TRƯỚC khi in (ẩn job khác)
+    setPrintMode(jobs[i].mode) // mode TOÀN CỤC TRƯỚC khi in → Receipt unmount khi 'lien2'
     setActive(jobs[i]) // re-render: component hiện nội dung job này vào vùng in
   }, [])
 
@@ -92,7 +107,7 @@ export function usePrintQueue() {
   useEffect(
     () => () => {
       clearTimeout(timerRef.current)
-      setBodyMode(null)
+      setPrintMode(null)
     },
     [],
   )
