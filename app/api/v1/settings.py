@@ -18,7 +18,7 @@ from app.schemas.settings import (
     SettingsPublic,
     SettingsUpdate,
 )
-from app.services import settings_service
+from app.services import admin_default_receipt_service, settings_service
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
@@ -80,5 +80,20 @@ async def save_receipt_default(actor: Owner, db: DbSession) -> ReceiptDefaultSta
 
 @router.post("/receipt/restore-default", response_model=ReceiptConfig)
 async def restore_receipt_default(actor: Owner, db: DbSession) -> ReceiptConfig:
-    """Khôi phục về mẫu mặc định tenant (hoặc mẫu gốc nền tảng nếu chưa lưu)."""
+    """⚠️ DEPRECATED (commit lưu-luôn) — FE chuyển sang 2 GET load-only bên dưới. GIỮ cho
+    bản FE cũ/cache không gãy. Khôi phục về mẫu mặc định tenant (hoặc mẫu gốc nếu chưa lưu)."""
     return await settings_service.restore_receipt_default(db, actor.tenant_id)
+
+
+# ── Khôi phục LOAD-ONLY (read-only, KHÔNG commit) — FE nạp vào editor rồi owner tự Lưu ──
+@router.get("/receipt/my-default", response_model=ReceiptConfig)
+async def get_my_default_receipt(actor: Owner, db: DbSession) -> ReceiptConfig:
+    """Mẫu MẶC ĐỊNH của tenant (đã lưu) — load-only. Chưa lưu → 404 NO_DEFAULT."""
+    return await settings_service.get_receipt_default(db, actor.tenant_id)
+
+
+@router.get("/system-default-receipt", response_model=ReceiptConfig)
+async def get_system_default_receipt(actor: Owner, db: DbSession) -> ReceiptConfig:
+    """Mẫu CHUẨN hệ thống (Super Admin, app_settings) — load-only. Chưa set → mẫu gốc nền
+    tảng. app_settings NGOÀI RLS → tenant (GUC=tenant) đọc thẳng được."""
+    return await admin_default_receipt_service.get_default_receipt(db)

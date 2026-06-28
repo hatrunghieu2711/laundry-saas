@@ -12,6 +12,7 @@ import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.errors import APIError
 from app.models.tenant_settings import TenantSettings
 from app.schemas.settings import ReceiptConfig, SettingsUpdate
 from app.services import logo_store
@@ -242,6 +243,15 @@ async def save_logo(
 async def has_receipt_default(db: AsyncSession, tenant_id: uuid.UUID) -> bool:
     settings = await get_or_create(db, tenant_id)
     return settings.receipt_default_config is not None
+
+
+async def get_receipt_default(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
+    """Đọc mẫu MẶC ĐỊNH của tenant (receipt_default_config) — READ-ONLY (KHÔNG commit),
+    cho nút "Khôi phục mẫu của tôi" (LOAD-ONLY). Chưa lưu → 404 NO_DEFAULT."""
+    settings = await get_or_create(db, tenant_id)
+    if settings.receipt_default_config is None:
+        raise APIError(404, "NO_DEFAULT", "Cửa hàng chưa lưu mẫu mặc định riêng")
+    return settings.receipt_default_config
 
 
 async def save_receipt_default(db: AsyncSession, tenant_id: uuid.UUID) -> dict:

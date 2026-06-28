@@ -36,6 +36,7 @@ export default function ReceiptSettings() {
   const [uploading, setUploading] = useState(false)
   const [commonEditing, setCommonEditing] = useState(null) // {ri,ci} khối CHUNG đang sửa
   const [bcEditing, setBcEditing] = useState(null)         // {ri,ci} khối CN đang sửa
+  const [restoredMsg, setRestoredMsg] = useState('')       // nhắc "đã nạp mẫu — bấm Lưu"
   const fileRef = useRef(null)
 
   const applyConfig = (c) => {
@@ -162,7 +163,7 @@ export default function ReceiptSettings() {
     setSaving(true); setError('')
     try {
       await putConfig()
-      clearReceiptCache(); setSaved(true)
+      clearReceiptCache(); setSaved(true); setRestoredMsg('')
     } catch (e) {
       setError(e instanceof ApiError && e.status === 403 ? 'Chỉ owner mới lưu được mẫu phiếu.' : e?.message || 'Không lưu được cấu hình')
     } finally { setSaving(false) }
@@ -181,20 +182,29 @@ export default function ReceiptSettings() {
     } finally { setSaving(false) }
   }
 
-  // Khôi phục về mẫu mặc định tenant (hoặc mẫu gốc nền tảng nếu chưa lưu).
-  const restoreDefault = async () => {
-    const msg = hasDefault
-      ? 'Khôi phục về MẪU MẶC ĐỊNH của tiệm? Cấu hình đang chỉnh sẽ bị thay thế — KHÔNG hoàn tác.'
-      : 'Chưa lưu mẫu mặc định riêng. Khôi phục sẽ về MẪU GỐC NỀN TẢNG (có placeholder) — KHÔNG hoàn tác. Tiếp tục?'
-    if (!window.confirm(msg)) return
-    setSaving(true); setError('')
+  // Khôi phục LOAD-ONLY: nạp mẫu vào trình sửa, KHÔNG tự lưu (owner bấm "Lưu mẫu in" mới áp).
+  // applyConfig(cfg) đổ vào editor; setSaved(false) → đánh dấu chưa lưu; restoredMsg nhắc owner.
+  const loadInto = async (fetcher, okMsg, failMsg, confirmMsg) => {
+    if (!window.confirm(confirmMsg)) return
+    setError(''); setRestoredMsg('')
     try {
-      const cfg = await api.post('/settings/receipt/restore-default')
-      applyConfig(cfg); clearReceiptCache(); setSaved(true)
+      applyConfig(await fetcher())
+      setSaved(false)
+      setRestoredMsg(okMsg)
     } catch (e) {
-      setError(e?.message || 'Không khôi phục được')
-    } finally { setSaving(false) }
+      setError(e?.message || failMsg)
+    }
   }
+  const restoreMine = () => loadInto(
+    api.getMyDefaultReceipt, 'Đã nạp MẪU CỦA TÔI — bấm "Lưu mẫu in" để áp.',
+    'Không nạp được mẫu của tôi',
+    'Nạp lại MẪU CỦA TÔI vào trình sửa? Cấu hình đang chỉnh sẽ bị thay — bấm Lưu mẫu in mới áp.',
+  )
+  const restoreSystem = () => loadInto(
+    api.getSystemDefaultReceipt, 'Đã nạp MẪU GỐC HỆ THỐNG — bấm "Lưu mẫu in" để áp.',
+    'Không nạp được mẫu hệ thống',
+    'Nạp lại MẪU GỐC HỆ THỐNG (Super Admin) vào trình sửa? Cấu hình đang chỉnh sẽ bị thay — bấm Lưu mẫu in mới áp.',
+  )
 
   const previewConfig = useMemo(
     () => (rows ? {
@@ -292,19 +302,25 @@ export default function ReceiptSettings() {
 
       {canEdit && (
         <div className="shift__card rcfg__default">
-          <h3 className="card__title">Mẫu mặc định của tiệm</h3>
+          <h3 className="card__title">Mẫu mặc định</h3>
           <p className="rcfg__hint">
-            Trạng thái: <strong>Đang chỉnh sửa</strong> →
             {hasDefault
-              ? ' có mẫu mặc định riêng đã lưu (Khôi phục sẽ về mẫu này).'
-              : ' chưa lưu mẫu riêng → Khôi phục dùng mẫu gốc nền tảng.'}
+              ? 'Đã lưu mẫu riêng của tiệm. "Khôi phục mẫu của tôi" nạp lại mẫu đó.'
+              : 'Chưa lưu mẫu riêng. Có thể nạp lại "Mẫu gốc hệ thống" (Super Admin) để bắt đầu.'}
+            {' '}Nạp xong KHÔNG tự lưu — bấm <strong>Lưu mẫu in</strong> để áp.
           </p>
+          {restoredMsg && <div className="alert alert--success">{restoredMsg}</div>}
           <div className="rcfg__default-btns">
             <button className="btn btn--ghost btn--lg" onClick={saveAsDefault} disabled={saving}>
-              Lưu làm mẫu mặc định của tôi
+              Lưu làm mẫu của tôi
             </button>
-            <button className="btn btn--ghost btn--lg" onClick={restoreDefault} disabled={saving}>
-              Khôi phục mẫu mặc định
+            {hasDefault && (
+              <button className="btn btn--ghost btn--lg" onClick={restoreMine} disabled={saving}>
+                Khôi phục mẫu của tôi
+              </button>
+            )}
+            <button className="btn btn--ghost btn--lg" onClick={restoreSystem} disabled={saving}>
+              Khôi phục mẫu gốc hệ thống
             </button>
           </div>
         </div>

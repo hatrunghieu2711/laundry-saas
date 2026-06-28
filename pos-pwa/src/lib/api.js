@@ -186,6 +186,9 @@ export const api = {
     }),
   me: () => apiFetch('/auth/me'),
   logout: () => apiFetch('/auth/logout', { method: 'POST' }),
+  // Khôi phục mẫu in (LOAD-ONLY, read-only): mẫu của tôi (404 nếu chưa lưu) / mẫu gốc hệ thống.
+  getMyDefaultReceipt: () => apiFetch('/settings/receipt/my-default'),
+  getSystemDefaultReceipt: () => apiFetch('/settings/system-default-receipt'),
   // Tự đổi MK (Bearer auth + gửi cookie để BE chừa phiên hiện tại khi revoke).
   changePassword: (current_password, new_password) =>
     apiFetch('/auth/change-password', {
