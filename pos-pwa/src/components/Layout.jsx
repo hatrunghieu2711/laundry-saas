@@ -5,7 +5,6 @@ import { useBranch } from '../context/BranchContext'
 import { useShift } from '../context/ShiftContext'
 import { useTopbarSlot } from '../context/TopbarSlotContext'
 import TenantInfoModal from './TenantInfoModal'
-import PrintDebugOverlay from './PrintDebugOverlay' // ⚠️ DEBUG TẠM — XÓA SAU
 
 // Nav chính: + Tạo đơn · Đơn hàng · Ca · Lịch sử · ☰ (menu).
 const NAV = [
@@ -225,7 +224,6 @@ export default function Layout({ children }) {
       </nav>
       <SubscriptionBanner user={user} />
       <main className="app-main">{children}</main>
-      <PrintDebugOverlay /> {/* ⚠️ DEBUG TẠM — XÓA SAU */}
       {tenantInfoOpen && (
         <TenantInfoModal
           user={user}

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Lien2PrintLayer } from './Lien2Label'
-import { reloadAfterPrint, usePrintQueue } from '../lib/printQueue'
+import { usePrintQueue } from '../lib/printQueue'
 
 // Nút "In liên 2" + modal in CHỦ ĐỘNG (Stage 6.9, queue 6.9.4) — tái dùng ở mọi nơi
 // có nút in bill. Chọn số nhãn (nhanh 1–5 / stepper) + tuỳ chọn đánh số. MỖI NHÃN
@@ -23,10 +23,9 @@ export default function Lien2PrintButton({ order, className = 'btn btn--ghost' }
 
   const doPrint = () => {
     if (printing) return
-    // ⭐ Part C (fix T2): 1 JOB DUY NHẤT gộp N nhãn (KHÔNG còn N job × N print → print lần 2+
-    // crash). Lien2PrintLayer render N khối .lbl trong 1 .print-lien2 → printViaIframe in 1
-    // print. Xong → reloadAfterPrint (full reload → document kế "print lần 1", không crash).
-    run([{ mode: 'lien2', count, numbered }], () => reloadAfterPrint(700))
+    // 1 JOB DUY NHẤT gộp N nhãn: Lien2PrintLayer render N khối .lbl trong 1 .print-lien2 → 1
+    // window.print() → N nhãn 1 dải, xé tay theo vạch .lbl__cutline. In xong → đóng modal.
+    run([{ mode: 'lien2', count, numbered }], () => setOpen(false))
   }
 
   if (!order) return null

@@ -1,8 +1,6 @@
-import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { formatLabelDateTime, formatLabelTime } from '../lib/datetime'
 import { formatVND } from '../lib/format'
-import { dbgLog } from '../lib/printQueue' // ⚠️ DEBUG TẠM
 
 // NHÃN LIÊN 2 (dán túi đồ — nội bộ, Stage 6.9). Mẫu CỐ ĐỊNH mọi tenant (không
 // builder): khổ 80mm in nhiệt, monospace, chữ to, KHÔNG bảng món/QR/logo.
@@ -51,19 +49,13 @@ export function Lien2LabelBody({ order, seq = null }) {
 }
 
 // Lớp in nhãn liên 2 (Stage 6.9.4) — portal ra <body> (NGOÀI #root, vì #root bị
-// display:none khi in). Render 1 nhãn ĐANG in của hàng đợi. Dùng cho cả auto-print
-// (OrderNew) lẫn in chủ động (Lien2PrintButton). Body class print-job-lien2 quyết
-// định hiển thị (xem index.css @media print).
-// count = số nhãn GỘP trong 1 document (Part C, fix T2): thay vì N job × N print() (print lần
-// 2+ crash), render N khối .lbl trong CÙNG .print-lien2 → printViaIframe in 1 PRINT DUY NHẤT →
-// đủ N nhãn trên 1 dải giấy, XÉ TAY theo vạch .lbl__cutline (mất auto-cut từng nhãn — đánh đổi).
+// display:none khi in). Dùng cho cả auto-print (OrderNew) lẫn in chủ động
+// (Lien2PrintButton). Hiển thị bằng MOUNT/UNMOUNT (chỉ mount khi đang in nhãn) +
+// @media print .print-lien2{display:block} (xem index.css).
+// count = số nhãn GỘP trong 1 document: render N khối .lbl trong CÙNG .print-lien2 → 1
+// window.print() in N nhãn trên 1 dải giấy, XÉ TAY theo vạch .lbl__cutline (1 job thay vì N).
 // numbered = đánh số 1/N…N/N. count=1 numbered=false → 1 nhãn không số (như cũ).
 export function Lien2PrintLayer({ order, count = 1, numbered = false }) {
-  // ⚠️ DEBUG TẠM — log khi lớp nhãn MOUNT/UNMOUNT (hook gọi TRƯỚC return sớm).
-  useEffect(() => {
-    dbgLog(`Lien2Layer MOUNT (.print-lien2) count=${count}`)
-    return () => dbgLog('Lien2Layer UNMOUNT')
-  }, [count])
   if (!order) return null
   const n = Math.max(1, count | 0)
   // ⭐ .print-lien2 > N×.lbl TRỰC TIẾP (bỏ wrapper .lbl-page) — parity với bill (.print-receipt >

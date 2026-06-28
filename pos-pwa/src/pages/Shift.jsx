@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import MoneyInput from '../components/MoneyInput'
 import ShiftSlip from '../components/ShiftSlip'
 import ShiftEmpty from '../components/ShiftEmpty'
-import { printViaIframe, reloadAfterPrint } from '../lib/printQueue'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import { useShift } from '../context/ShiftContext'
@@ -157,9 +156,8 @@ export default function Shift() {
   useEffect(() => {
     if (!printSlip) return undefined
     const t = setTimeout(() => {
-      printViaIframe('.print-receipt') // ShiftSlip portal vào .print-receipt → in iframe (print context sạch /T2)
+      window.print()
       setPrintSlip(null)
-      reloadAfterPrint() // fix T2: 1 print/document → full reload → lần in kế "print lần 1"
     }, 150)
     return () => clearTimeout(t)
   }, [printSlip])

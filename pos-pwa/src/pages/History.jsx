@@ -1,7 +1,7 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Receipt from '../components/Receipt'
-import { printViaIframe, reloadAfterPrint, setPrintMode } from '../lib/printQueue'
+import { setPrintMode } from '../lib/printQueue'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import { api } from '../lib/api'
@@ -257,7 +257,7 @@ export default function History() {
                               <span className={`hexp__pay ${payTone}`}>{formatVND(od.total_amount)}</span>
                             </div>
                             <div className="hexp__col hexp__col--acts">
-                              <button className="btn btn--ghost" onClick={() => { setPrintMode('bill'); printViaIframe('.print-receipt'); reloadAfterPrint() }}>In lại bill</button>
+                              <button className="btn btn--ghost" onClick={() => { setPrintMode('bill'); window.print() }}>In lại bill</button>
                               <button className="btn btn--ghost" onClick={() => navigate(`/orders/${o.id}`)}>Xem chi tiết</button>
                             </div>
                           </div>
