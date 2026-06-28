@@ -34,11 +34,27 @@ function _getPrintMode() {
   return _printMode
 }
 
+// ⚠️ DEBUG TẠM — XÓA SAU. Ghi log chẩn đoán (mode + mảnh nào trong DOM) lúc setMode/print().
+export const DEBUG_PRINT_BUILD = 'DBG-sync2' // marker: founder xác nhận đang chạy bundle MỚI
+const _printDebugLog = []
+function _dbg(at) {
+  _printDebugLog.push({
+    at, mode: _printMode,
+    bill: typeof document !== 'undefined' && !!document.querySelector('.print-receipt'),
+    lien2: typeof document !== 'undefined' && !!document.querySelector('.print-lien2'),
+  })
+  if (_printDebugLog.length > 10) _printDebugLog.shift()
+}
+export function getPrintDebugLog() {
+  return _printDebugLog
+}
+
 // Set mode TOÀN CỤC + notify (useSyncExternalStore tự gọi getSnapshot + re-render subscriber).
 // Export để 5 đường in bill TRỰC TIẾP set 'bill' tường minh (tránh kẹt 'lien2' từ lần trước).
 export function setPrintMode(mode) {
   if (_printMode === mode) return
   _printMode = mode
+  _dbg('setMode') // DEBUG TẠM
   _modeSubs.forEach((cb) => cb())
 }
 
@@ -90,6 +106,7 @@ export function usePrintQueue() {
       raf2 = requestAnimationFrame(() => {
         window.addEventListener('afterprint', finish)
         timerRef.current = setTimeout(finish, PRINT_FALLBACK_MS)
+        _dbg('print') // ⚠️ DEBUG TẠM — snapshot mode + mảnh mount NGAY trước window.print()
         window.print()
       })
     })
