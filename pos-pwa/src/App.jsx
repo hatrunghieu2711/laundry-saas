@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminApp from './AdminApp'
 import Layout from './components/Layout'
 import PlatformBadge from './components/PlatformBadge' // ⚠️ TẠM — badge test môi trường, gỡ sau
+import NativePrintLayer from './components/NativePrintLayer'
 import ProtectedRoute from './components/ProtectedRoute'
 import { BranchProvider } from './context/BranchContext'
 import { ShiftProvider } from './context/ShiftContext'
@@ -86,6 +87,7 @@ export default function App() {
       {/* Mặc định: route lạ → về trang chủ (guard sẽ đẩy ra /login nếu chưa đăng nhập). */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
+    <NativePrintLayer />
     <PlatformBadge /> {/* ⚠️ TẠM — gỡ sau */}
     </>
   )

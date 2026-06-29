@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { nativePrintActive } from './platform'
+import { runNativeJob } from './nativePrintStore'
+import { dbg } from './debugLog' // ⚠️ TẠM — chẩn đoán nhánh native
 
 // ── Hàng đợi IN TUẦN TỰ (Stage 6.9.4) ───────────────────────────────────────
 // Mỗi MẢNH in (bill, TỪNG nhãn liên 2) = MỘT window.print() RIÊNG. Máy nhiệt Sunmi
@@ -76,6 +79,24 @@ export function usePrintQueue() {
   useEffect(() => {
     if (!active) return undefined
     const token = ++tokenRef.current
+
+    // ⚠️ TẠM — log quyết định nhánh cho MỖI job (chẩn đoán vì sao không vào native).
+    const _goNative = nativePrintActive() && active.mode === 'bill' && !!active.order
+    dbg(`QUEUE job mode=${active.mode} order=${!!active.order} nativeActive=${nativePrintActive()} -> ${_goNative ? 'NATIVE' : 'window.print'}`)
+
+    // ── NHÁNH NATIVE (3d-1: CHỈ job 'bill' CÓ order) — in printBitmap, KHÔNG window.print ──────
+    // nativePrintActive()===false (T1/PWA/browser, T2 chưa bật cờ) → BỎ QUA → đường web NGUYÊN VẸN.
+    // Job 'lien2' hoặc thiếu order → cũng RƠI xuống web (fallback an toàn; native lien2 làm ở 3d-2).
+    if (nativePrintActive() && active.mode === 'bill' && active.order) {
+      let cancelledN = false
+      runNativeJob({ mode: 'bill', order: active.order, config: active.config }).then(() => {
+        if (!cancelledN && token === tokenRef.current) startAt(idxRef.current + 1)
+      })
+      return () => {
+        cancelledN = true
+      }
+    }
+
     let finished = false
     const finish = () => {
       if (finished || token !== tokenRef.current) return // job này đã xong / cũ

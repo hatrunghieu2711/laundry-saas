@@ -16,3 +16,23 @@ export function isNativePlatform() {
 export function getPrintChannel() {
   return isNativePlatform() ? 'native' : 'web';
 }
+
+// ⚠️ CỜ IN NATIVE — MẶC ĐỊNH TẮT. Bật (sửa true + rebuild) khi đã test in native printBitmap ổn.
+export const NATIVE_PRINT_ENABLED = false;
+
+// In native CÓ đang bật không: phải đang chạy native (vỏ Capacitor) VÀ (cờ build bật HOẶC override
+// runtime ?nativeprint=1 / localStorage.nativeprint==='1'). Mặc định FALSE → T1/PWA/browser, và T2
+// khi CHƯA bật cờ → tất cả GIỮ window.print y nguyên (không đổi hành vi).
+export function nativePrintActive() {
+  if (!isNativePlatform()) return false;
+  if (NATIVE_PRINT_ENABLED) return true;
+  try {
+    if (typeof window !== 'undefined') {
+      if (new URLSearchParams(window.location.search).get('nativeprint') === '1') return true;
+      if (window.localStorage && window.localStorage.getItem('nativeprint') === '1') return true;
+    }
+  } catch {
+    /* noop */
+  }
+  return false;
+}

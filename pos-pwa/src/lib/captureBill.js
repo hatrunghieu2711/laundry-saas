@@ -1,14 +1,115 @@
+import { dbg } from './debugLog' // ⚠️ TẠM — log convert logo
+
 // ⚠️ TẠM (GĐ3) — chụp node bill → ảnh PNG để in printBitmap / kiểm layout.
 // DÙNG DYNAMIC IMPORT html2canvas → KHÔNG vào bundle chính (chỉ tải khi bấm CHỤP/IN). Node phải
 // HIỂN THỊ THẬT (off-screen left:-9999px), KHÔNG display:none.
 
+// Chờ TẤT CẢ <img> trong node load + giải mã xong rồi mới chụp (tránh mất logo: <img src=logo_url>
+// tải async, html2canvas chụp trước khi ảnh về → mất logo). Logo same-origin (/uploads/...) nên
+// useCORS đủ. Ảnh lỗi/chậm → timeout (3s) vẫn chụp (KHÔNG treo việc in).
+function _waitImages(node, timeoutMs = 3000) {
+  if (!node || typeof node.querySelectorAll !== 'function') return Promise.resolve()
+  const imgs = Array.from(node.querySelectorAll('img'))
+  const pending = imgs.filter((im) => !(im.complete && im.naturalWidth > 0))
+  if (!pending.length) return Promise.resolve()
+  return new Promise((resolve) => {
+    let left = pending.length
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    const one = () => {
+      left -= 1
+      if (left <= 0) finish()
+    }
+    pending.forEach((im) => {
+      if (typeof im.decode === 'function') {
+        im.decode().then(one, one) // chờ TẢI + GIẢI MÃ; lỗi cũng tính là xong
+      } else {
+        im.addEventListener('load', one, { once: true })
+        im.addEventListener('error', one, { once: true })
+      }
+    })
+    setTimeout(finish, timeoutMs) // chốt: ảnh chậm/lỗi vẫn chụp, không kẹt
+  })
+}
+
+// ⭐ Đổi <img src=http(s)> → DATA-URI TRƯỚC khi chụp. html2canvas trong WebView APK TAINT ảnh http
+// dù same-origin + useCORS (đã chứng minh: ảnh load OK nat=200x207 nhưng KHÔNG vẽ vào canvas). data-
+// URI KHÔNG có cross-origin → vẽ CHẮC CHẮN. fetch→blob→readAsDataURL (logo /uploads/ same-origin →
+// fetch được). Lỗi/timeout (3s) → giữ nguyên + log, KHÔNG treo việc in.
+// TRẢ VỀ mảng dataUris[i] (index-aligned với node.querySelectorAll('img')) → onclone của html2canvas
+// gán vào ảnh tương ứng trong BẢN CLONE (html2canvas render clone trong iframe ẩn, KHÔNG dùng node
+// gốc → sửa src node gốc không chắc theo vào clone trên WebView APK).
+async function _inlineImages(node, timeoutMs = 3000) {
+  if (!node || typeof node.querySelectorAll !== 'function') {
+    dbg('inline: node invalid')
+    return []
+  }
+  const all = Array.from(node.querySelectorAll('img'))
+  const dataUris = new Array(all.length).fill(null)
+  const targets = all.map((im, i) => ({ im, i })).filter(({ im }) => /^https?:/i.test(im.src || ''))
+  dbg(`inline: tim thay ${targets.length} img http (tong ${all.length})`) // ⚠️ TẠM — TRƯỚC early-return
+  if (!targets.length) return dataUris
+  const convert = async ({ im, i }) => {
+    try {
+      dbg(`inline img${i}: fetch ${(im.src || '').slice(0, 55)}`)
+      const resp = await fetch(im.src, { cache: 'force-cache' })
+      if (!resp.ok) throw new Error('HTTP ' + resp.status)
+      const blob = await resp.blob()
+      const dataUri = await new Promise((res, rej) => {
+        const fr = new FileReader()
+        fr.onload = () => res(fr.result)
+        fr.onerror = () => rej(fr.error || new Error('FileReader'))
+        fr.readAsDataURL(blob)
+      })
+      dataUris[i] = dataUri
+      im.src = dataUri // node gốc (không hại; điểm MẤU CHỐT là onclone gán vào clone)
+      if (typeof im.decode === 'function') await im.decode().catch(() => {})
+      dbg(`inline img${i} OK len=${dataUri.length}`)
+    } catch (e) {
+      dbg(`inline img${i} LOI: ${e && e.message ? e.message : String(e)}`)
+    }
+  }
+  // chờ convert hết NHƯNG có timeout chung → ảnh chậm/lỗi vẫn chụp (không treo)
+  await Promise.race([
+    Promise.all(targets.map((t) => convert(t))),
+    new Promise((res) => setTimeout(res, timeoutMs)),
+  ])
+  return dataUris
+}
+
 async function _renderNode(node, scale) {
+  const dataUris = await _inlineImages(node) // map index→dataURI (cho onclone)
+  await _waitImages(node) // chờ mọi img sẵn sàng rồi mới chụp
   const html2canvas = (await import('html2canvas')).default
   return html2canvas(node, {
     backgroundColor: '#fff', // tránh nền trong suốt → đen khi in bitmap
     scale, // 1 = đúng px CSS; >1 → raster nét hơn
     useCORS: true,
+    imageTimeout: 4000,
     logging: false,
+    // ⭐ html2canvas render BẢN CLONE (iframe ẩn) → GÁN data-URI vào ảnh CLONE TẠI ĐÂY (sửa node
+    // gốc không chắc theo vào clone trên WebView). Index-aligned với node.querySelectorAll('img').
+    onclone: (clonedDoc, clonedNode) => {
+      try {
+        const root = clonedNode && clonedNode.querySelectorAll ? clonedNode : clonedDoc
+        const cimgs = Array.from(root.querySelectorAll('img'))
+        let n = 0
+        cimgs.forEach((im, i) => {
+          if (dataUris && dataUris[i]) {
+            im.src = dataUris[i]
+            im.removeAttribute('crossorigin')
+            n += 1
+          }
+        })
+        dbg(`onclone: set ${n} img -> dataURI (clone imgs=${cimgs.length})`)
+      } catch (e) {
+        dbg('onclone loi: ' + (e && e.message ? e.message : String(e)))
+      }
+    },
   })
 }
 

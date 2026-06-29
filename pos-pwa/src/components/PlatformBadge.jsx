@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import BillContent from './Bill'
-import { getPrintChannel } from '../lib/platform'
+import { getPrintChannel, isNativePlatform, nativePrintActive } from '../lib/platform'
 import { DEFAULT_RECEIPT } from '../lib/receipt'
 import { captureNodeCentered } from '../lib/captureBill'
+import { useDebugVersion, getDebugLog, dbg } from '../lib/debugLog'
 
 // ⚠️ TẠM (test môi trường + GĐ3) — GỠ sau khi xong.
 // Badge nhỏ góc dưới phải: kênh in "IN: native"/"IN: web".
@@ -40,13 +41,40 @@ const BILL_WIDTH_MM = BILL_WIDTH / 8 // = 68mm — render node ĐÚNG mm này �
 
 export default function PlatformBadge() {
   const channel = getPrintChannel()
-  const debug =
-    typeof window !== 'undefined' && /[?&]debug=1(\b|&|$)/.test(window.location.search)
+  // debug BỀN qua điều hướng: ?debug=1 → bật + lưu localStorage.debug; ?debug=0 → tắt + xóa.
+  // debug = (URL debug=1) || localStorage.debug==='1' (trừ khi URL debug=0) → panel sống sót route
+  // (React Router rụng query khi chuyển trang). Đồng bộ cơ chế với nativeprint.
+  const urlDebug1 = typeof window !== 'undefined' && /[?&]debug=1(\b|&|$)/.test(window.location.search)
+  const urlDebug0 = typeof window !== 'undefined' && /[?&]debug=0(\b|&|$)/.test(window.location.search)
+  let lsDebug = false
+  try {
+    lsDebug = typeof window !== 'undefined' && !!window.localStorage && window.localStorage.getItem('debug') === '1'
+  } catch {
+    /* noop */
+  }
+  const debug = urlDebug0 ? false : urlDebug1 || lsDebug
   const showTest = debug && channel === 'native'
   const [log, setLog] = useState([])
   const [preview, setPreview] = useState(null)
+  const [panelOpen, setPanelOpen] = useState(true) // thu/mở panel log để bấm nút app phía sau
   const logRef = useRef(null)
   const billRef = useRef(null)
+
+  // ⚠️ CHẨN ĐOÁN native-detection — re-render khi có dbg() từ module khác.
+  useDebugVersion()
+  // Đồng bộ localStorage.debug theo ?debug=1/0 (1 lần khi URL có param) → bền qua điều hướng.
+  useEffect(() => {
+    try {
+      if (urlDebug1) window.localStorage.setItem('debug', '1')
+      else if (urlDebug0) window.localStorage.removeItem('debug')
+    } catch {
+      /* noop */
+    }
+  }, [urlDebug1, urlDebug0])
+  const search = typeof window !== 'undefined' ? window.location.search : ''
+  const ls = typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem('nativeprint') : null
+  const nat = isNativePlatform()
+  const act = nativePrintActive()
 
   const append = (line) => setLog((prev) => [...prev, line].slice(-30))
   const clearAll = () => {
@@ -189,82 +217,137 @@ export default function PlatformBadge() {
         IN: {channel}
       </div>
 
+      {/* NODE BILL off-screen — chỉ native (để html2canvas chụp). */}
       {showTest && (
-        <>
-          {/* NODE BILL off-screen 576px — hiển thị THẬT (left:-9999) để html2canvas chụp được. */}
-          <div
-            ref={billRef}
-            style={{
-              position: 'fixed',
-              left: -9999,
-              top: 0,
-              width: `${BILL_WIDTH_MM}mm`, // 68mm: font 12px GIỮ NGUYÊN → scale 8dot/mm = cỡ chữ T1; hẹp hơn 72mm để có lề đệm
-              background: '#fff',
-            }}
-          >
-            <BillContent config={DEFAULT_RECEIPT} order={SAMPLE_ORDER} qrRenderer="canvas" />
-          </div>
+        <div
+          ref={billRef}
+          style={{
+            position: 'fixed',
+            left: -9999,
+            top: 0,
+            width: `${BILL_WIDTH_MM}mm`, // 68mm: giữ cỡ chữ T1 + lề đệm
+            background: '#fff',
+          }}
+        >
+          <BillContent config={DEFAULT_RECEIPT} order={SAMPLE_ORDER} qrRenderer="canvas" />
+        </div>
+      )}
 
-          {/* DẢI DEBUG — rộng gần hết bề ngang, panel cuộn được. */}
-          <div
-            style={{
-              position: 'fixed',
-              left: 8,
-              right: 8,
-              bottom: 60,
-              zIndex: 2147483647,
-              pointerEvents: 'none',
-            }}
-          >
-            <div
-              style={{
-                pointerEvents: 'auto',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: 6,
-                maxHeight: '74vh',
-                overflowY: 'auto',
-              }}
-            >
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                <button type="button" onClick={clearAll} style={btn('#475569')}>Xoá</button>
-                <button type="button" onClick={captureBill} style={btn('#2563eb')}>CHỤP BILL</button>
-                <button type="button" onClick={printBitmapTest} style={btn('#ea580c')}>IN BITMAP</button>
-                <button type="button" onClick={testPrint} style={btn('#16a34a')}>TEST IN</button>
-              </div>
-              <div
-                ref={logRef}
-                style={{
-                  background: '#000',
-                  color: '#0f0',
-                  font: '13px/1.45 ui-monospace, Menlo, Consolas, monospace',
-                  padding: '8px 10px',
-                  borderRadius: 6,
-                  border: '2px solid #0f0',
-                  maxHeight: 180,
-                  overflowY: 'auto',
-                  whiteSpace: 'pre-wrap',
-                  wordBreak: 'break-word',
+      {/* DẢI DEBUG — hiện khi ?debug=1. CLICK-THROUGH: chỉ NÚT bấm được (pointerEvents:auto); chữ/log
+          pointerEvents:none → bấm XUYÊN xuống nút app phía sau (In lại bill...). "Ẩn log" để thu gọn. */}
+      {debug && (
+        <div style={{ position: 'fixed', left: 8, right: 8, bottom: 60, zIndex: 2147483647, pointerEvents: 'none' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, pointerEvents: 'none' }}>
+            {/* Hàng nút điều khiển — LUÔN hiện, bấm được. */}
+            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', pointerEvents: 'auto' }}>
+              <button type="button" onClick={() => setPanelOpen((v) => !v)} style={btn('#0ea5e9')}>
+                {panelOpen ? 'Ẩn log ▾' : 'Hiện log ▴'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = ls === '1' ? '0' : '1'
+                  try {
+                    window.localStorage.setItem('nativeprint', next)
+                  } catch {
+                    /* noop */
+                  }
+                  dbg(`set ls.nativeprint=${next} (reload de ap dung neu can)`)
                 }}
+                style={btn('#7c3aed')}
               >
-                {log.length ? log.join('\n') : '(log trống — bấm TEST IN / CHỤP BILL)'}
-              </div>
-              {preview && (
-                <img
-                  src={preview}
-                  alt="bill preview"
-                  style={{
-                    display: 'block',
-                    maxWidth: '100%',
-                    background: '#fff',
-                    border: '2px solid #22d3ee',
-                    borderRadius: 4,
-                  }}
-                />
-              )}
+                ls.nativeprint → {ls === '1' ? '0' : '1'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    window.localStorage.removeItem('debug')
+                  } catch {
+                    /* noop */
+                  }
+                  dbg('tat debug (xoa localStorage.debug; neu URL con ?debug=1 thi dung ?debug=0)')
+                }}
+                style={btn('#b91c1c')}
+              >
+                Tắt debug
+              </button>
             </div>
+
+            {panelOpen && (
+              <>
+                {/* CHẨN ĐOÁN native-detection (click-through) */}
+                <div
+                  style={{
+                    pointerEvents: 'none',
+                    background: '#1e293b',
+                    color: '#fde047',
+                    font: '12px/1.4 ui-monospace, Menlo, Consolas, monospace',
+                    padding: '6px 8px',
+                    borderRadius: 6,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {`native=${nat ? 'Y' : 'N'} nativePrintActive=${act ? 'Y' : 'N'} ls.nativeprint=${String(ls)}\nsearch="${search}"`}
+                </div>
+                {showTest && (
+                  <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', pointerEvents: 'auto' }}>
+                    <button type="button" onClick={clearAll} style={btn('#475569')}>Xoá</button>
+                    <button type="button" onClick={captureBill} style={btn('#2563eb')}>CHỤP BILL</button>
+                    <button type="button" onClick={printBitmapTest} style={btn('#ea580c')}>IN BITMAP</button>
+                    <button type="button" onClick={testPrint} style={btn('#16a34a')}>TEST IN</button>
+                  </div>
+                )}
+                {log.length > 0 && (
+                  <div
+                    ref={logRef}
+                    style={{
+                      pointerEvents: 'none',
+                      background: '#000',
+                      color: '#0f0',
+                      font: '12px/1.4 ui-monospace, Menlo, Consolas, monospace',
+                      padding: '8px 10px',
+                      borderRadius: 6,
+                      border: '2px solid #0f0',
+                      maxHeight: 110,
+                      overflow: 'hidden',
+                      whiteSpace: 'pre-wrap',
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {log.slice(-8).join('\n')}
+                  </div>
+                )}
+                {/* LOG DÙNG CHUNG — chẩn đoán; ~16 dòng cuối (click-through, không cuộn → bấm xuyên). */}
+                <div
+                  style={{
+                    pointerEvents: 'none',
+                    background: '#000',
+                    color: '#38bdf8',
+                    font: '12px/1.4 ui-monospace, Menlo, Consolas, monospace',
+                    padding: '8px 10px',
+                    borderRadius: 6,
+                    border: '2px solid #38bdf8',
+                    maxHeight: '46vh',
+                    overflow: 'hidden',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                  }}
+                >
+                  {getDebugLog().length ? getDebugLog().slice(-16).join('\n') : '(dbg trống — bấm In bill)'}
+                </div>
+                {preview && (
+                  <img
+                    src={preview}
+                    alt="bill preview"
+                    style={{ pointerEvents: 'none', display: 'block', maxWidth: '100%', background: '#fff', border: '2px solid #22d3ee', borderRadius: 4 }}
+                  />
+                )}
+              </>
+            )}
           </div>
-        </>
+        </div>
       )}
     </>
   )
