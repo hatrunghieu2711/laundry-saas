@@ -28,6 +28,7 @@ export default function Lien2PrintButton({ order, className = 'btn btn--ghost' }
     const jobs = Array.from({ length: count }, (_, i) => ({
       mode: 'lien2',
       seq: numbered ? { n: i + 1, total: count } : null,
+      order, // 3d-2: native chụp nhãn cần order; web bỏ qua (render portal như cũ)
     }))
     run(jobs, () => setOpen(false))
   }

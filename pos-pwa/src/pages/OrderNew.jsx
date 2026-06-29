@@ -560,9 +560,11 @@ export default function OrderNew() {
     if (!created || !printReady) return
     if (autoPrint === null || autoPrintCopy2 === null) return // chờ nạp settings
     // TÁCH RIÊNG: bill / liên 2 độc lập → in bill-only / liên2-only / cả hai / không gì.
+    // 3d-2: kèm order/config → NATIVE chụp đúng đơn vừa tạo (web bỏ qua → T1 không đổi). created +
+    // receiptConfig CHẮC CHẮN sẵn ở đây (guard !created/!printReady; printReady = config!=null & logo).
     const jobs = []
-    if (autoPrint) jobs.push({ mode: 'bill' })
-    if (autoPrintCopy2) jobs.push({ mode: 'lien2', seq: null })
+    if (autoPrint) jobs.push({ mode: 'bill', order: created, config: receiptConfig })
+    if (autoPrintCopy2) jobs.push({ mode: 'lien2', seq: null, order: created })
     if (!jobs.length) return // cả hai tắt → KHÔNG tự in (nhân viên in tay)
     if (printedRef.current === created.id) return
     printedRef.current = created.id

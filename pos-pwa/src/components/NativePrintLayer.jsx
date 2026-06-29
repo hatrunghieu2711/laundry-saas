@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import BillContent from './Bill'
+import { Lien2LabelBody } from './Lien2Label'
 import { useCurrentNativeJob, finishNativeJob } from '../lib/nativePrintStore'
 import { captureNodeCentered } from '../lib/captureBill'
 import { dbg } from '../lib/debugLog' // ⚠️ TẠM — chẩn đoán native print
@@ -10,11 +11,15 @@ const PRINTABLE_DOTS = 576
 const SIDE_MARGIN_PX = 16
 const BILL_WIDTH = PRINTABLE_DOTS - 2 * SIDE_MARGIN_PX // 544
 const BILL_WIDTH_MM = BILL_WIDTH / 8 // 68
+const LABEL_WIDTH_MM = BILL_WIDTH_MM // nhãn cũng 68mm (portal thật .lbl 76mm → override xuống 68mm)
 
-// Lớp IN NATIVE (printBitmap). Mount 1 lần ở App. Khi store có job native → render node bill
-// off-screen 68mm với DATA THẬT (qrRenderer='canvas' để html2canvas giữ QR) → chụp → printBitmap +
-// cutPaper → finishNativeJob(). 3d-1: CHỈ mode 'bill'; mode khác (lien2) → bỏ qua + markDone (queue
-// đã fallback web cho non-bill nên thực tế không vào đây). LUÔN finishNativeJob (try/finally) → không kẹt.
+const SUPPORTED = new Set(['bill', 'lien2'])
+
+// Lớp IN NATIVE (printBitmap). Mount 1 lần ở App. Khi store có job native → render node off-screen
+// 68mm với DATA THẬT (bill = BillContent qrRenderer='canvas'; nhãn = Lien2LabelBody widthMm=68) →
+// captureBill (576/68mm/đệm) → printBitmap + cutPaper → finishNativeJob(). cutPaper mỗi job → cắt
+// rời từng tờ (bill / từng nhãn). mode khác / thiếu order → bỏ qua + markDone. LUÔN finishNativeJob
+// (try/finally) → KHÔNG kẹt queue.
 export default function NativePrintLayer() {
   const job = useCurrentNativeJob()
   const nodeRef = useRef(null)
@@ -25,10 +30,10 @@ export default function NativePrintLayer() {
     if (handledRef.current === job) return undefined // job này đã xử
     handledRef.current = job
     let cancelled = false
-    dbg(`NATIVE layer: nhan job mode=${job.mode} order=${job.order?.order_code || 'NULL'}`)
+    dbg(`NATIVE layer: nhan job mode=${job.mode} order=${job.order?.order_code || 'NULL'} seq=${job.seq ? job.seq.n + '/' + job.seq.total : '-'}`)
 
-    if (job.mode !== 'bill' || !job.order) {
-      dbg('NATIVE layer: bo qua (mode!=bill hoac thieu order) → markDone')
+    if (!SUPPORTED.has(job.mode) || !job.order) {
+      dbg('NATIVE layer: bo qua (mode khong ho tro hoac thieu order) → markDone')
       finishNativeJob() // chưa hỗ trợ / thiếu data → bỏ qua an toàn
       return undefined
     }
@@ -40,35 +45,16 @@ export default function NativePrintLayer() {
         try {
           const node = nodeRef.current
           if (!node) throw new Error('node native rỗng')
-          // ⚠️ TẠM — CHẨN ĐOÁN LOGO: config có logo_url? img render? load được? URL tuyệt đối ảnh
-          // đang trỏ tới (nghi APK webview resolve "/uploads/" sai base → 404 → mất logo).
-          const logImgs = (tag) => {
-            const imgs = Array.from(node.querySelectorAll('img'))
-            dbg(`[${tag}] imgs=${imgs.length}`)
-            imgs.forEach((im, i) => {
-              let abs = ''
-              try {
-                abs = new URL(im.getAttribute('src') || '', window.location.href).href
-              } catch {
-                abs = 'URLerr'
-              }
-              dbg(`  [${tag}] img${i} comp=${im.complete} nat=${im.naturalWidth}x${im.naturalHeight} lay=${im.width}x${im.height} abs=${abs.slice(0, 90)}`)
-            })
-          }
-          dbg(`NATIVE cfg.logo_url=${job.config?.logo_url || 'NULL'}`)
-          dbg(`NATIVE origin=${window.location.origin} href=${window.location.href.slice(0, 70)}`)
-          logImgs('truoc')
           const scale = BILL_WIDTH / node.offsetWidth // 68mm → 544px (8 dot/mm = cỡ chữ T1)
           const { dataUrl } = await captureNodeCentered(node, { scale, canvasWidth: PRINTABLE_DOTS })
-          logImgs('sau') // sau khi _waitImages + chụp → nat/comp phản ánh ảnh đã load chưa
           const base64 = dataUrl.replace(/^data:image\/[a-z]+;base64,/, '')
-          dbg(`NATIVE: da chup base64 len=${base64.length} → goi printBitmap...`)
+          dbg(`NATIVE ${job.mode}: chup base64 len=${base64.length} → printBitmap...`)
           const p = typeof window !== 'undefined' && window.Capacitor?.Plugins?.SunmiPrinter
           if (!p) throw new Error('KHONG thay SunmiPrinter')
           await p.printBitmap({ bitmap: base64 })
           await p.lineWrap({ lines: 3 })
           await p.cutPaper()
-          dbg('NATIVE: printBitmap + cutPaper OK')
+          dbg(`NATIVE ${job.mode}: printBitmap + cutPaper OK`)
         } catch (e) {
           dbg('NATIVE LOI: ' + (e && e.message ? e.message : String(e)))
         } finally {
@@ -82,15 +68,19 @@ export default function NativePrintLayer() {
     }
   }, [job])
 
-  // Chỉ render node khi có job bill hợp lệ (data thật). Off-screen, hiển thị THẬT (không display:none).
-  if (!job || job.mode !== 'bill' || !job.order) return null
+  // Chỉ render node khi có job hợp lệ (data thật). Off-screen, hiển thị THẬT (không display:none).
+  if (!job || !SUPPORTED.has(job.mode) || !job.order) return null
   return (
     <div
       ref={nodeRef}
       aria-hidden="true"
       style={{ position: 'fixed', left: -9999, top: 0, width: `${BILL_WIDTH_MM}mm`, background: '#fff' }}
     >
-      <BillContent qrRenderer="canvas" order={job.order} config={job.config} />
+      {job.mode === 'lien2' ? (
+        <Lien2LabelBody order={job.order} seq={job.seq || null} widthMm={LABEL_WIDTH_MM} />
+      ) : (
+        <BillContent qrRenderer="canvas" order={job.order} config={job.config} />
+      )}
     </div>
   )
 }

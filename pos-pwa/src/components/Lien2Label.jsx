@@ -15,11 +15,14 @@ export const lien2PayText = (status) =>
 // Thân nhãn (KHÔNG portal) — tách để in nhiều nhãn + screenshot. seq = {n,total}
 // khi đánh số; null = không số (ẩn ô số túi, mã đơn chiếm full ngang). Style v5
 // (Stage 6.9.6): đậm hơn, to hơn; UNPAID có khung (cảnh giác khi giao), PAID không.
-export function Lien2LabelBody({ order, seq = null }) {
+export function Lien2LabelBody({ order, seq = null, widthMm = null }) {
   const note = (order.notes || '').trim()
   const paid = order.payment_status === 'paid'
+  // widthMm: override bề rộng .lbl (NATIVE chụp 68mm thay vì 76mm CSS để vừa vùng in 576 dots).
+  // Default null → giữ CSS .lbl{width:76mm} (portal T1 / window.print KHÔNG đổi). Inline thắng class.
+  const style = widthMm ? { width: `${widthMm}mm`, margin: '0 auto' } : undefined
   return (
-    <div className="lbl">
+    <div className="lbl" style={style}>
       {/* VẠCH MỐC chống cắt sát mã đơn (Stage 6.9.10) — thay spacer trắng (bị máy nhiệt
           trim hết). Vạch có MỰC (border-top đen) nên máy không trim qua; khe trắng giữa
           vạch và mã đơn được "kẹp" giữa 2 phần tử có mực → không bị trim. Đặt ĐẦU DOM: mã

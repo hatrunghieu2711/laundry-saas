@@ -81,15 +81,15 @@ export function usePrintQueue() {
     const token = ++tokenRef.current
 
     // ⚠️ TẠM — log quyết định nhánh cho MỖI job (chẩn đoán vì sao không vào native).
-    const _goNative = nativePrintActive() && active.mode === 'bill' && !!active.order
+    const _goNative = nativePrintActive() && (active.mode === 'bill' || active.mode === 'lien2') && !!active.order
     dbg(`QUEUE job mode=${active.mode} order=${!!active.order} nativeActive=${nativePrintActive()} -> ${_goNative ? 'NATIVE' : 'window.print'}`)
 
-    // ── NHÁNH NATIVE (3d-1: CHỈ job 'bill' CÓ order) — in printBitmap, KHÔNG window.print ──────
+    // ── NHÁNH NATIVE (3d-2: 'bill' + 'lien2' CÓ order) — in printBitmap, KHÔNG window.print ──────
     // nativePrintActive()===false (T1/PWA/browser, T2 chưa bật cờ) → BỎ QUA → đường web NGUYÊN VẸN.
-    // Job 'lien2' hoặc thiếu order → cũng RƠI xuống web (fallback an toàn; native lien2 làm ở 3d-2).
-    if (nativePrintActive() && active.mode === 'bill' && active.order) {
+    // Job thiếu order (vd auto-print chưa nối data) → RƠI xuống web (fallback an toàn, không kẹt).
+    if (_goNative) {
       let cancelledN = false
-      runNativeJob({ mode: 'bill', order: active.order, config: active.config }).then(() => {
+      runNativeJob({ mode: active.mode, order: active.order, config: active.config, seq: active.seq }).then(() => {
         if (!cancelledN && token === tokenRef.current) startAt(idxRef.current + 1)
       })
       return () => {
