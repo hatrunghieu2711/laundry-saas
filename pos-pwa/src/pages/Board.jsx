@@ -4,6 +4,8 @@ import { useNavigate } from 'react-router-dom'
 import Receipt from '../components/Receipt'
 import Lien2PrintButton from '../components/Lien2PrintButton'
 import { setPrintMode } from '../lib/printQueue'
+import { nativePrintActive } from '../lib/platform'
+import { nativePrintBill } from '../lib/nativePrintStore'
 import CancelOrderModal from '../components/CancelOrderModal'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
@@ -137,6 +139,12 @@ export default function Board() {
   // → Receipt mount tường minh (tránh kẹt 'lien2' từ lần in nhãn trước).
   useEffect(() => {
     if (!printData) return undefined
+    // Native: in printBitmap (T2 không crash lần 2). Web: window.print như cũ.
+    if (nativePrintActive()) {
+      nativePrintBill(printData.order)
+      setPrintData(null)
+      return undefined
+    }
     setPrintMode('bill')
     const t = setTimeout(() => {
       window.print()
