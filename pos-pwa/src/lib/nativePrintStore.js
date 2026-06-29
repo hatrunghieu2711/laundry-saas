@@ -74,3 +74,22 @@ export async function nativePrintBill(order, config) {
   }
   return true
 }
+
+// Helper IN PHIẾU GIAO CA NATIVE TRỰC TIẾP (Shift, ngoài queue). kind 'handover'|'report' + shift
+// (đã đóng) + branchName. Guard _busy như nativePrintBill. NativePrintLayer mode='shift' → ShiftSlipBody.
+export async function nativePrintShift(kind, shift, branchName) {
+  if (!kind || !shift) return false
+  if (_busy || _current) {
+    dbg('nativePrintShift: dang in → bo qua')
+    return false
+  }
+  _busy = true
+  try {
+    await runNativeJob({ mode: 'shift', kind, shift, branchName })
+  } catch (e) {
+    dbg('nativePrintShift loi: ' + (e && e.message ? e.message : String(e)))
+  } finally {
+    _busy = false
+  }
+  return true
+}

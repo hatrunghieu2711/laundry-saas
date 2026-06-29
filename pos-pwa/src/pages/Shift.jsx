@@ -8,6 +8,8 @@ import { useBranch } from '../context/BranchContext'
 import { useShift } from '../context/ShiftContext'
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
+import { nativePrintActive } from '../lib/platform'
+import { nativePrintShift } from '../lib/nativePrintStore'
 
 // Ngưỡng lệch két để tô màu. Khớp default backend (tenant_settings.cash_diff_threshold).
 // TODO: lấy từ API tenant settings khi có endpoint.
@@ -152,9 +154,14 @@ export default function Shift() {
     setView('open')
   }
 
-  // In phiếu: render slip vào portal rồi window.print().
+  // In phiếu giao ca. Native: printBitmap (T2 không crash). Web: window.print như cũ.
   useEffect(() => {
     if (!printSlip) return undefined
+    if (nativePrintActive()) {
+      nativePrintShift(printSlip, closed, branchName) // closed/branchName: ref trong callback (sau render)
+      setPrintSlip(null)
+      return undefined
+    }
     const t = setTimeout(() => {
       window.print()
       setPrintSlip(null)
