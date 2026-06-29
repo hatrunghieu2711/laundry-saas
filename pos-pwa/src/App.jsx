@@ -1,7 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import AdminApp from './AdminApp'
 import Layout from './components/Layout'
-import PlatformBadge from './components/PlatformBadge' // ⚠️ TẠM — badge test môi trường, gỡ sau
 import NativePrintLayer from './components/NativePrintLayer'
 import ProtectedRoute from './components/ProtectedRoute'
 import { BranchProvider } from './context/BranchContext'
@@ -51,7 +50,6 @@ export default function App() {
           <Route path="/admin/*" element={<AdminApp />} />
           <Route path="*" element={<Navigate to="/admin" replace />} />
         </Routes>
-        <PlatformBadge /> {/* ⚠️ TẠM — gỡ sau */}
       </>
     )
   }
@@ -88,7 +86,6 @@ export default function App() {
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
     <NativePrintLayer />
-    <PlatformBadge /> {/* ⚠️ TẠM — gỡ sau */}
     </>
   )
 }

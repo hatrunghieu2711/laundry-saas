@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { nativePrintActive } from './platform'
 import { runNativeJob } from './nativePrintStore'
-import { dbg } from './debugLog' // ⚠️ TẠM — chẩn đoán nhánh native
 
 // ── Hàng đợi IN TUẦN TỰ (Stage 6.9.4) ───────────────────────────────────────
 // Mỗi MẢNH in (bill, TỪNG nhãn liên 2) = MỘT window.print() RIÊNG. Máy nhiệt Sunmi
@@ -82,9 +81,8 @@ export function usePrintQueue() {
 
     // ⚠️ TẠM — log quyết định nhánh cho MỖI job (chẩn đoán vì sao không vào native).
     const _goNative = nativePrintActive() && (active.mode === 'bill' || active.mode === 'lien2') && !!active.order
-    dbg(`QUEUE job mode=${active.mode} order=${!!active.order} nativeActive=${nativePrintActive()} -> ${_goNative ? 'NATIVE' : 'window.print'}`)
 
-    // ── NHÁNH NATIVE (3d-2: 'bill' + 'lien2' CÓ order) — in printBitmap, KHÔNG window.print ──────
+    // ── NHÁNH NATIVE ('bill' + 'lien2' CÓ order) — in printBitmap, KHÔNG window.print ────────────
     // nativePrintActive()===false (T1/PWA/browser, T2 chưa bật cờ) → BỎ QUA → đường web NGUYÊN VẸN.
     // Job thiếu order (vd auto-print chưa nối data) → RƠI xuống web (fallback an toàn, không kẹt).
     if (_goNative) {

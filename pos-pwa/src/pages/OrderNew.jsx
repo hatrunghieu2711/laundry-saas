@@ -9,7 +9,6 @@ import ShiftEmpty from '../components/ShiftEmpty'
 import { Lien2PrintLayer } from '../components/Lien2Label'
 import Lien2PrintButton from '../components/Lien2PrintButton'
 import { usePrintQueue } from '../lib/printQueue'
-import { dbg } from '../lib/debugLog' // ⚠️ TẠM — chẩn đoán nút In bill
 import { ApiError, api } from '../lib/api'
 import { formatDateTime, formatVND, toNumber } from '../lib/format'
 import {
@@ -585,10 +584,7 @@ export default function OrderNew() {
     // theo cài đặt auto_print_receipt/auto_print_copy2 — KHÔNG đổi.)
     // 3d-1: kèm order+config → in NATIVE (printBitmap) khi nativePrintActive(); web bỏ qua 2 field
     // này (window.print render portal như cũ) → T1 KHÔNG đổi.
-    const printBill = () => {
-      dbg(`In bill click: created=${created?.order_code || 'NULL'} config=${receiptConfig ? 'co' : 'NULL'} printing=${printingQueue}`)
-      return runPrint([{ mode: 'bill', order: created, config: receiptConfig }])
-    }
+    const printBill = () => runPrint([{ mode: 'bill', order: created, config: receiptConfig }])
     return (
       <div className="ordernew">
         {!showSummary ? (

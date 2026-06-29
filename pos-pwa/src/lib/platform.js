@@ -17,22 +17,29 @@ export function getPrintChannel() {
   return isNativePlatform() ? 'native' : 'web';
 }
 
-// ⚠️ CỜ IN NATIVE — MẶC ĐỊNH TẮT. Bật (sửa true + rebuild) khi đã test in native printBitmap ổn.
-export const NATIVE_PRINT_ENABLED = false;
+// CỜ IN NATIVE — BẬT (production): mọi máy isNativePlatform()===true (T2-APK Capacitor) in native
+// printBitmap mặc định. T1 (PWA Chrome, KHÔNG trong Capacitor) → isNativePlatform()===false →
+// nativePrintActive()===false → VẪN window.print (KHÔNG đổi).
+export const NATIVE_PRINT_ENABLED = true;
 
-// In native CÓ đang bật không: phải đang chạy native (vỏ Capacitor) VÀ (cờ build bật HOẶC override
-// runtime ?nativeprint=1 / localStorage.nativeprint==='1'). Mặc định FALSE → T1/PWA/browser, và T2
-// khi CHƯA bật cờ → tất cả GIỮ window.print y nguyên (không đổi hành vi).
+// In native CÓ đang bật không: phải đang chạy native (vỏ Capacitor) — ngược lại (T1/PWA/browser) →
+// FALSE → window.print y nguyên. Trong native: override runtime THẮNG cờ build (cả 2 chiều) →
+//   ?nativeprint=1 / localStorage.nativeprint='1' → ÉP native;
+//   ?nativeprint=0 / localStorage.nativeprint='0' → ÉP web (TẮT KHẨN CẤP, kể cả khi cờ=true);
+//   không có override → theo NATIVE_PRINT_ENABLED (production = true).
 export function nativePrintActive() {
   if (!isNativePlatform()) return false;
-  if (NATIVE_PRINT_ENABLED) return true;
   try {
     if (typeof window !== 'undefined') {
-      if (new URLSearchParams(window.location.search).get('nativeprint') === '1') return true;
-      if (window.localStorage && window.localStorage.getItem('nativeprint') === '1') return true;
+      const q = new URLSearchParams(window.location.search).get('nativeprint');
+      if (q === '1') return true;
+      if (q === '0') return false;
+      const ls = window.localStorage ? window.localStorage.getItem('nativeprint') : null;
+      if (ls === '1') return true;
+      if (ls === '0') return false;
     }
   } catch {
     /* noop */
   }
-  return false;
+  return NATIVE_PRINT_ENABLED;
 }

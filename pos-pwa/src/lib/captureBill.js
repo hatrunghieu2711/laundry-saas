@@ -1,12 +1,54 @@
-import { dbg } from './debugLog' // ⚠️ TẠM — log convert logo
+// Chụp node bill/nhãn/slip (off-screen 68mm) → ảnh PNG → in printBitmap (kênh native T2). DÙNG
+// DYNAMIC IMPORT html2canvas → KHÔNG vào bundle chính (chỉ tải khi in native; PWA T1 không nặng).
+// Node phải HIỂN THỊ THẬT (off-screen left:-9999px), KHÔNG display:none.
+// ⚠️ Chỉ dùng cho NODE CHỤP NATIVE (NativePrintLayer). Portal T1/window.print KHÔNG đụng tới file này.
 
-// ⚠️ TẠM (GĐ3) — chụp node bill → ảnh PNG để in printBitmap / kiểm layout.
-// DÙNG DYNAMIC IMPORT html2canvas → KHÔNG vào bundle chính (chỉ tải khi bấm CHỤP/IN). Node phải
-// HIỂN THỊ THẬT (off-screen left:-9999px), KHÔNG display:none.
+// ── XỬ LÝ LOGO ĐEN-TRẮNG (in nhiệt chỉ in đen) ───────────────────────────────────────────────
+// Logo MÀU: máy in nhiệt tự chuyển đen-trắng → màu SÁNG (vàng/cam…) bị đẩy thành TRẮNG → MẤT logo.
+// → Chủ động chuyển đen-trắng TRƯỚC khi in. 2 chế độ (đổi LOGO_MODE để test):
+//   'alpha'     = MASK theo hình: pixel có hình (alpha đủ) → ĐEN, trong suốt → trắng. CHẮC cho logo
+//                 MÀU/nền trong suốt (in ra ĐÚNG HÌNH DẠNG, không phụ thuộc sáng/tối). ⚠️ Nếu logo
+//                 PNG nền ĐẶC (không trong suốt) → ra Ô ĐEN ĐẶC → đổi sang 'luminance'.
+//   'luminance' = theo ĐỘ SÁNG: tối < ngưỡng → đen, sáng → trắng. Giữ chi tiết; hợp logo nền đặc/
+//                 có chữ. ⚠️ Logo màu SÁNG → ra trắng hết (mất) → đổi sang 'alpha'.
+const LOGO_MODE = 'alpha' // 'alpha' | 'luminance' — đổi để test
+const LOGO_THRESHOLD = 140 // mode 'luminance': luminance < này → ĐEN. Tăng→nhiều đen hơn, giảm→ít.
+const LOGO_ALPHA_THRESHOLD = 64 // alpha < này → coi là TRONG SUỐT → trắng (cả 2 mode).
 
-// Chờ TẤT CẢ <img> trong node load + giải mã xong rồi mới chụp (tránh mất logo: <img src=logo_url>
-// tải async, html2canvas chụp trước khi ảnh về → mất logo). Logo same-origin (/uploads/...) nên
-// useCORS đủ. Ảnh lỗi/chậm → timeout (3s) vẫn chụp (KHÔNG treo việc in).
+// Chuyển canvas (đã vẽ logo) sang ĐEN-TRẮNG thuần tại chỗ. getImageData OK vì bitmap same-origin
+// (origin-clean → không taint). Lỗi (taint) → bỏ qua, giữ canvas màu.
+function _logoToBW(canvas, ctx) {
+  try {
+    const w = canvas.width
+    const h = canvas.height
+    if (!w || !h) return
+    const imgData = ctx.getImageData(0, 0, w, h)
+    const d = imgData.data
+    for (let p = 0; p < d.length; p += 4) {
+      const a = d[p + 3]
+      let black
+      if (a < LOGO_ALPHA_THRESHOLD) {
+        black = false // trong suốt → nền giấy (trắng)
+      } else if (LOGO_MODE === 'alpha') {
+        black = true // có hình → ĐEN (bất kể màu) — chắc cho logo màu sáng
+      } else {
+        const lum = 0.299 * d[p] + 0.587 * d[p + 1] + 0.114 * d[p + 2]
+        black = lum < LOGO_THRESHOLD
+      }
+      const v = black ? 0 : 255
+      d[p] = v
+      d[p + 1] = v
+      d[p + 2] = v
+      d[p + 3] = 255
+    }
+    ctx.putImageData(imgData, 0, 0)
+  } catch {
+    /* getImageData taint/lỗi → giữ canvas màu (vẫn vẽ được) */
+  }
+}
+
+// Chờ <img> trong node load xong → để offsetWidth/naturalWidth (dùng cho sizes[] của _prepareLogo
+// Bitmaps) hợp lệ trước khi đo. Ảnh lỗi/chậm → timeout (3s) vẫn tiếp (KHÔNG treo việc in).
 function _waitImages(node, timeoutMs = 3000) {
   if (!node || typeof node.querySelectorAll !== 'function') return Promise.resolve()
   const imgs = Array.from(node.querySelectorAll('img'))
@@ -26,118 +68,100 @@ function _waitImages(node, timeoutMs = 3000) {
     }
     pending.forEach((im) => {
       if (typeof im.decode === 'function') {
-        im.decode().then(one, one) // chờ TẢI + GIẢI MÃ; lỗi cũng tính là xong
+        im.decode().then(one, one)
       } else {
         im.addEventListener('load', one, { once: true })
         im.addEventListener('error', one, { once: true })
       }
     })
-    setTimeout(finish, timeoutMs) // chốt: ảnh chậm/lỗi vẫn chụp, không kẹt
+    setTimeout(finish, timeoutMs)
   })
 }
 
-// ⭐ Đổi <img src=http(s)> → DATA-URI TRƯỚC khi chụp. html2canvas trong WebView APK TAINT ảnh http
-// dù same-origin + useCORS (đã chứng minh: ảnh load OK nat=200x207 nhưng KHÔNG vẽ vào canvas). data-
-// URI KHÔNG có cross-origin → vẽ CHẮC CHẮN. fetch→blob→readAsDataURL (logo /uploads/ same-origin →
-// fetch được). Lỗi/timeout (3s) → giữ nguyên + log, KHÔNG treo việc in.
-// TRẢ VỀ mảng dataUris[i] (index-aligned với node.querySelectorAll('img')) → onclone của html2canvas
-// gán vào ảnh tương ứng trong BẢN CLONE (html2canvas render clone trong iframe ẩn, KHÔNG dùng node
-// gốc → sửa src node gốc không chắc theo vào clone trên WebView APK).
-async function _inlineImages(node, timeoutMs = 3000) {
-  if (!node || typeof node.querySelectorAll !== 'function') {
-    dbg('inline: node invalid')
-    return []
-  }
-  const all = Array.from(node.querySelectorAll('img'))
-  const dataUris = new Array(all.length).fill(null)
+// ⭐ Logo <img> bị html2canvas trong WebView Sunmi BỎ QUA (như QRCodeSVG trước đây). GIẢI: thay
+// <img> bằng <canvas> ĐÃ VẼ SẴN logo (html2canvas chụp <canvas> đáng tin — tiền lệ QRCodeCanvas).
+// Pre-fetch bitmap ở đây (async): fetch→blob→createImageBitmap (same-origin → origin-clean → drawImage
+// KHÔNG taint). Trả mảng bitmaps[i] + sizes[i] (index-aligned với node.querySelectorAll('img')) để
+// onclone (SYNC) vẽ canvas + thay <img> TRONG BẢN CLONE (clone không do React quản → replace an toàn).
+async function _prepareLogoBitmaps(node, timeoutMs = 3000) {
+  const all = node && node.querySelectorAll ? Array.from(node.querySelectorAll('img')) : []
+  const bitmaps = new Array(all.length).fill(null)
+  const sizes = new Array(all.length).fill(null)
   const targets = all.map((im, i) => ({ im, i })).filter(({ im }) => /^https?:/i.test(im.src || ''))
-  dbg(`inline: tim thay ${targets.length} img http (tong ${all.length})`) // ⚠️ TẠM — TRƯỚC early-return
-  if (!targets.length) return dataUris
-  const convert = async ({ im, i }) => {
+  if (!targets.length || typeof createImageBitmap !== 'function') return { bitmaps, sizes }
+  const one = async ({ im, i }) => {
+    sizes[i] = { w: im.offsetWidth || im.naturalWidth || 0, h: im.offsetHeight || im.naturalHeight || 0 }
     try {
-      dbg(`inline img${i}: fetch ${(im.src || '').slice(0, 55)}`)
       const resp = await fetch(im.src, { cache: 'force-cache' })
-      if (!resp.ok) throw new Error('HTTP ' + resp.status)
+      if (!resp.ok) return
       const blob = await resp.blob()
-      const dataUri = await new Promise((res, rej) => {
-        const fr = new FileReader()
-        fr.onload = () => res(fr.result)
-        fr.onerror = () => rej(fr.error || new Error('FileReader'))
-        fr.readAsDataURL(blob)
-      })
-      dataUris[i] = dataUri
-      im.src = dataUri // node gốc (không hại; điểm MẤU CHỐT là onclone gán vào clone)
-      if (typeof im.decode === 'function') await im.decode().catch(() => {})
-      dbg(`inline img${i} OK len=${dataUri.length}`)
-    } catch (e) {
-      dbg(`inline img${i} LOI: ${e && e.message ? e.message : String(e)}`)
+      bitmaps[i] = await createImageBitmap(blob) // blob same-origin → bitmap origin-clean (không taint)
+    } catch {
+      /* logo lỗi → bỏ qua, bill vẫn in */
     }
   }
-  // chờ convert hết NHƯNG có timeout chung → ảnh chậm/lỗi vẫn chụp (không treo)
   await Promise.race([
-    Promise.all(targets.map((t) => convert(t))),
+    Promise.all(targets.map((t) => one(t))),
     new Promise((res) => setTimeout(res, timeoutMs)),
   ])
-  return dataUris
+  return { bitmaps, sizes }
 }
 
 async function _renderNode(node, scale) {
-  const dataUris = await _inlineImages(node) // map index→dataURI (cho onclone)
-  await _waitImages(node) // chờ mọi img sẵn sàng rồi mới chụp
+  await _waitImages(node)
+  const { bitmaps, sizes } = await _prepareLogoBitmaps(node)
   const html2canvas = (await import('html2canvas')).default
-  return html2canvas(node, {
-    backgroundColor: '#fff', // tránh nền trong suốt → đen khi in bitmap
-    scale, // 1 = đúng px CSS; >1 → raster nét hơn
-    useCORS: true,
-    imageTimeout: 4000,
-    logging: false,
-    // ⭐ html2canvas render BẢN CLONE (iframe ẩn) → GÁN data-URI vào ảnh CLONE TẠI ĐÂY (sửa node
-    // gốc không chắc theo vào clone trên WebView). Index-aligned với node.querySelectorAll('img').
-    onclone: (clonedDoc, clonedNode) => {
+  try {
+    return await html2canvas(node, {
+      backgroundColor: '#fff', // tránh nền trong suốt → đen khi in bitmap
+      scale, // 1 = đúng px CSS; >1 → raster nét hơn
+      useCORS: true,
+      imageTimeout: 4000,
+      logging: false,
+      // html2canvas render BẢN CLONE → THAY mỗi <img> logo bằng <canvas> đã vẽ bitmap (sync). Clone
+      // KHÔNG do React quản → replaceWith an toàn. Index-aligned với node.querySelectorAll('img').
+      onclone: (clonedDoc, clonedNode) => {
+        try {
+          const root = clonedNode && clonedNode.querySelectorAll ? clonedNode : clonedDoc
+          const cimgs = Array.from(root.querySelectorAll('img'))
+          cimgs.forEach((cim, i) => {
+            const bmp = bitmaps[i]
+            if (!bmp) return
+            const c = clonedDoc.createElement('canvas')
+            c.width = bmp.width // backing = độ phân giải gốc → nét
+            c.height = bmp.height
+            const cctx = c.getContext('2d')
+            cctx.drawImage(bmp, 0, 0)
+            _logoToBW(c, cctx) // ⭐ chuyển ĐEN-TRẮNG trước khi in (in nhiệt chỉ in đen)
+            const sz = sizes[i]
+            if (sz && sz.w) {
+              c.style.width = sz.w + 'px' // hiển thị đúng cỡ layout của <img>
+              c.style.height = sz.h + 'px'
+            }
+            c.style.display = 'block'
+            if (cim.className) c.className = cim.className
+            cim.replaceWith(c)
+          })
+        } catch {
+          /* noop — lỗi thay logo thì bỏ logo, bill vẫn ra */
+        }
+      },
+    })
+  } finally {
+    bitmaps.forEach((b) => {
       try {
-        const root = clonedNode && clonedNode.querySelectorAll ? clonedNode : clonedDoc
-        const cimgs = Array.from(root.querySelectorAll('img'))
-        let n = 0
-        cimgs.forEach((im, i) => {
-          if (dataUris && dataUris[i]) {
-            im.src = dataUris[i]
-            im.removeAttribute('crossorigin')
-            n += 1
-          }
-        })
-        dbg(`onclone: set ${n} img -> dataURI (clone imgs=${cimgs.length})`)
-      } catch (e) {
-        dbg('onclone loi: ' + (e && e.message ? e.message : String(e)))
+        if (b && b.close) b.close() // giải phóng ImageBitmap
+      } catch {
+        /* noop */
       }
-    },
-  })
-}
-
-// Quét pixel: đếm số CỘT trắng liền mép TRÁI và PHẢI (ngưỡng <250 = có mực) → kiểm ảnh đối xứng.
-function _scanBlankMargins(canvas) {
-  const w = canvas.width
-  const h = canvas.height
-  if (!w || !h) return { left: 0, right: 0, content: 0 }
-  const data = canvas.getContext('2d').getImageData(0, 0, w, h).data
-  const colHasInk = (x) => {
-    for (let y = 0; y < h; y++) {
-      const i = (y * w + x) * 4
-      if (data[i] < 250 || data[i + 1] < 250 || data[i + 2] < 250) return true
-    }
-    return false
+    })
   }
-  let left = 0
-  while (left < w && !colHasInk(left)) left++
-  if (left === w) return { left: w, right: 0, content: 0 } // trắng hết
-  let right = 0
-  while (right < w && !colHasInk(w - 1 - right)) right++
-  return { left, right, content: w - left - right }
 }
 
-// Chụp node (bill, hẹp hơn vùng in) rồi VẼ CANH GIỮA lên canvas đích rộng canvasWidth (= vùng in
-// máy) → chừa LỀ ĐỆM trắng đều 2 bên (đệm dung sai: giấy xê dịch nhẹ vẫn không cắt/không lộ lệch).
-// dx = (canvasWidth − billWidth)/2. analyze=true → kèm đo lề trắng trái/phải của ảnh cuối.
-export async function captureNodeCentered(node, { scale = 1, canvasWidth, analyze = false } = {}) {
+// Chụp node (hẹp hơn vùng in) rồi VẼ CANH GIỮA lên canvas đích rộng canvasWidth (= vùng in máy) →
+// chừa LỀ ĐỆM trắng đều 2 bên (đệm dung sai: giấy xê dịch nhẹ vẫn không cắt/không lộ lệch).
+// dx = (canvasWidth − billWidth)/2. canvasWidth ≤ bill → trả nguyên (không phình/cắt).
+export async function captureNodeCentered(node, { scale = 1, canvasWidth } = {}) {
   if (!node) throw new Error('captureNodeCentered: node rỗng')
   const bill = await _renderNode(node, scale)
   const w = canvasWidth && canvasWidth > bill.width ? Math.round(canvasWidth) : bill.width
@@ -153,7 +177,5 @@ export async function captureNodeCentered(node, { scale = 1, canvasWidth, analyz
     dx = Math.round((w - bill.width) / 2)
     ctx.drawImage(bill, dx, 0)
   }
-  const out = { dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, billWidth: bill.width, dx }
-  if (analyze) Object.assign(out, _scanBlankMargins(canvas))
-  return out
+  return { dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height, billWidth: bill.width, dx }
 }

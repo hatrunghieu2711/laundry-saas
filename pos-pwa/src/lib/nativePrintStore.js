@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from 'react'
 import { getReceiptConfig } from './receipt'
-import { dbg } from './debugLog' // ⚠️ TẠM — log chẩn đoán
 
 // Store nhỏ điều phối IN NATIVE (printBitmap). usePrintQueue đẩy 1 job → <NativePrintLayer> nghe
 // store, render node bill off-screen + chụp + printBitmap + cutPaper → finishNativeJob() → Promise
@@ -59,16 +58,13 @@ export function isNativeBusy() {
 // đầu → bấm DỒN khi đang in → BỎ QUA (không chồng job, không kẹt). nativePrintActive caller tự kiểm.
 export async function nativePrintBill(order, config) {
   if (!order) return false
-  if (_busy || _current) {
-    dbg('nativePrintBill: dang in → bo qua click')
-    return false
-  }
+  if (_busy || _current) return false // đang in → bỏ qua bấm dồn (không chồng/kẹt)
   _busy = true
   try {
     const cfg = config || (await getReceiptConfig())
     await runNativeJob({ mode: 'bill', order, config: cfg })
-  } catch (e) {
-    dbg('nativePrintBill loi: ' + (e && e.message ? e.message : String(e)))
+  } catch {
+    /* nuốt lỗi — không chặn UI; NativePrintLayer luôn finishNativeJob */
   } finally {
     _busy = false
   }
@@ -79,15 +75,12 @@ export async function nativePrintBill(order, config) {
 // (đã đóng) + branchName. Guard _busy như nativePrintBill. NativePrintLayer mode='shift' → ShiftSlipBody.
 export async function nativePrintShift(kind, shift, branchName) {
   if (!kind || !shift) return false
-  if (_busy || _current) {
-    dbg('nativePrintShift: dang in → bo qua')
-    return false
-  }
+  if (_busy || _current) return false // đang in → bỏ qua bấm dồn
   _busy = true
   try {
     await runNativeJob({ mode: 'shift', kind, shift, branchName })
-  } catch (e) {
-    dbg('nativePrintShift loi: ' + (e && e.message ? e.message : String(e)))
+  } catch {
+    /* nuốt lỗi — không chặn UI */
   } finally {
     _busy = false
   }

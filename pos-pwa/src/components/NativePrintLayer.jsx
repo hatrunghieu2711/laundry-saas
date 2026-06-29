@@ -4,9 +4,8 @@ import { Lien2LabelBody } from './Lien2Label'
 import { ShiftSlipBody } from './ShiftSlip'
 import { useCurrentNativeJob, finishNativeJob } from '../lib/nativePrintStore'
 import { captureNodeCentered } from '../lib/captureBill'
-import { dbg } from '../lib/debugLog' // ⚠️ TẠM — chẩn đoán native print
 
-// Thông số ĐÃ TEST (khớp node debug PlatformBadge): vùng in 576 dots, lề đệm 16px(2mm) mỗi bên,
+// Thông số ĐÃ TEST: vùng in 576 dots, lề đệm 16px(2mm) mỗi bên,
 // nội dung 544px = 68mm. Render node ở 68mm (font GIỮ NGUYÊN) → scale 8 dot/mm = cỡ chữ T1.
 const PRINTABLE_DOTS = 576
 const SIDE_MARGIN_PX = 16
@@ -36,11 +35,9 @@ export default function NativePrintLayer() {
     if (handledRef.current === job) return undefined // job này đã xử
     handledRef.current = job
     let cancelled = false
-    dbg(`NATIVE layer: nhan job mode=${job.mode} id=${job.order?.order_code || job.kind || 'NULL'} seq=${job.seq ? job.seq.n + '/' + job.seq.total : '-'}`)
 
     if (!SUPPORTED.has(job.mode) || !_hasData(job)) {
-      dbg('NATIVE layer: bo qua (mode khong ho tro hoac thieu order) → markDone')
-      finishNativeJob() // chưa hỗ trợ / thiếu data → bỏ qua an toàn
+      finishNativeJob() // chưa hỗ trợ / thiếu data → bỏ qua an toàn (không kẹt queue)
       return undefined
     }
 
@@ -54,15 +51,13 @@ export default function NativePrintLayer() {
           const scale = BILL_WIDTH / node.offsetWidth // 68mm → 544px (8 dot/mm = cỡ chữ T1)
           const { dataUrl } = await captureNodeCentered(node, { scale, canvasWidth: PRINTABLE_DOTS })
           const base64 = dataUrl.replace(/^data:image\/[a-z]+;base64,/, '')
-          dbg(`NATIVE ${job.mode}: chup base64 len=${base64.length} → printBitmap...`)
           const p = typeof window !== 'undefined' && window.Capacitor?.Plugins?.SunmiPrinter
           if (!p) throw new Error('KHONG thay SunmiPrinter')
           await p.printBitmap({ bitmap: base64 })
           await p.lineWrap({ lines: 3 })
           await p.cutPaper()
-          dbg(`NATIVE ${job.mode}: printBitmap + cutPaper OK`)
-        } catch (e) {
-          dbg('NATIVE LOI: ' + (e && e.message ? e.message : String(e)))
+        } catch {
+          /* nuốt lỗi in — không chặn UI; finishNativeJob ở finally */
         } finally {
           if (!cancelled) finishNativeJob() // LUÔN markDone → queue không kẹt
         }
