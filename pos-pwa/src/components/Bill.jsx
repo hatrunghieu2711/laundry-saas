@@ -1,4 +1,4 @@
-import { QRCodeSVG } from 'qrcode.react'
+import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react'
 import { formatVND, toNumber } from '../lib/format'
 import { formatPickupShort } from '../lib/datetime'
 import { useAuth } from '../context/AuthContext'
@@ -21,7 +21,9 @@ const LDEF = {
 const DEF_ALIGN = { qr_tracking: 'center', order_no: 'center', payment_status: 'center', custom_text: 'center' }
 const DEFAULT_TRACK_BASE = 'https://track.giatui.app/track/'
 
-export default function BillContent({ config, order, slug: slugOverride }) {
+// qrRenderer: 'svg' (mặc định — bản in T1/portal, QRCodeSVG GIỮ NGUYÊN) | 'canvas' (chỉ NODE
+// CHỤP html2canvas dùng — QRCodeCanvas vì html2canvas hay mất inline <svg>, chụp <canvas> tốt).
+export default function BillContent({ config, order, slug: slugOverride, qrRenderer = 'svg' }) {
   // Hook gọi trước mọi return sớm (Rules of Hooks). tenant_slug từ /auth/me (đáng tin)
   // — portal in vẫn giữ context React nên đọc được. Bill chỉ dùng trong app (có Auth).
   // slugOverride: cho preview ngoài context POS (vd mẫu chuẩn admin) truyền slug riêng.
@@ -138,9 +140,12 @@ export default function BillContent({ config, order, slug: slugOverride }) {
       }
       case 'qr_tracking':
         // Stage 5.8: KHÔNG còn caption mặc định (muốn chữ → dùng Văn bản tự do).
+        // qrRenderer='canvas' (node CHỤP) → QRCodeCanvas; mặc định 'svg' → QRCodeSVG (T1 GIỮ NGUYÊN).
         return (
           <div className="rcp__qr">
-            <QRCodeSVG value={trackUrl} size={132} level="M" />
+            {qrRenderer === 'canvas'
+              ? <QRCodeCanvas value={trackUrl} size={132} level="M" />
+              : <QRCodeSVG value={trackUrl} size={132} level="M" />}
           </div>
         )
       case 'custom_text':
