@@ -9,6 +9,14 @@ export function formatVND(value) {
   return new Intl.NumberFormat('vi-VN').format(Math.round(n)) + 'đ'
 }
 
+// Như formatVND nhưng KHÔNG kèm 'đ' — dùng cho cột Giá bảng món (tránh dính SL ↔ Giá).
+// Tổng tiền/totals + cột Tổng bảng món VẪN dùng formatVND (có 'đ').
+export function formatVNDPlain(value) {
+  const n = Number(value)
+  if (!Number.isFinite(n)) return '0'
+  return new Intl.NumberFormat('vi-VN').format(Math.round(n))
+}
+
 // Số nguyên an toàn từ giá trị tiền API (cho tính toán).
 export function toNumber(value) {
   const n = Number(value)

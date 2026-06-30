@@ -1,5 +1,5 @@
 import { QRCodeSVG, QRCodeCanvas } from 'qrcode.react'
-import { formatVND, toNumber } from '../lib/format'
+import { formatVND, formatVNDPlain, toNumber } from '../lib/format'
 import { formatPickupShort } from '../lib/datetime'
 import { useAuth } from '../context/AuthContext'
 
@@ -105,7 +105,7 @@ export default function BillContent({ config, order, slug: slugOverride, qrRende
                 <tr className="rcp__tr" key={it.id}>
                   <td className="rcp__td rcp__td--name">{it.service_name}</td>
                   <td className="rcp__td rcp__td--qty">{toNumber(it.quantity)}</td>
-                  <td className="rcp__td rcp__td--num">{formatVND(it.unit_price)}</td>
+                  <td className="rcp__td rcp__td--num">{formatVNDPlain(it.unit_price)}</td>
                   <td className="rcp__td rcp__td--num">{formatVND(it.subtotal)}</td>
                 </tr>
               ))}
@@ -138,16 +138,19 @@ export default function BillContent({ config, order, slug: slugOverride, qrRende
         const text = lbl('payment_status', c, order.payment_status === 'paid' ? 'paid' : 'unpaid')
         return <div className="rcp__paystatus-wrap"><span className="rcp__paystatus">{text}</span></div>
       }
-      case 'qr_tracking':
+      case 'qr_tracking': {
         // Stage 5.8: KHÔNG còn caption mặc định (muốn chữ → dùng Văn bản tự do).
+        // M3: cỡ QR theo blk.size (editor "Cỡ chữ" small/normal/large) — px hợp 80mm.
         // qrRenderer='canvas' (node CHỤP) → QRCodeCanvas; mặc định 'svg' → QRCodeSVG (T1 GIỮ NGUYÊN).
+        const qrPx = { small: 96, normal: 132, large: 168 }[blk.size || 'normal'] || 132
         return (
           <div className="rcp__qr">
             {qrRenderer === 'canvas'
-              ? <QRCodeCanvas value={trackUrl} size={132} level="M" />
-              : <QRCodeSVG value={trackUrl} size={132} level="M" />}
+              ? <QRCodeCanvas value={trackUrl} size={qrPx} level="M" />
+              : <QRCodeSVG value={trackUrl} size={qrPx} level="M" />}
           </div>
         )
+      }
       case 'custom_text':
         if (!c.vi && !c.en) return null
         return (
