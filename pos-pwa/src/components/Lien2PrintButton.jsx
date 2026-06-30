@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Lien2PrintLayer } from './Lien2Label'
 import { usePrintQueue } from '../lib/printQueue'
+import { getReceiptConfig } from '../lib/receipt'
 
 // Nút "In liên 2" + modal in CHỦ ĐỘNG (Stage 6.9, queue 6.9.4) — tái dùng ở mọi nơi
 // có nút in bill. Chọn số nhãn (nhanh 1–5 / stepper) + tuỳ chọn đánh số. MỖI NHÃN
@@ -13,7 +14,16 @@ export default function Lien2PrintButton({ order, className = 'btn btn--ghost' }
   const [open, setOpen] = useState(false)
   const [count, setCount] = useState(1)
   const [numbered, setNumbered] = useState(true)
+  const [lien2Cfg, setLien2Cfg] = useState(null) // mẫu nhãn (bật/tắt + cỡ mã); load 1 lần (cache)
   const { active, printing, run } = usePrintQueue()
+
+  useEffect(() => {
+    let alive = true
+    getReceiptConfig().then((c) => alive && setLien2Cfg(c.lien2))
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const openModal = () => {
     setCount(1)
@@ -29,6 +39,7 @@ export default function Lien2PrintButton({ order, className = 'btn btn--ghost' }
       mode: 'lien2',
       seq: numbered ? { n: i + 1, total: count } : null,
       order, // 3d-2: native chụp nhãn cần order; web bỏ qua (render portal như cũ)
+      lien2Cfg, // mẫu nhãn → đi theo job (native render đúng cấu hình; web dùng portal cfg dưới)
     }))
     run(jobs, () => setOpen(false))
   }
@@ -81,7 +92,7 @@ export default function Lien2PrintButton({ order, className = 'btn btn--ghost' }
       )}
 
       {/* CHỈ render nhãn ĐANG in (1 job/lần) vào vùng in — hàng đợi cắt rời từng nhãn. */}
-      {active?.mode === 'lien2' && <Lien2PrintLayer order={order} seq={active.seq} />}
+      {active?.mode === 'lien2' && <Lien2PrintLayer order={order} seq={active.seq} cfg={lien2Cfg} />}
     </>
   )
 }

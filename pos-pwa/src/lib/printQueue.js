@@ -87,7 +87,7 @@ export function usePrintQueue() {
     // Job thiếu order (vd auto-print chưa nối data) → RƠI xuống web (fallback an toàn, không kẹt).
     if (_goNative) {
       let cancelledN = false
-      runNativeJob({ mode: active.mode, order: active.order, config: active.config, seq: active.seq }).then(() => {
+      runNativeJob({ mode: active.mode, order: active.order, config: active.config, seq: active.seq, lien2Cfg: active.lien2Cfg }).then(() => {
         if (!cancelledN && token === tokenRef.current) startAt(idxRef.current + 1)
       })
       return () => {

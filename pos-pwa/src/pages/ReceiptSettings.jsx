@@ -2,11 +2,28 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
 import { ApiError, api } from '../lib/api'
-import { blocksToRows, clearReceiptCache, normalizeReceipt, rowsToBlocks } from '../lib/receipt'
+import { DEFAULT_LIEN2, blocksToRows, clearReceiptCache, normalizeLien2, normalizeReceipt, rowsToBlocks } from '../lib/receipt'
 import Ico from '../components/receipt/Ico'
 import BlockEditModal from '../components/receipt/BlockEditModal'
 import BlockListEditor from '../components/receipt/BlockListEditor'
 import ReceiptEditor from '../components/receipt/ReceiptEditor'
+import { Lien2LabelBody } from '../components/Lien2Label'
+
+// Mẫu nhãn liên 2 (Hướng B, Mảnh 2): 6 thành phần bật/tắt + cỡ mã đơn. Mã đơn + số nhãn LUÔN hiện.
+const LIEN2_TOGGLES = [
+  ['show_customer_name', 'Tên khách'],
+  ['show_recv_time', 'Giờ nhận'],
+  ['show_pickup_time', 'Giờ giao'],
+  ['show_amount', 'Số tiền (khi chưa thanh toán)'],
+  ['show_payment_status', 'Trạng thái thanh toán'],
+  ['show_note', 'Ghi chú'],
+]
+// Đơn MẪU cho preview nhãn (không gọi API) — đủ field Lien2LabelBody đọc.
+const LIEN2_SAMPLE = {
+  order_code: 'TX-0042', payment_status: 'unpaid', customer_name: 'Nguyễn Văn A',
+  total_amount: 150000, created_at: '2025-06-20T02:30:00Z', pickup_at: '2025-06-21T09:00:00Z',
+  notes: 'Giặt riêng đồ trắng, không dùng nước xả',
+}
 
 // Màn TENANT sửa mẫu phiếu. Stage refactor editor: editor/modal/preview tách ra shared
 // (components/receipt/) — màn này GIỮ NGUYÊN state + gates (applyConfig/putConfig/buildBcb/
@@ -37,6 +54,9 @@ export default function ReceiptSettings() {
   const [commonEditing, setCommonEditing] = useState(null) // {ri,ci} khối CHUNG đang sửa
   const [bcEditing, setBcEditing] = useState(null)         // {ri,ci} khối CN đang sửa
   const [restoredMsg, setRestoredMsg] = useState('')       // nhắc "đã nạp mẫu — bấm Lưu"
+  const [lien2Cfg, setLien2Cfg] = useState(null)           // mẫu nhãn liên 2 (form RIÊNG, không builder)
+  const [lien2Saving, setLien2Saving] = useState(false)
+  const [lien2Saved, setLien2Saved] = useState(false)
   const fileRef = useRef(null)
 
   const applyConfig = (c) => {
@@ -45,6 +65,7 @@ export default function ReceiptSettings() {
     setLogoUrl(n.logo_url)
     setTrackBaseUrl(n.track_base_url)
     setRows(blocksToRows(n.blocks))
+    setLien2Cfg(normalizeLien2(c?.lien2))
     // branch_contact_blocks (map branch_id → mảng khối) → rows theo CN.
     const bcb = c?.branch_contact_blocks || {}
     setBcRowsByBranch(Object.fromEntries(
@@ -167,6 +188,30 @@ export default function ReceiptSettings() {
     } catch (e) {
       setError(e instanceof ApiError && e.status === 403 ? 'Chỉ owner mới lưu được mẫu phiếu.' : e?.message || 'Không lưu được cấu hình')
     } finally { setSaving(false) }
+  }
+
+  // ── Mẫu nhãn LIÊN 2 (form RIÊNG, không builder) ────────────────────────────────────────────
+  const setLien2Field = (k, v) => { setLien2Saved(false); setLien2Cfg((c) => ({ ...c, [k]: v })) }
+  const resetLien2 = () => { setLien2Saved(false); setLien2Cfg({ ...DEFAULT_LIEN2 }) }
+  // ⚠️ GIỮ NGUYÊN phần bill: GET config server HIỆN TẠI → gửi lại y nguyên blocks/branch_contact +
+  // CHỈ thay key lien2. Độc lập với editor bill (kể cả khi owner đang sửa bill chưa lưu) → lưu nhãn
+  // KHÔNG đụng config bill. (BE Mảnh 1: data.lien2 có → lưu; còn blocks PHẢI gửi đủ kẻo bị về rỗng.)
+  const saveLien2 = async () => {
+    if (lien2Saving || !lien2Cfg) return
+    setLien2Saving(true); setError('')
+    try {
+      const cur = await api.get('/settings/receipt')
+      await api.put('/settings/receipt', {
+        bilingual: cur.bilingual !== false,
+        track_base_url: cur.track_base_url || '',
+        blocks: cur.blocks || [],
+        branch_contact_blocks: cur.branch_contact_blocks || {},
+        lien2: lien2Cfg,
+      })
+      clearReceiptCache(); setLien2Saved(true)
+    } catch (e) {
+      setError(e instanceof ApiError && e.status === 403 ? 'Chỉ owner mới sửa được mẫu nhãn.' : e?.message || 'Không lưu được mẫu nhãn liên 2')
+    } finally { setLien2Saving(false) }
   }
 
   // Lưu cấu hình ĐANG DÙNG làm mẫu mặc định của tenant (lưu active trước, rồi promote).
@@ -323,6 +368,69 @@ export default function ReceiptSettings() {
               Khôi phục mẫu gốc hệ thống
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── MẪU NHÃN LIÊN 2 (dán túi) — form RIÊNG, KHÔNG builder bill. Lưu độc lập, GIỮ config bill. */}
+      {lien2Cfg && (
+        <div className="shift__card rcfg__lien2">
+          <h3 className="card__title">Mẫu nhãn liên 2 (dán túi)</h3>
+          <p className="rcfg__hint">
+            Chọn thành phần hiện trên nhãn dán túi và cỡ chữ mã đơn.{' '}
+            <strong>Mã đơn và số nhãn luôn hiển thị</strong> (không tắt được).
+          </p>
+
+          {LIEN2_TOGGLES.map(([k, label]) => (
+            <label key={k} className="rcfg__switch rcfg__switch--row">
+              <input type="checkbox" checked={!!lien2Cfg[k]} disabled={!canEdit}
+                onChange={(e) => setLien2Field(k, e.target.checked)} />
+              <span>{label}</span>
+            </label>
+          ))}
+
+          <label className="field" style={{ marginTop: 12 }}>
+            <span>Cỡ chữ mã đơn</span>
+            <select className="input" value={lien2Cfg.code_size} disabled={!canEdit}
+              onChange={(e) => setLien2Field('code_size', e.target.value)}>
+              <option value="small">Nhỏ (S)</option>
+              <option value="normal">Vừa (M)</option>
+              <option value="large">Lớn (L)</option>
+            </select>
+          </label>
+
+          {/* Dòng thông tin thêm (Phần B) — bật + nhập SĐT/địa chỉ. Mặc định TẮT. */}
+          <label className="rcfg__switch rcfg__switch--row" style={{ marginTop: 12 }}>
+            <input type="checkbox" checked={!!lien2Cfg.show_footer_text} disabled={!canEdit}
+              onChange={(e) => setLien2Field('show_footer_text', e.target.checked)} />
+            <span>Hiện dòng thông tin thêm (cuối nhãn)</span>
+          </label>
+          <label className="field">
+            <span>Nội dung dòng thông tin thêm</span>
+            <textarea className="input" rows={2} maxLength={200}
+              value={lien2Cfg.footer_text || ''} disabled={!canEdit}
+              placeholder="VD: Hotline 0900 000 000 · 12 Lê Lợi, Q1"
+              onChange={(e) => setLien2Field('footer_text', e.target.value)} />
+          </label>
+
+          {/* Xem trước (đơn mẫu) — đổi theo cấu hình đang chọn. Số nhãn 1/2 minh hoạ luôn-hiện. */}
+          <div className="rcfg__lien2-preview-wrap">
+            <span className="rcfg__hint" style={{ margin: 0 }}>Xem trước</span>
+            <div className="rcfg__lien2-preview">
+              <Lien2LabelBody order={LIEN2_SAMPLE} seq={{ n: 1, total: 2 }} cfg={lien2Cfg} />
+            </div>
+          </div>
+
+          {lien2Saved && <div className="alert alert--success">Đã lưu mẫu nhãn liên 2.</div>}
+          {canEdit && (
+            <div className="rcfg__default-btns">
+              <button className="btn btn--primary btn--lg" onClick={saveLien2} disabled={lien2Saving}>
+                {lien2Saving ? 'Đang lưu…' : lien2Saved ? <><Ico name="check" /> Đã lưu nhãn</> : 'Lưu mẫu nhãn'}
+              </button>
+              <button className="btn btn--ghost btn--lg" onClick={resetLien2} disabled={lien2Saving}>
+                Khôi phục mặc định
+              </button>
+            </div>
+          )}
         </div>
       )}
     </>

@@ -149,7 +149,34 @@ function defaultBlocks() {
   ]
 }
 
-export const DEFAULT_RECEIPT = { bilingual: true, logo_url: '', track_base_url: '', blocks: defaultBlocks(), branch_contact_blocks: {} }
+// Mẫu nhãn LIÊN 2 (Hướng B) — default = mọi thứ bật + code_size 'large' (khớp .lbl__code 34px → in
+// y cũ khi chưa sửa). Mã đơn + số nhãn LUÔN hiện (không có trong config).
+export const DEFAULT_LIEN2 = {
+  show_customer_name: true, show_recv_time: true, show_pickup_time: true,
+  show_note: true, show_amount: true, show_payment_status: true, code_size: 'large',
+  // Dòng thông tin thêm cuối nhãn — MẶC ĐỊNH TẮT.
+  show_footer_text: false, footer_text: '',
+}
+
+// Hợp nhất lien2 từ BE (thiếu key/null) lên default → luôn đủ key + code_size hợp lệ.
+export function normalizeLien2(raw) {
+  const r = raw && typeof raw === 'object' ? raw : {}
+  const cs = ['small', 'normal', 'large'].includes(r.code_size) ? r.code_size : 'large'
+  return {
+    show_customer_name: r.show_customer_name !== false,
+    show_recv_time: r.show_recv_time !== false,
+    show_pickup_time: r.show_pickup_time !== false,
+    show_note: r.show_note !== false,
+    show_amount: r.show_amount !== false,
+    show_payment_status: r.show_payment_status !== false,
+    code_size: cs,
+    // footer MẶC ĐỊNH TẮT → chỉ bật khi BE trả đúng true (=== true, KHÔNG !== false).
+    show_footer_text: r.show_footer_text === true,
+    footer_text: typeof r.footer_text === 'string' ? r.footer_text : '',
+  }
+}
+
+export const DEFAULT_RECEIPT = { bilingual: true, logo_url: '', track_base_url: '', blocks: defaultBlocks(), branch_contact_blocks: {}, lien2: { ...DEFAULT_LIEN2 } }
 
 // Bảo đảm cấu hình đủ field (rỗng/thiếu → mặc định). Backend đã migrate cấu hình
 // cũ sang shape khối 5.8, nên client thường nhận sẵn blocks[] hợp lệ.
@@ -162,6 +189,7 @@ export function normalizeReceipt(cfg) {
     bilingual: c.bilingual !== false, logo_url: c.logo_url || '',
     track_base_url: c.track_base_url || '', blocks,
     branch_contact_blocks: c.branch_contact_blocks || {},
+    lien2: normalizeLien2(c.lien2),
   }
 }
 

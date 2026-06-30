@@ -8,10 +8,15 @@ import { captureNodeCentered } from '../lib/captureBill'
 // Thông số ĐÃ TEST: vùng in 576 dots, lề đệm 16px(2mm) mỗi bên,
 // nội dung 544px = 68mm. Render node ở 68mm (font GIỮ NGUYÊN) → scale 8 dot/mm = cỡ chữ T1.
 const PRINTABLE_DOTS = 576
-const SIDE_MARGIN_PX = 16
-const BILL_WIDTH = PRINTABLE_DOTS - 2 * SIDE_MARGIN_PX // 544
-const BILL_WIDTH_MM = BILL_WIDTH / 8 // 68
-const LABEL_WIDTH_MM = BILL_WIDTH_MM // nhãn cũng 68mm (portal thật .lbl 76mm → override xuống 68mm)
+// 8px ÷ 8 dot/mm = 1mm lề đệm MỖI BÊN (giảm từ 2mm). ⚠️ mỏng hơn → giấy nhiệt xê dịch dễ sát mép/cắt
+// hơn; nếu hay bị cắt mép → TĂNG lại (16 = 2mm). Hằng số dễ chỉnh. KHÔNG đổi vùng in 576 / cỡ chữ.
+const SIDE_MARGIN_PX = 8
+const BILL_WIDTH = PRINTABLE_DOTS - 2 * SIDE_MARGIN_PX // 560
+const BILL_WIDTH_MM = BILL_WIDTH / 8 // 70
+const LABEL_WIDTH_MM = BILL_WIDTH_MM // nhãn cũng 70mm (portal thật .lbl 76mm → override xuống 70mm)
+// M5: số dòng đẩy giấy TRƯỚC khi cắt (khoảng head→dao cắt). Giảm 3→1 = TIẾT KIỆM giấy (cắt sát cuối
+// hơn). ⚠️ Nếu dao CẮT PHẠM dòng nội dung cuối → TĂNG (2 hoặc 3). Áp mọi mẫu native (bill/lien2/shift).
+const CUT_FEED_LINES = 1
 
 const SUPPORTED = new Set(['bill', 'lien2', 'shift'])
 
@@ -48,13 +53,13 @@ export default function NativePrintLayer() {
         try {
           const node = nodeRef.current
           if (!node) throw new Error('node native rỗng')
-          const scale = BILL_WIDTH / node.offsetWidth // 68mm → 544px (8 dot/mm = cỡ chữ T1)
+          const scale = BILL_WIDTH / node.offsetWidth // 70mm → 560px (8 dot/mm = cỡ chữ giữ nguyên)
           const { dataUrl } = await captureNodeCentered(node, { scale, canvasWidth: PRINTABLE_DOTS })
           const base64 = dataUrl.replace(/^data:image\/[a-z]+;base64,/, '')
           const p = typeof window !== 'undefined' && window.Capacitor?.Plugins?.SunmiPrinter
           if (!p) throw new Error('KHONG thay SunmiPrinter')
           await p.printBitmap({ bitmap: base64 })
-          await p.lineWrap({ lines: 3 })
+          await p.lineWrap({ lines: CUT_FEED_LINES }) // M5: tiết kiệm giấy (giảm feed trước cắt)
           await p.cutPaper()
         } catch {
           /* nuốt lỗi in — không chặn UI; finishNativeJob ở finally */
@@ -80,7 +85,7 @@ export default function NativePrintLayer() {
       {job.mode === 'shift' ? (
         <ShiftSlipBody kind={job.kind} shift={job.shift} branchName={job.branchName} />
       ) : job.mode === 'lien2' ? (
-        <Lien2LabelBody order={job.order} seq={job.seq || null} widthMm={LABEL_WIDTH_MM} />
+        <Lien2LabelBody order={job.order} seq={job.seq || null} widthMm={LABEL_WIDTH_MM} cfg={job.lien2Cfg || null} />
       ) : (
         <BillContent qrRenderer="canvas" order={job.order} config={job.config} />
       )}

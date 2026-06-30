@@ -81,6 +81,29 @@ class ReceiptBlock(BaseModel):
     content: dict[str, str] = Field(default_factory=dict)
 
 
+class Lien2Config(BaseModel):
+    """Cấu hình mẫu nhãn LIÊN 2 (lưu trong receipt_config.lien2). Mã đơn + số nhãn LUÔN hiện
+    (không cho tắt). show_* = bật/tắt thành phần; code_size = cỡ mã đơn (small/normal/large)."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    show_customer_name: bool = True
+    show_recv_time: bool = True
+    show_pickup_time: bool = True
+    show_note: bool = True
+    show_amount: bool = True
+    show_payment_status: bool = True
+    code_size: str = "large"
+    # Dòng thông tin thêm cuối nhãn (SĐT/địa chỉ…) — tenant tự nhập, MẶC ĐỊNH TẮT.
+    show_footer_text: bool = False
+    footer_text: str = Field(default="", max_length=200)
+
+    @field_validator("code_size")
+    @classmethod
+    def _code_size(cls, v: str) -> str:
+        return v if v in ("small", "normal", "large") else "large"
+
+
 class ReceiptConfig(BaseModel):
     """Cấu hình mẫu phiếu in per-tenant. Đọc mọi role, sửa owner.
 
@@ -100,6 +123,9 @@ class ReceiptConfig(BaseModel):
     # riêng của CN đó (cùng shape ReceiptBlock). PHẢI khai báo (extra="ignore" nuốt
     # field lạ khi PUT) + get_receipt phải thêm key này vào dict trả (cổng 2).
     branch_contact_blocks: dict[str, list[ReceiptBlock]] = Field(default_factory=dict)
+    # Mẫu nhãn LIÊN 2 (Hướng B): None khi client KHÔNG gửi (bill PUT) → update_receipt GIỮ giá trị
+    # cũ; có giá trị (lien2 UI PUT) → lưu. get_receipt luôn trả default đủ key nếu vắng (cổng 3).
+    lien2: Lien2Config | None = None
 
 
 class ReceiptUpdate(ReceiptConfig):

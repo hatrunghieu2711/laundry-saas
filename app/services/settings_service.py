@@ -76,9 +76,36 @@ def _default_blocks() -> list[dict]:
     ]
 
 
+# Mẫu nhãn LIÊN 2 (Hướng B) — lưu trong receipt_config.lien2 (JSONB sẵn, KHÔNG migration).
+_DEFAULT_LIEN2 = {
+    "show_customer_name": True, "show_recv_time": True, "show_pickup_time": True,
+    "show_note": True, "show_amount": True, "show_payment_status": True,
+    "code_size": "large",
+    # Dòng thông tin thêm cuối nhãn (SĐT/địa chỉ…) — MẶC ĐỊNH TẮT (tenant cũ không thấy gì lạ).
+    "show_footer_text": False, "footer_text": "",
+}
+
+
+def _normalize_lien2(raw) -> dict:
+    """Hợp nhất raw (thiếu key/None/lạ) lên default → LUÔN đủ key + code_size hợp lệ. Default = mọi
+    thứ bật + code_size 'large' → khớp .lbl__code hiện tại (không đổi hành vi khi chưa ai sửa).
+    footer MẶC ĐỊNH TẮT (show_footer_text=False)."""
+    out = dict(_DEFAULT_LIEN2)
+    if isinstance(raw, dict):
+        for k in ("show_customer_name", "show_recv_time", "show_pickup_time",
+                  "show_note", "show_amount", "show_payment_status", "show_footer_text"):
+            if isinstance(raw.get(k), bool):
+                out[k] = raw[k]
+        if raw.get("code_size") in ("small", "normal", "large"):
+            out["code_size"] = raw["code_size"]
+        if isinstance(raw.get("footer_text"), str):
+            out["footer_text"] = raw["footer_text"][:200]
+    return out
+
+
 def _default_receipt() -> dict:
     return {"bilingual": True, "logo_url": "", "track_base_url": "", "blocks": _default_blocks(),
-            "branch_contact_blocks": {}}
+            "branch_contact_blocks": {}, "lien2": dict(_DEFAULT_LIEN2)}
 
 
 def _migrate_branch_contact_blocks(raw) -> dict:
@@ -171,7 +198,8 @@ def _migrate_legacy(cfg: dict) -> dict:
     # blocks[1] là custom_text 'brand' (title).
     blocks[1]["content"] = {"vi": brand}
     return {"bilingual": True, "logo_url": cfg.get("logo_url", ""),
-            "track_base_url": "", "blocks": blocks, "branch_contact_blocks": {}}
+            "track_base_url": "", "blocks": blocks, "branch_contact_blocks": {},
+            "lien2": dict(_DEFAULT_LIEN2)}
 
 
 async def get_or_create(db: AsyncSession, tenant_id: uuid.UUID) -> TenantSettings:
@@ -213,6 +241,8 @@ async def get_receipt(db: AsyncSession, tenant_id: uuid.UUID) -> dict:
             # ⚠️ Cổng 2: phải thêm key này (dict trả dựng tay), nếu không GET drop dù
             # đã lưu được. Mỗi mảng CN chạy _migrate_blocks như khối thường.
             "branch_contact_blocks": _migrate_branch_contact_blocks(cfg.get("branch_contact_blocks")),
+            # ⚠️ Cổng 3: lien2 cũng phải thêm vào dict trả (default đủ key nếu vắng).
+            "lien2": _normalize_lien2(cfg.get("lien2")),
         }
     return _migrate_legacy(cfg)  # cấu hình 5.3/5.4 cũ
 
@@ -226,6 +256,8 @@ async def update_receipt(
     existing = settings.receipt_config or {}
     payload = data.model_dump(mode="json")
     payload["logo_url"] = existing.get("logo_url", "")
+    # lien2: client KHÔNG gửi (bill PUT → data.lien2=None) → GIỮ giá trị cũ; có gửi (lien2 UI) → lưu.
+    payload["lien2"] = data.lien2.model_dump() if data.lien2 is not None else _normalize_lien2(existing.get("lien2"))
     settings.receipt_config = payload
     await db.commit()
     return await get_receipt(db, tenant_id)

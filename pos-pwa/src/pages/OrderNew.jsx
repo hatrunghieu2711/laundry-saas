@@ -563,7 +563,7 @@ export default function OrderNew() {
     // receiptConfig CHẮC CHẮN sẵn ở đây (guard !created/!printReady; printReady = config!=null & logo).
     const jobs = []
     if (autoPrint) jobs.push({ mode: 'bill', order: created, config: receiptConfig })
-    if (autoPrintCopy2) jobs.push({ mode: 'lien2', seq: null, order: created })
+    if (autoPrintCopy2) jobs.push({ mode: 'lien2', seq: null, order: created, lien2Cfg: receiptConfig?.lien2 })
     if (!jobs.length) return // cả hai tắt → KHÔNG tự in (nhân viên in tay)
     if (printedRef.current === created.id) return
     printedRef.current = created.id
@@ -626,7 +626,7 @@ export default function OrderNew() {
         )}
         <Receipt config={receiptConfig} order={created} paid={paidInfo.amount} method={paidInfo.method} />
         {/* LIÊN 2: chỉ render khi job liên 2 đang in (auto kèm bill / In lại) — 1 nhãn/lần. */}
-        {printJob?.mode === 'lien2' && <Lien2PrintLayer order={created} seq={printJob.seq} />}
+        {printJob?.mode === 'lien2' && <Lien2PrintLayer order={created} seq={printJob.seq} cfg={receiptConfig?.lien2} />}
       </div>
     )
   }
