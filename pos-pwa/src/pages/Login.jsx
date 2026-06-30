@@ -40,7 +40,7 @@ export default function Login() {
         setError('Vui lòng nhập mã cửa hàng.')
         slugInputRef.current?.focus()
       } else if (err instanceof ApiError && err.code === 'INVALID_CREDENTIALS') {
-        setError('Sai số điện thoại hoặc mật khẩu.')
+        setError('Sai tên đăng nhập hoặc mật khẩu.')
       } else if (err instanceof ApiError) {
         setError(err.message)
       } else {
@@ -60,15 +60,18 @@ export default function Login() {
         <p className="login__sub">Đăng nhập để bắt đầu ca làm</p>
 
         <label className="field">
-          <span>Số điện thoại</span>
+          <span>Tên đăng nhập</span>
           <input
             className="input"
-            type="tel"
-            inputMode="numeric"
+            type="text"
+            inputMode="text"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             autoComplete="username"
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
-            placeholder="0900000001"
+            placeholder="Tên đăng nhập hoặc SĐT"
             required
             autoFocus
           />
