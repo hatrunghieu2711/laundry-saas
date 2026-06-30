@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Adaptive icon BACKGROUND — nền cam #f97316 phủ kín (full-bleed, KHÔNG bo góc; hệ thống tự
+     bo theo mặt nạ thiết bị). Ghép với icon-gu-foreground.svg làm adaptive icon Android. 1024x1024. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="0" y="0" width="1024" height="1024" fill="#f97316"/>
+</svg>

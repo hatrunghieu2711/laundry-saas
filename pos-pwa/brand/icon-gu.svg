@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- App icon "GU" — Giặt Ủi. Nền cam thương hiệu #f97316 (khớp biến CSS orange), chữ trắng đậm.
+     Bản ĐẦY ĐỦ (legacy/iOS/Play Store): nền bo góc + chữ. 1024x1024.
+     Chữ "GU" dùng <text> font sans đậm; convert SVG→PNG trên Mac (Helvetica/Arial) ra sắc nét.
+     Nếu trình convert lệch dọc: chỉnh thuộc tính y hoặc "object to path" trong Inkscape. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <rect x="0" y="0" width="1024" height="1024" rx="224" ry="224" fill="#f97316"/>
+  <text x="512" y="512"
+        text-anchor="middle" dominant-baseline="central"
+        font-family="'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', 'DejaVu Sans', sans-serif"
+        font-weight="800" font-size="440" fill="#ffffff">GU</text>
+</svg>

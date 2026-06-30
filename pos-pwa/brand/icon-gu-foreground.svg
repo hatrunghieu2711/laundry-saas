@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Adaptive icon FOREGROUND — chỉ chữ "GU" trắng, nền TRONG SUỐT. 1024x1024.
+     Chữ thu nhỏ (font-size 400) nằm trong vùng an toàn ~66% giữa (Android adaptive crop mép) →
+     không bị mặt nạ cắt. Ghép với icon-gu-background.svg (nền cam) làm adaptive icon. -->
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <text x="512" y="512"
+        text-anchor="middle" dominant-baseline="central"
+        font-family="'Helvetica Neue', Helvetica, Arial, 'Liberation Sans', 'DejaVu Sans', sans-serif"
+        font-weight="800" font-size="400" fill="#ffffff">GU</text>
+</svg>
