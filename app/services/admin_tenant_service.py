@@ -120,6 +120,11 @@ async def create_tenant(db: AsyncSession, data: TenantCreate) -> CreatedTenant:
         from app.services import admin_default_receipt_service
 
         tpl = await admin_default_receipt_service.get_stored_default_receipt(db)
+        if tpl is not None:
+            # Merge khối hệ thống bắt buộc (payment_status…) còn thiếu → tenant MỚI
+            # luôn có. tpl None giữ NGUYÊN (receipt_config NULL → get_receipt fallback
+            # _default_receipt() đã có sẵn payment_status; KHÔNG gãy tạo tenant).
+            tpl = admin_default_receipt_service._merge_required_blocks(tpl)
         db.add(TenantSettings(tenant_id=tenant.id, receipt_config=tpl))
 
         # f2. ⭐ GÁN gói mặc định (Gói 1) — tenant mới LUÔN có subscription (không-sub = chặn

@@ -63,6 +63,20 @@ def _tpl(brand_vi="MẪU CHUẨN"):
     }
 
 
+def _tpl_no_paystatus():
+    """Mẫu default đã lưu TRƯỚC Bước 1: có 'totals', KHÔNG có payment_status."""
+    return {
+        "bilingual": True,
+        "track_base_url": "https://t.example/",
+        "blocks": [
+            {"id": "items_table", "type": "items_table", "enabled": True, "row": 0, "col": "full"},
+            {"id": "totals", "type": "totals", "enabled": True, "row": 1, "col": "full"},
+            {"id": "footer", "type": "custom_text", "enabled": True, "row": 2, "col": "full",
+             "content": {"vi": "Cảm ơn"}},
+        ],
+    }
+
+
 # ── ⭐ app_settings đọc/ghi dưới RLS thật + GET fallback ──────────────────────
 async def test_default_receipt_roundtrip_under_rls(client, rls_db):
     atok = await _atok(client, await _seed_admin("0996600001"))
@@ -119,3 +133,53 @@ async def test_create_tenant_fallback_no_template(client, rls_db):
     rc = (await client.get(RECEIPT, headers=auth_headers(otok))).json()
     # = _default_receipt(): có placeholder "[Tên tiệm]" của mẫu gốc nền tảng.
     assert any("[Tên tiệm]" in ((b.get("content") or {}).get("vi") or "") for b in rc["blocks"])
+
+
+# ── ⭐ MERGE-ON-READ: mẫu default lưu trước Bước 1 (thiếu payment_status) ──────
+async def test_get_default_merges_payment_status_after_totals(client, rls_db):
+    atok = await _atok(client, await _seed_admin("0996600005"))
+    await client.put(DEFAULT_RECEIPT, json=_tpl_no_paystatus(), headers=auth_headers(atok))
+
+    g = (await client.get(DEFAULT_RECEIPT, headers=auth_headers(atok))).json()
+    blocks = sorted(g["blocks"], key=lambda b: b["row"])
+    types = [b["type"] for b in blocks]
+    assert types.count("payment_status") == 1
+    assert types.index("payment_status") == types.index("totals") + 1  # ngay sau totals
+
+    pb = next(b for b in blocks if b["type"] == "payment_status")
+    assert pb["removable"] is False
+    assert "Đã thanh toán" in pb["content"]["paid_vi"] and "Оплачено" in pb["content"]["paid_vi"]
+
+
+async def test_get_default_merge_idempotent_and_persists(client, rls_db):
+    atok = await _atok(client, await _seed_admin("0996600006"))
+    await client.put(DEFAULT_RECEIPT, json=_tpl_no_paystatus(), headers=auth_headers(atok))
+
+    g1 = (await client.get(DEFAULT_RECEIPT, headers=auth_headers(atok))).json()
+    g2 = (await client.get(DEFAULT_RECEIPT, headers=auth_headers(atok))).json()
+    assert sum(b["type"] == "payment_status" for b in g1["blocks"]) == 1
+    assert sum(b["type"] == "payment_status" for b in g2["blocks"]) == 1  # GET lại không nhân đôi
+
+    # Admin LƯU lại (đã merge) → stored có payment_status → GET sau merge no-op (vẫn 1).
+    await client.put(DEFAULT_RECEIPT, json={
+        "bilingual": g1["bilingual"], "track_base_url": g1["track_base_url"], "blocks": g1["blocks"],
+    }, headers=auth_headers(atok))
+    g3 = (await client.get(DEFAULT_RECEIPT, headers=auth_headers(atok))).json()
+    assert sum(b["type"] == "payment_status" for b in g3["blocks"]) == 1
+
+
+async def test_new_tenant_gets_payment_status(client, rls_db):
+    atok = await _atok(client, await _seed_admin("0996600007"))
+    await client.put(DEFAULT_RECEIPT, json=_tpl_no_paystatus(), headers=auth_headers(atok))
+
+    r = await client.post(
+        TENANTS,
+        json={"name": "Shop Z", "slug": "ps-z", "owner_full_name": "O",
+              "owner_phone": "0905600003", "owner_password": "passw1"},
+        headers=auth_headers(atok),
+    )
+    assert r.status_code == 201, r.text
+    otok = (await client.post(USER_LOGIN, json={"phone": "0905600003", "password": "passw1", "slug": "ps-z"})).json()["access_token"]
+    rc = (await client.get(RECEIPT, headers=auth_headers(otok))).json()
+    ps = [b for b in rc["blocks"] if b["type"] == "payment_status"]
+    assert len(ps) == 1 and ps[0]["removable"] is False  # tenant MỚI có payment_status
