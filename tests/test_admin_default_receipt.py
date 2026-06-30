@@ -133,6 +133,9 @@ async def test_create_tenant_fallback_no_template(client, rls_db):
     rc = (await client.get(RECEIPT, headers=auth_headers(otok))).json()
     # = _default_receipt(): có placeholder "[Tên tiệm]" của mẫu gốc nền tảng.
     assert any("[Tên tiệm]" in ((b.get("content") or {}).get("vi") or "") for b in rc["blocks"])
+    # Stage default-trim: tenant NULL-config (fallback _default) KHÔNG có 2 khối đã bỏ.
+    blob = str(rc["blocks"])
+    assert "[Địa chỉ]" not in blob and "Cảm ơn quý khách" not in blob
 
 
 # ── ⭐ MERGE-ON-READ: mẫu default lưu trước Bước 1 (thiếu payment_status) ──────

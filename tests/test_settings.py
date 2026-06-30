@@ -277,7 +277,11 @@ async def test_receipt_default_has_placeholders_and_structure(client: AsyncClien
     t = await login(client, owner["phone"], owner["password"])
     cfg = (await client.get(f"{SETTINGS}/receipt", headers=auth_headers(t))).json()
     blob = str(cfg)
-    assert "[Tên tiệm]" in blob and "[Địa chỉ]" in blob and "[Số điện thoại]" in blob
+    assert "[Tên tiệm]" in blob  # placeholder tên tiệm còn (brand title)
+    # Stage default-trim: BỎ khối "[Địa chỉ] · [SĐT]" + "Cảm ơn quý khách!" khỏi mẫu
+    # CHUNG (nay thuộc khu Liên hệ theo chi nhánh).
+    assert "[Địa chỉ]" not in blob and "[Số điện thoại]" not in blob
+    assert "Cảm ơn quý khách" not in blob
     assert "Giặt Ủi 2H" not in blob  # KHÔNG lộ thông tin tenant 2H
     assert cfg["logo_url"] == "" and cfg["track_base_url"] == ""
     types = [b["type"] for b in cfg["blocks"]]

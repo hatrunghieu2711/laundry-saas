@@ -143,8 +143,9 @@ function defaultBlocks() {
     } }),
     b('qr_tracking', 'qr_tracking', { row: 9 }),
     b('order_no', 'order_no', { row: 10 }),
-    b('contact', 'custom_text', { row: 11, size: 'small', content: { vi: '[Địa chỉ] · [Số điện thoại]' } }),
-    b('footer_thanks', 'custom_text', { row: 12, content: { vi: 'Cảm ơn quý khách!', en: 'Thank you!' } }),
+    // Stage default-trim: BỎ "[Địa chỉ] · [SĐT]" (contact) + "Cảm ơn quý khách!"
+    // (footer_thanks) — địa chỉ/SĐT + cảm ơn nay ở khu Liên hệ THEO CHI NHÁNH
+    // (branch_contact). Mirror BE _default_blocks().
   ]
 }
 

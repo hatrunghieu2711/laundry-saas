@@ -116,6 +116,20 @@ def test_merge_generic_multiple_required(monkeypatch):
     assert by_type["order_no"]["row"] == 3                # sau payment_status (neo gần nhất)
 
 
+def test_merge_does_not_reinsert_removed_blocks():
+    # Mẫu KHÔNG có contact/footer (đã bỏ khỏi _default_blocks) → merge KHÔNG chèn lại;
+    # chỉ chèn khối removable:false CÒN trong _default = payment_status.
+    src = {"blocks": [
+        {"id": "it", "type": "items_table", "enabled": True, "row": 0, "col": "full", "content": {}},
+        {"id": "tot", "type": "totals", "enabled": True, "row": 1, "col": "full", "content": {}},
+        {"id": "qr", "type": "qr_tracking", "enabled": True, "row": 2, "col": "full", "content": {}},
+    ]}
+    merged = _merge_required_blocks(src)
+    blob = str(merged)
+    assert "[Địa chỉ]" not in blob and "Cảm ơn quý khách" not in blob  # KHÔNG chèn lại
+    assert sum(b["type"] == "payment_status" for b in merged["blocks"]) == 1  # chỉ payment_status
+
+
 def test_merge_appends_when_no_anchor():
     # Mẫu KHÔNG có khối nào đứng trước payment_status trong _default → chèn CUỐI.
     src = {"blocks": [

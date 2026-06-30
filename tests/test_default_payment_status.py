@@ -32,6 +32,22 @@ def test_default_receipt_branch_contact_unchanged():
     assert cfg["branch_contact_blocks"] == {}  # branch_contact KHÔNG đụng (cơ chế tự render)
 
 
+# ── Stage default-trim: BỎ khối "[Địa chỉ]·[SĐT]" + "Cảm ơn quý khách!" ────────
+def test_default_blocks_no_contact_footer_keeps_others():
+    blocks = _default_blocks()
+    ids = {b["id"] for b in blocks}
+    assert "contact" not in ids and "footer_thanks" not in ids  # đã bỏ
+    blob = str(blocks)
+    assert "[Địa chỉ]" not in blob and "[Số điện thoại]" not in blob
+    assert "Cảm ơn quý khách" not in blob
+    # các khối khác giữ nguyên (gồm payment_status removable:false).
+    types = {b["type"] for b in blocks}
+    assert {"logo", "items_table", "totals", "payment_status", "qr_tracking", "order_no"} <= types
+    # row liền mạch 0..N (order_no là khối CUỐI sau khi bỏ 2 khối đuôi).
+    assert max(b["row"] for b in blocks) == 10
+    assert next(b for b in blocks if b["type"] == "order_no")["row"] == 10
+
+
 # ── API: tenant receipt_config NULL → _default có payment_status ─────────────
 async def test_null_config_returns_payment_status(client: AsyncClient, owner: dict):
     tok = await login(client, owner["phone"], owner["password"])

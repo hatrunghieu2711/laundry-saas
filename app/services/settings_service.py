@@ -43,9 +43,12 @@ _SAMPLE_NOTE_EN = (
 )
 
 # MẪU GỐC NỀN TẢNG (Stage 5.10) — cấu trúc/định dạng/nhãn chuẩn (giống bill 2H đẹp)
-# nhưng tên tiệm/địa chỉ/SĐT là PLACEHOLDER (không lộ thông tin tenant nào), logo
-# trống, track_base_url trống. Tenant mới khởi tạo từ mẫu này (qua fallback get_receipt).
+# nhưng tên tiệm là PLACEHOLDER (không lộ thông tin tenant nào), logo trống,
+# track_base_url trống. Tenant mới khởi tạo từ mẫu này (qua fallback get_receipt).
 # Khối hệ thống KHÔNG đặt `removable` → chỉ tắt, không xóa (chốt Stage 5.10).
+# Stage default-trim: BỎ khối "[Địa chỉ] · [SĐT]" (contact) + "Cảm ơn quý khách!"
+# (footer_thanks) khỏi mẫu CHUNG — địa chỉ/SĐT + lời cảm ơn nay nằm ở khu Liên hệ
+# THEO CHI NHÁNH (branch_contact_blocks) nên dư ở mẫu mặc định.
 def _default_blocks() -> list[dict]:
     return [
         _block("logo", "logo", row=0),  # chỉ ảnh (logo_url top-level)
@@ -70,10 +73,6 @@ def _default_blocks() -> list[dict]:
          "italic": True, "size": "small"},
         _block("qr_tracking", "qr_tracking", row=9),
         _block("order_no", "order_no", row=10),
-        {**_block("contact", "custom_text", row=11,
-                  content={"vi": "[Địa chỉ] · [Số điện thoại]"}), "size": "small"},
-        _block("footer_thanks", "custom_text", row=12,
-               content={"vi": "Cảm ơn quý khách!", "en": "Thank you!"}),
     ]
 
 
