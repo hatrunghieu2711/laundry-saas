@@ -24,9 +24,9 @@ export default defineConfig({
         navigateFallbackDenylist: [/^\/api\//],
       },
       manifest: {
-        name: 'Giặt Ủi 2H POS',
-        short_name: '2H POS',
-        description: 'POS quản lý ca, đơn, thu tiền — Giặt Ủi 2H',
+        name: 'Giặt Ủi POS',
+        short_name: 'Giặt Ủi',
+        description: 'POS quản lý ca, đơn, thu tiền — Giặt Ủi',
         lang: 'vi',
         theme_color: '#F97316',
         background_color: '#FFFFFF',

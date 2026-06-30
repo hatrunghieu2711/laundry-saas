@@ -55,7 +55,7 @@ export default function Login() {
     <div className="login">
       <form className="login__card" onSubmit={onSubmit}>
         {/* Pre-login CHƯA biết tenant → tiêu đề/logo GIỮ generic (không hardcode tên tiệm). */}
-        <div className="login__logo">POS</div>
+        <div className="login__logo">GU</div>
         <h1 className="login__title">Đăng nhập</h1>
         <p className="login__sub">Đăng nhập để bắt đầu ca làm</p>
 
