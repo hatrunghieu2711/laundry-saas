@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { useBranch } from '../context/BranchContext'
@@ -30,8 +30,9 @@ import {
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h)
 import { PAYMENT_METHOD } from '../lib/orders'
-import { UNIT_LABEL, normalizeService } from '../lib/services'
+import { normalizeService } from '../lib/services'
 import { getReceiptConfig } from '../lib/receipt'
+import ServicePicker from '../components/ServicePicker'
 
 const PREPAY_METHODS = ['cash', 'transfer', 'qr']
 
@@ -59,10 +60,8 @@ export default function OrderNew() {
   const [openBusy, setOpenBusy] = useState(false)
   const [services, setServices] = useState([])
   const [svcLoading, setSvcLoading] = useState(true)
-  const [search, setSearch] = useState('')
-  const [activeTab, setActiveTab] = useState('__fav')
   const [cart, setCart] = useState([])
-  const [overflowKg, setOverflowKg] = useState({})
+  const [pickerReset, setPickerReset] = useState(0) // bump sau khi tạo đơn → ServicePicker reset search+kg (giữ tab)
   const [turnaround, setTurnaround] = useState(4) // từ tenant settings
   // null = chưa biết (đang nạp settings) · true = tự in · false = không tự in.
   const [autoPrint, setAutoPrint] = useState(null)        // BILL
@@ -231,46 +230,51 @@ export default function OrderNew() {
     idRef.current += 1
     return idRef.current
   }
-  const addPerUnit = (svc) => {
-    setCart((prev) => {
-      const i = prev.findIndex((x) => x.kind === 'per_unit' && x.service_id === svc.id)
-      if (i >= 0) {
-        const n = [...prev]
-        n[i] = { ...n[i], quantity: n[i].quantity + 1 }
-        return n
-      }
-      return [
+  // ServicePicker phát onPick(payload) → dựng dòng giỏ y HỆT addPerUnit/addFlat/addOverflow cũ
+  // (dựng từ payload.service/tier, KHÔNG từ label/quantity → shape giỏ + body POST /orders bất biến).
+  const handlePick = (p) => {
+    if (p.kind === 'per_unit') {
+      const svc = p.service
+      setCart((prev) => {
+        const i = prev.findIndex((x) => x.kind === 'per_unit' && x.service_id === svc.id)
+        if (i >= 0) {
+          const n = [...prev]
+          n[i] = { ...n[i], quantity: n[i].quantity + 1 }
+          return n
+        }
+        return [
+          ...prev,
+          { id: newId(), kind: 'per_unit', service_id: svc.id, name: svc.name,
+            unit: svc.unit, unit_price: svc.unit_price, quantity: 1 },
+        ]
+      })
+    } else if (p.kind === 'flat') {
+      const svc = p.service
+      const tier = p.tier
+      setCart((prev) => {
+        const i = prev.findIndex((x) => x.kind === 'flat' && x.tier_id === tier.id)
+        if (i >= 0) {
+          const n = [...prev]
+          n[i] = { ...n[i], count: n[i].count + 1 }
+          return n
+        }
+        return [
+          ...prev,
+          { id: newId(), kind: 'flat', service_id: svc.id, tier_id: tier.id,
+            name: `${svc.name} (${tier.label})`, price: tier.price,
+            weight: tier.max_value ?? 0, count: 1 },
+        ]
+      })
+    } else if (p.kind === 'overflow') {
+      const svc = p.service
+      const tier = p.tier
+      const kg = p.quantity // đã > 0 (ServicePicker chặn kg<=0 trước khi emit)
+      setCart((prev) => [
         ...prev,
-        { id: newId(), kind: 'per_unit', service_id: svc.id, name: svc.name,
-          unit: svc.unit, unit_price: svc.unit_price, quantity: 1 },
-      ]
-    })
-  }
-  const addFlat = (svc, tier) => {
-    setCart((prev) => {
-      const i = prev.findIndex((x) => x.kind === 'flat' && x.tier_id === tier.id)
-      if (i >= 0) {
-        const n = [...prev]
-        n[i] = { ...n[i], count: n[i].count + 1 }
-        return n
-      }
-      return [
-        ...prev,
-        { id: newId(), kind: 'flat', service_id: svc.id, tier_id: tier.id,
-          name: `${svc.name} (${tier.label})`, price: tier.price,
-          weight: tier.max_value ?? 0, count: 1 },
-      ]
-    })
-  }
-  const addOverflow = (svc, tier) => {
-    const kg = toNumber(overflowKg[tier.id])
-    if (kg <= 0) return
-    setCart((prev) => [
-      ...prev,
-      { id: newId(), kind: 'overflow', service_id: svc.id,
-        name: `${svc.name} (${tier.label})`, unit_price: tier.price, quantity: kg },
-    ])
-    setOverflowKg((m) => ({ ...m, [tier.id]: '' }))
+        { id: newId(), kind: 'overflow', service_id: svc.id,
+          name: `${svc.name} (${tier.label})`, unit_price: tier.price, quantity: kg },
+      ])
+    }
   }
   const bump = (id, delta) =>
     setCart((prev) =>
@@ -308,51 +312,8 @@ export default function OrderNew() {
     return items
   }
 
-  // ── danh mục (tab) — mỗi category dùng icon riêng, theo display_order ──
-  const tabs = useMemo(() => {
-    const favs = services.filter((s) => s.is_favorite)
-    // Gom danh mục có dịch vụ (giữ object category nhúng trong service).
-    const catMap = new Map()
-    for (const s of services) {
-      if (s.category_id && s.category && !catMap.has(s.category_id)) {
-        catMap.set(s.category_id, s.category)
-      }
-    }
-    const cats = [...catMap.values()].sort(
-      (a, b) =>
-        (a.display_order ?? 0) - (b.display_order ?? 0) || a.name.localeCompare(b.name),
-    )
-    const uncat = services.filter((s) => !s.category_id)
-    // Tab hiện MONOGRAM (chữ cái đầu label) — KHÔNG dùng icon emoji (6.63, tab render chữ cái).
-    const list = [{ key: '__fav', label: 'Hay chọn', items: favs }]
-    for (const c of cats) {
-      list.push({
-        key: c.id,
-        label: c.name,
-        items: services.filter((s) => s.category_id === c.id),
-      })
-    }
-    if (uncat.length) list.push({ key: '__other', label: 'Khác', items: uncat })
-    return list
-  }, [services])
-
-  // Chọn tab đầu tiên có dịch vụ khi danh sách đổi.
-  useEffect(() => {
-    if (!tabs.length) return
-    const cur = tabs.find((t) => t.key === activeTab)
-    if (!cur || cur.items.length === 0) {
-      const firstWithItems = tabs.find((t) => t.items.length) || tabs[0]
-      setActiveTab(firstWithItems.key)
-    }
-  }, [tabs, activeTab])
-
-  const q = search.trim().toLowerCase()
-  const currentTab = tabs.find((t) => t.key === activeTab) || tabs[0]
-  const shown = q
-    ? services.filter((s) => s.name.toLowerCase().includes(q))
-    : currentTab?.items || []
-  const tierServices = shown.filter((s) => s.pricing_type === 'tier')
-  const perUnitServices = shown.filter((s) => s.pricing_type === 'per_unit')
+  // Bộ chọn dịch vụ (tab/lưới/tìm) đã tách ra <ServicePicker> — state tab/search/overflowKg +
+  // tabs/shown + auto-select tab nằm trong component đó; OrderNew chỉ nhận onPick → handlePick.
 
   // ── modal ──
   // "Thêm dịch vụ": đóng modal về màn chọn, GIỮ NGUYÊN mọi thông tin (Stage 6.8).
@@ -545,8 +506,7 @@ export default function OrderNew() {
     setCustSug([])
     setSugOpen(false)
     setNote('')
-    setOverflowKg({})
-    setSearch('')
+    setPickerReset((n) => n + 1) // ServicePicker tự xóa search + overflowKg (GIỮ tab đang chọn)
     setError('')
     setPaidInfo({ amount: 0, method: null })
     setPayWarn('')
@@ -681,80 +641,6 @@ export default function OrderNew() {
   }
 
   // ── builder 3 vùng ──
-  const serviceArea = svcLoading ? (
-    <p className="shift__hint">Đang tải bảng giá…</p>
-  ) : services.length === 0 ? (
-    <div className="svc-empty">
-      <p>Chưa có dịch vụ nào trong bảng giá.</p>
-      {canManage && (
-        <button className="btn btn--ghost btn--lg" onClick={() => navigate('/services')}>
-          ＋ Thêm bảng giá
-        </button>
-      )}
-    </div>
-  ) : shown.length === 0 ? (
-    <p className="shift__hint">{q ? `Không có dịch vụ khớp “${search}”.` : 'Danh mục trống.'}</p>
-  ) : (
-    <>
-      {tierServices.map((svc) => (
-        <div className="svc-tier" key={svc.id}>
-          <div className="svc-tier__name">{svc.name}</div>
-          <div className="pricing-grid">
-            {svc.tiers
-              .filter((t) => !t.per_unit)
-              .map((t) => (
-                <button key={t.id} className="tier-btn" onClick={() => addFlat(svc, t)}>
-                  <span className="tier-btn__label">{t.label}</span>
-                  <span className="tier-btn__price">{formatVND(t.price)}</span>
-                </button>
-              ))}
-          </div>
-          {svc.tiers
-            .filter((t) => t.per_unit)
-            .map((t) => (
-              <div className="perkg" key={t.id}>
-                <span className="perkg__label">
-                  {t.label} — {formatVND(t.price)}/{UNIT_LABEL[svc.unit] || svc.unit}
-                </span>
-                <div className="perkg__row">
-                  <input
-                    className="input"
-                    type="number"
-                    inputMode="decimal"
-                    min="0"
-                    step="0.5"
-                    placeholder={`Số ${UNIT_LABEL[svc.unit] || svc.unit}`}
-                    value={overflowKg[t.id] || ''}
-                    onChange={(e) => setOverflowKg((m) => ({ ...m, [t.id]: e.target.value }))}
-                  />
-                  <button
-                    className="btn btn--ghost btn--lg"
-                    onClick={() => addOverflow(svc, t)}
-                    disabled={toNumber(overflowKg[t.id]) <= 0}
-                  >
-                    ＋ Thêm
-                  </button>
-                </div>
-              </div>
-            ))}
-        </div>
-      ))}
-
-      {perUnitServices.length > 0 && (
-        <div className="svc-grid">
-          {perUnitServices.map((svc) => (
-            <button key={svc.id} className="svc-card" onClick={() => addPerUnit(svc)}>
-              <span className="svc-card__name">{svc.name}</span>
-              <span className="svc-card__meta">
-                <span className="svc-card__unit">{UNIT_LABEL[svc.unit] || svc.unit}</span>
-                <span className="svc-card__price">{formatVND(svc.unit_price)}</span>
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  )
 
   // ── Giờ hẹn giao: dropdown ngày/giờ/phút (thay wheel — gọn, hợp Chrome cũ) ──
   const pkDay = startOfDayVn(pickup)
@@ -771,37 +657,15 @@ export default function OrderNew() {
       {error && !showConfirm && <div className="alert alert--error">{error}</div>}
 
       <div className="zones">
-        {/* Vùng trái: tab danh mục */}
-        <nav className="zones__tabs">
-          {tabs.map((t) => (
-            <button
-              key={t.key}
-              className={`cat-tab ${activeTab === t.key ? 'cat-tab--active' : ''}`}
-              onClick={() => {
-                setSearch('')
-                setActiveTab(t.key)
-              }}
-            >
-              {/* Monogram chữ cái đầu — ổn định trên Chrome cũ Sunmi (emoji hiện □). */}
-              <span className="cat-tab__icon" aria-hidden="true">
-                {(t.label || '?').trim().charAt(0).toUpperCase()}
-              </span>
-              <span className="cat-tab__label">{t.label}</span>
-            </button>
-          ))}
-        </nav>
-
-        {/* Vùng giữa: lưới dịch vụ + ô tìm ở dưới */}
-        <div className="zones__mid">
-          <div className="zones__grid">{serviceArea}</div>
-          <input
-            className="input zones__search"
-            type="search"
-            placeholder="Tìm dịch vụ…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        {/* Vùng trái + giữa: bộ chọn dịch vụ (tab danh mục + lưới + ô tìm) — component dùng chung. */}
+        <ServicePicker
+          services={services}
+          loading={svcLoading}
+          canManage={canManage}
+          onManagePrices={() => navigate('/services')}
+          onPick={handlePick}
+          resetSignal={pickerReset}
+        />
 
         {/* Vùng phải: giỏ + nút tạo đơn */}
         <aside className="zones__cart">
